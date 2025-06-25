@@ -4,6 +4,19 @@ Main converter class for transforming Python figures to LLM-readable formats.
 
 import logging
 from typing import Any, Dict, Optional, Union
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import matplotlib.figure as mpl_figure
+import plotly.graph_objects as go
+import plotly.express as px
+import seaborn as sns
+import pandas as pd
+import numpy as np
+
+from .analyzers import FigureAnalyzer
+from .formatters import TextFormatter, JSONFormatter, SemanticFormatter
+from .utils import detect_figure_type, validate_output_format
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +49,12 @@ class FigureConverter:
         self.include_colors = include_colors
         self.include_statistics = include_statistics
         
+        # Initialize components
+        self.analyzer = FigureAnalyzer()
+        self.text_formatter = TextFormatter()
+        self.json_formatter = JSONFormatter()
+        self.semantic_formatter = SemanticFormatter()
+        
         logger.info(f"FigureConverter initialized with detail_level={detail_level}")
     
     def convert(self, 
@@ -57,14 +76,31 @@ class FigureConverter:
             ValueError: If the figure type is not supported or output format is invalid
         """
         try:
-            # For now, return a placeholder response
-            # This will be implemented in future commits
+            # Validate output format
+            if not validate_output_format(output_format):
+                raise ValueError(f"Unsupported output format: {output_format}")
+            
+            # Detect figure type
+            figure_type = detect_figure_type(figure)
+            logger.info(f"Detected figure type: {figure_type}")
+            
+            # Analyze the figure
+            analysis = self.analyzer.analyze(
+                figure, 
+                figure_type,
+                detail_level=self.detail_level,
+                include_data=self.include_data,
+                include_colors=self.include_colors,
+                include_statistics=self.include_statistics
+            )
+            
+            # Convert to specified format
             if output_format == "text":
-                return "Figure analysis not yet implemented"
+                return self.text_formatter.format(analysis, **kwargs)
             elif output_format == "json":
-                return {"status": "not_implemented", "message": "Figure analysis not yet implemented"}
+                return self.json_formatter.format(analysis, **kwargs)
             elif output_format == "semantic":
-                return {"status": "not_implemented", "message": "Figure analysis not yet implemented"}
+                return self.semantic_formatter.format(analysis, **kwargs)
             else:
                 raise ValueError(f"Unsupported output format: {output_format}")
                 
