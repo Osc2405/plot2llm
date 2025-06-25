@@ -1,13 +1,14 @@
+#!/usr/bin/env python3
 """
-Tests for the FigureConverter class.
+Tests for the converter module.
 """
 
 import pytest
 import matplotlib.pyplot as plt
 import numpy as np
-from python2llm import FigureConverter
-from python2llm.analyzers import MatplotlibAnalyzer
-from python2llm.formatters import TextFormatter, JSONFormatter
+from plot2llm import FigureConverter
+from plot2llm.analyzers import MatplotlibAnalyzer
+from plot2llm.formatters import TextFormatter, JSONFormatter
 
 
 class TestFigureConverter:

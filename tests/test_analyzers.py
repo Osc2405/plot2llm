@@ -1,11 +1,12 @@
+#!/usr/bin/env python3
 """
-Tests for the analyzer classes.
+Tests for the analyzers module.
 """
 
 import pytest
 import matplotlib.pyplot as plt
 import numpy as np
-from python2llm.analyzers import BaseAnalyzer, MatplotlibAnalyzer
+from plot2llm.analyzers import BaseAnalyzer, MatplotlibAnalyzer
 
 
 class TestBaseAnalyzer:

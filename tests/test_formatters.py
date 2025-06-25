@@ -1,10 +1,11 @@
+#!/usr/bin/env python3
 """
-Tests for the formatter classes.
+Tests for the formatters module.
 """
 
 import pytest
 import json
-from python2llm.formatters import TextFormatter, JSONFormatter, SemanticFormatter
+from plot2llm.formatters import TextFormatter, JSONFormatter, SemanticFormatter
 
 
 class TestTextFormatter:

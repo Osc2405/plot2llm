@@ -1,5 +1,5 @@
 """
-Example usage of the python2llm library.
+Example usage of the plot2llm library.
 
 This script demonstrates how to convert various types of matplotlib figures
 into LLM-readable formats.
@@ -8,7 +8,7 @@ into LLM-readable formats.
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from python2llm import FigureConverter
+from plot2llm import FigureConverter
 
 
 def create_simple_line_plot():
@@ -125,7 +125,7 @@ def create_multi_subplot():
 
 def main():
     """Main function to demonstrate the library."""
-    print("Python2LLM Library Demo")
+    print("Plot2LLM Library Demo")
     print("=" * 50)
     
     # Initialize the converter

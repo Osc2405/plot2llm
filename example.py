@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-Simple example of using the python2llm library.
+Simple example of using the plot2llm library.
 """
 
 import matplotlib.pyplot as plt
 import numpy as np
-from python2llm import FigureConverter
+from plot2llm import FigureConverter
 
 
 def main():
     """Run a simple example."""
-    print("Python2LLM Example")
+    print("Plot2LLM Example")
     print("=" * 30)
     
     # Create a simple matplotlib figure

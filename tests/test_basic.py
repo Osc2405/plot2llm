@@ -1,9 +1,10 @@
+#!/usr/bin/env python3
 """
 Simple test to verify basic functionality.
 """
 
 import matplotlib.pyplot as plt
-from python2llm import FigureConverter
+from plot2llm import FigureConverter
 
 
 def test_basic_conversion():

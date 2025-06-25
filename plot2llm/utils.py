@@ -1,5 +1,8 @@
 """
-Utility functions for the python2llm library.
+Utility functions for the plot2llm library.
+
+This module contains helper functions for figure detection, validation,
+and other common operations used throughout the library.
 """
 
 import logging
