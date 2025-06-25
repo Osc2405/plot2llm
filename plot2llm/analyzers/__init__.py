@@ -4,6 +4,7 @@ Analyzers package for different figure types.
 
 from .base_analyzer import BaseAnalyzer
 from .matplotlib_analyzer import MatplotlibAnalyzer
+from .seaborn_analyzer import SeabornAnalyzer
 
 # Main analyzer class that coordinates all analyzers
 class FigureAnalyzer:
@@ -14,6 +15,7 @@ class FigureAnalyzer:
     def __init__(self):
         """Initialize the FigureAnalyzer with specific analyzers."""
         self.matplotlib_analyzer = MatplotlibAnalyzer()
+        self.seaborn_analyzer = SeabornAnalyzer()
         
         import logging
         logger = logging.getLogger(__name__)
@@ -48,6 +50,8 @@ class FigureAnalyzer:
             # Route to appropriate analyzer
             if figure_type == "matplotlib":
                 analyzer = self.matplotlib_analyzer
+            elif figure_type == "seaborn":
+                analyzer = self.seaborn_analyzer
             else:
                 # For now, use matplotlib analyzer as fallback
                 analyzer = self.matplotlib_analyzer
@@ -78,6 +82,6 @@ class FigureAnalyzer:
     
     def get_available_analyzers(self):
         """Get list of available analyzers."""
-        return ["matplotlib"]
+        return ["matplotlib", "seaborn"]
 
-__all__ = ["BaseAnalyzer", "MatplotlibAnalyzer", "FigureAnalyzer"] 
+__all__ = ["BaseAnalyzer", "MatplotlibAnalyzer", "SeabornAnalyzer", "FigureAnalyzer"] 

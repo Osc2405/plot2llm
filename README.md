@@ -18,6 +18,8 @@ pip install plot2llm
 
 ## Basic Usage
 
+### Matplotlib Example
+
 ```python
 import matplotlib.pyplot as plt
 from plot2llm import FigureConverter
@@ -33,13 +35,113 @@ llm_description = converter.convert(fig, output_format='text')
 print(llm_description)
 ```
 
+### Seaborn Example
+
+```python
+import seaborn as sns
+import pandas as pd
+from plot2llm import FigureConverter
+
+# Create sample data
+data = pd.DataFrame({
+    'x': [1, 2, 3, 4, 5],
+    'y': [2, 4, 1, 5, 3],
+    'category': ['A', 'B', 'A', 'B', 'A']
+})
+
+# Create seaborn plot
+fig = sns.scatterplot(data=data, x='x', y='y', hue='category')
+plt.title('Seaborn Scatter Plot')
+
+# Convert to LLM format
+converter = FigureConverter()
+llm_description = converter.convert(fig, "seaborn", output_format='text')
+print(llm_description)
+```
+
+### Advanced Seaborn Examples
+
+```python
+import seaborn as sns
+import numpy as np
+import pandas as pd
+from plot2llm import FigureConverter
+
+# Create sample data
+np.random.seed(42)
+data = pd.DataFrame({
+    'x': np.random.randn(100),
+    'y': np.random.randn(100),
+    'category': np.random.choice(['A', 'B', 'C'], 100)
+})
+
+# FacetGrid example
+g = sns.FacetGrid(data, col="category", height=4, aspect=1.2)
+g.map_dataframe(sns.scatterplot, x="x", y="y")
+g.fig.suptitle('FacetGrid Example')
+
+# Convert to JSON format
+converter = FigureConverter()
+result = converter.convert(g, "seaborn", output_format='json')
+print(result)
+
+# Heatmap example
+corr_matrix = data[['x', 'y']].corr()
+fig = sns.heatmap(corr_matrix, annot=True, cmap='coolwarm')
+plt.title('Correlation Heatmap')
+
+# Convert to semantic format
+result = converter.convert(fig, "seaborn", output_format='semantic')
+print(result)
+```
+
 ## Supported Libraries
 
 - ✅ matplotlib
-- 🔄 seaborn (coming soon)
+- ✅ seaborn
 - 🔄 plotly (coming soon)
 - 🔄 bokeh (coming soon)
 - 🔄 altair (coming soon)
+
+## Supported Seaborn Plot Types
+
+The library supports various seaborn plot types including:
+
+- **Basic plots**: scatterplot, lineplot, barplot, boxplot, violinplot
+- **Distribution plots**: histplot, kdeplot, distplot
+- **Regression plots**: regplot, lmplot, residplot
+- **Categorical plots**: catplot, pointplot, countplot, stripplot, swarmplot
+- **Grid plots**: FacetGrid, PairGrid, JointGrid, pairplot, jointplot
+- **Matrix plots**: heatmap, clustermap
+- **And more...**
+
+## Output Formats
+
+### Text Format
+Human-readable description of the figure with technical details.
+
+### JSON Format
+Structured data containing all extracted information in JSON format.
+
+### Semantic Format
+High-level semantic representation suitable for LLM processing.
+
+## Configuration Options
+
+```python
+converter = FigureConverter()
+
+# Customize analysis detail level
+result = converter.convert(
+    figure, 
+    "seaborn",
+    output_format='text',
+    detail_level='high',  # 'low', 'medium', 'high'
+    include_data=True,
+    include_colors=True,
+    include_statistics=True
+)
+```
 
 ## License
 
