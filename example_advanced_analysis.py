@@ -11,6 +11,20 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from plot2llm import FigureConverter
+import json
+import os
+
+
+def convert_numpy_to_lists(obj):
+    """Convert numpy arrays to lists for JSON serialization."""
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_to_lists(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_to_lists(item) for item in obj]
+    else:
+        return obj
 
 
 def create_trend_analysis_example():
@@ -63,14 +77,40 @@ def create_trend_analysis_example():
     semantic_result = converter.convert(fig, output_format='semantic')
     print(f"\n📊 Semantic Analysis Keys: {list(semantic_result.keys())}")
     
-    # Extract specific insights
-    if 'data_info' in semantic_result and 'statistics' in semantic_result['data_info']:
-        stats = semantic_result['data_info']['statistics']
-        print(f"\n📈 Statistical Summary:")
-        print(f"  - Mean: {stats.get('mean', 'N/A')}")
-        print(f"  - Standard Deviation: {stats.get('std', 'N/A')}")
-        print(f"  - Range: {stats.get('min', 'N/A')} to {stats.get('max', 'N/A')}")
+    # Mostrar figure_type estandarizado
+    print(f"  - Figure type: {semantic_result['basic_info']['figure_type']}")
     
+    # Mostrar markers legibles
+    markers = semantic_result['visual_info']['markers']
+    print(f"  - Markers: {[f'{m['code']} ({m['name']})' for m in markers]}")
+    
+    # Mostrar colores con nombre
+    colors = semantic_result['visual_info']['colors']
+    print(f"  - Colors: {[f'{c['hex']} ({c['name']})' if c['name'] else c['hex'] for c in colors]}")
+    
+    # Mostrar estadísticas globales y por curva
+    stats = semantic_result['data_info']['statistics']
+    if 'global' in stats:
+        g = stats['global']
+        print(f"  - Global stats: mean={g['mean']:.2f}, std={g['std']:.2f}, min={g['min']:.2f}, max={g['max']:.2f}, median={g['median']:.2f}")
+    if 'per_curve' in stats:
+        for i, curve in enumerate(stats['per_curve']):
+            print(f"    Curve {i+1} ({curve['label']}): mean={curve['mean']:.2f}, trend={curve['trend']:.2f}, outliers={len(curve['outliers'])}")
+    if 'per_axis' in stats:
+        print(f"  - Statistics per axis/subplot:")
+        for axis in stats['per_axis']:
+            title = axis.get('title', f'Subplot {axis.get("axis_index")+1}')
+            if axis.get('mean') is not None:
+                print(f"    Axis {axis.get('axis_index')} ({title}): mean={axis.get('mean'):.2f}, std={axis.get('std'):.2f}, skewness={axis.get('skewness'):.2f}, kurtosis={axis.get('kurtosis'):.2f}, outliers={len(axis.get('outliers', []))}")
+            else:
+                print(f"    Axis {axis.get('axis_index')} ({title}): no data")
+    
+    # Guardar resultados
+    if not os.path.exists('examples_advanced'):
+        os.makedirs('examples_advanced')
+    plt.savefig('examples_advanced/trend.png')
+    with open('examples_advanced/trend.json', 'w') as f:
+        json.dump(convert_numpy_to_lists(semantic_result), f)
     plt.close(fig)
     return semantic_result
 
@@ -135,8 +175,36 @@ def create_correlation_analysis_example():
         print(f"\n📊 Correlation Patterns Detected:")
         for i, axis in enumerate(semantic_result['axes_info']):
             title = axis.get('title', f'Subplot {i+1}')
-            print(f"  - {title}")
+            print(f"  - Axis {i}: {title}")
     
+    print(f"\n📊 Semantic Analysis Keys: {list(semantic_result.keys())}")
+    print(f"  - Figure type: {semantic_result['basic_info']['figure_type']}")
+    markers = semantic_result['visual_info']['markers']
+    print(f"  - Markers: {[f'{m['code']} ({m['name']})' for m in markers]}")
+    colors = semantic_result['visual_info']['colors']
+    print(f"  - Colors: {[f'{c['hex']} ({c['name']})' if c['name'] else c['hex'] for c in colors]}")
+    stats = semantic_result['data_info']['statistics']
+    if 'global' in stats:
+        g = stats['global']
+        print(f"  - Global stats: mean={g['mean']:.2f}, std={g['std']:.2f}, min={g['min']:.2f}, max={g['max']:.2f}, median={g['median']:.2f}")
+    if 'per_curve' in stats:
+        for i, curve in enumerate(stats['per_curve']):
+            print(f"    Curve {i+1} ({curve['label']}): mean={curve['mean']:.2f}, trend={curve['trend']:.2f}, outliers={len(curve['outliers'])}")
+    if 'per_axis' in stats:
+        print(f"  - Statistics per axis/subplot:")
+        for axis in stats['per_axis']:
+            title = axis.get('title', f'Subplot {axis.get("axis_index")+1}')
+            if axis.get('mean') is not None:
+                print(f"    Axis {axis.get('axis_index')} ({title}): mean={axis.get('mean'):.2f}, std={axis.get('std'):.2f}, skewness={axis.get('skewness'):.2f}, kurtosis={axis.get('kurtosis'):.2f}, outliers={len(axis.get('outliers', []))}")
+            else:
+                print(f"    Axis {axis.get('axis_index')} ({title}): no data")
+    
+    # Guardar resultados
+    if not os.path.exists('examples_advanced'):
+        os.makedirs('examples_advanced')
+    plt.savefig('examples_advanced/correlation.png')
+    with open('examples_advanced/correlation.json', 'w') as f:
+        json.dump(convert_numpy_to_lists(semantic_result), f)
     plt.close(fig)
     return semantic_result
 
@@ -202,10 +270,42 @@ def create_distribution_analysis_example():
         stats = semantic_result['data_info']['statistics']
         print(f"\n📈 Distribution Statistics:")
         print(f"  - Data points: {semantic_result['data_info'].get('data_points', 'N/A')}")
-        print(f"  - Mean: {stats.get('mean', 'N/A'):.3f}")
-        print(f"  - Standard Deviation: {stats.get('std', 'N/A'):.3f}")
-        print(f"  - Range: {stats.get('min', 'N/A'):.3f} to {stats.get('max', 'N/A'):.3f}")
+        mean_val = stats.get('mean', 'N/A')
+        std_val = stats.get('std', 'N/A')
+        min_val = stats.get('min', 'N/A')
+        max_val = stats.get('max', 'N/A')
+        print(f"  - Mean: {mean_val:.3f}" if isinstance(mean_val, (int, float)) else f"  - Mean: {mean_val}")
+        print(f"  - Standard Deviation: {std_val:.3f}" if isinstance(std_val, (int, float)) else f"  - Standard Deviation: {std_val}")
+        print(f"  - Range: {min_val:.3f} to {max_val:.3f}" if isinstance(min_val, (int, float)) and isinstance(max_val, (int, float)) else f"  - Range: {min_val} to {max_val}")
     
+    print(f"\n📊 Semantic Analysis Keys: {list(semantic_result.keys())}")
+    print(f"  - Figure type: {semantic_result['basic_info']['figure_type']}")
+    markers = semantic_result['visual_info']['markers']
+    print(f"  - Markers: {[f'{m['code']} ({m['name']})' for m in markers]}")
+    colors = semantic_result['visual_info']['colors']
+    print(f"  - Colors: {[f'{c['hex']} ({c['name']})' if c['name'] else c['hex'] for c in colors]}")
+    stats = semantic_result['data_info']['statistics']
+    if 'global' in stats:
+        g = stats['global']
+        print(f"  - Global stats: mean={g['mean']:.2f}, std={g['std']:.2f}, min={g['min']:.2f}, max={g['max']:.2f}, median={g['median']:.2f}")
+    if 'per_curve' in stats:
+        for i, curve in enumerate(stats['per_curve']):
+            print(f"    Curve {i+1} ({curve['label']}): mean={curve['mean']:.2f}, trend={curve['trend']:.2f}, outliers={len(curve['outliers'])}")
+    if 'per_axis' in stats:
+        print(f"  - Statistics per axis/subplot:")
+        for axis in stats['per_axis']:
+            title = axis.get('title', f'Subplot {axis.get("axis_index")+1}')
+            if axis.get('mean') is not None:
+                print(f"    Axis {axis.get('axis_index')} ({title}): mean={axis.get('mean'):.2f}, std={axis.get('std'):.2f}, skewness={axis.get('skewness'):.2f}, kurtosis={axis.get('kurtosis'):.2f}, outliers={len(axis.get('outliers', []))}")
+            else:
+                print(f"    Axis {axis.get('axis_index')} ({title}): no data")
+    
+    # Guardar resultados
+    if not os.path.exists('examples_advanced'):
+        os.makedirs('examples_advanced')
+    plt.savefig('examples_advanced/distribution.png')
+    with open('examples_advanced/distribution.json', 'w') as f:
+        json.dump(convert_numpy_to_lists(semantic_result), f)
     plt.close(fig)
     return semantic_result
 
@@ -268,6 +368,34 @@ def create_business_insights_example():
         stats = semantic_result['data_info']['statistics']
         print(f"  - Data Statistics Available: {list(stats.keys())}")
     
+    print(f"\n📊 Semantic Analysis Keys: {list(semantic_result.keys())}")
+    print(f"  - Figure type: {semantic_result['basic_info']['figure_type']}")
+    markers = semantic_result['visual_info']['markers']
+    print(f"  - Markers: {[f'{m['code']} ({m['name']})' for m in markers]}")
+    colors = semantic_result['visual_info']['colors']
+    print(f"  - Colors: {[f'{c['hex']} ({c['name']})' if c['name'] else c['hex'] for c in colors]}")
+    stats = semantic_result['data_info']['statistics']
+    if 'global' in stats:
+        g = stats['global']
+        print(f"  - Global stats: mean={g['mean']:.2f}, std={g['std']:.2f}, min={g['min']:.2f}, max={g['max']:.2f}, median={g['median']:.2f}")
+    if 'per_curve' in stats:
+        for i, curve in enumerate(stats['per_curve']):
+            print(f"    Curve {i+1} ({curve['label']}): mean={curve['mean']:.2f}, trend={curve['trend']:.2f}, outliers={len(curve['outliers'])}")
+    if 'per_axis' in stats:
+        print(f"  - Statistics per axis/subplot:")
+        for axis in stats['per_axis']:
+            title = axis.get('title', f'Subplot {axis.get("axis_index")+1}')
+            if axis.get('mean') is not None:
+                print(f"    Axis {axis.get('axis_index')} ({title}): mean={axis.get('mean'):.2f}, std={axis.get('std'):.2f}, skewness={axis.get('skewness'):.2f}, kurtosis={axis.get('kurtosis'):.2f}, outliers={len(axis.get('outliers', []))}")
+            else:
+                print(f"    Axis {axis.get('axis_index')} ({title}): no data")
+    
+    # Guardar resultados
+    if not os.path.exists('examples_advanced'):
+        os.makedirs('examples_advanced')
+    plt.savefig('examples_advanced/business.png')
+    with open('examples_advanced/business.json', 'w') as f:
+        json.dump(convert_numpy_to_lists(semantic_result), f)
     plt.close(fig)
     return semantic_result
 

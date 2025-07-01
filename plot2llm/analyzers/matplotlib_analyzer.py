@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import matplotlib.figure as mpl_figure
 import matplotlib.axes as mpl_axes
 from matplotlib.colors import to_hex
+from matplotlib.markers import MarkerStyle
+import webcolors
 
 from .base_analyzer import BaseAnalyzer
 
@@ -81,11 +83,11 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             raise
     
     def _get_figure_type(self, figure: Any) -> str:
-        """Get the type of the matplotlib figure."""
+        """Get the type of the matplotlib figure (standardized)."""
         if isinstance(figure, mpl_figure.Figure):
-            return "matplotlib.figure"
+            return "matplotlib.Figure"
         elif isinstance(figure, mpl_axes.Axes):
-            return "matplotlib.axes"
+            return "matplotlib.Axes"
         else:
             return "unknown"
     
@@ -164,6 +166,13 @@ class MatplotlibAnalyzer(BaseAnalyzer):
         except Exception:
             return None
     
+    def _get_axis_title(self, ax: Any) -> Optional[str]:
+        """Get the title of an individual axis."""
+        try:
+            return ax.get_title()
+        except Exception:
+            return None
+    
     def _get_x_range(self, ax: Any) -> Optional[Tuple[float, float]]:
         """Get the x-axis range."""
         try:
@@ -201,13 +210,35 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             axes = self._get_axes(figure)
             
             for ax in axes:
+                # Count data from lines
                 for line in ax.lines:
                     if hasattr(line, '_x') and hasattr(line, '_y'):
                         total_points += len(line._x)
                 
+                # Count data from collections (scatter plots)
                 for collection in ax.collections:
                     if hasattr(collection, '_offsets'):
                         total_points += len(collection._offsets)
+                
+                # Count data from patches (histograms, bar plots)
+                for patch in ax.patches:
+                    try:
+                        if hasattr(patch, 'get_height'):
+                            height = patch.get_height()
+                            if height > 0:
+                                total_points += 1
+                    except Exception:
+                        continue
+                
+                # Count data from images
+                for image in ax.images:
+                    try:
+                        if hasattr(image, 'get_array'):
+                            img_data = image.get_array()
+                            if img_data is not None:
+                                total_points += img_data.size
+                    except Exception:
+                        continue
             
             return total_points
         except Exception:
@@ -225,7 +256,7 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 if ax.collections:
                     data_types.append("scatter_plot")
                 if ax.patches:
-                    data_types.append("bar_plot")
+                    data_types.append("histogram")
                 if ax.images:
                     data_types.append("image")
                 if ax.texts:
@@ -236,72 +267,214 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             return []
     
     def _get_statistics(self, figure: Any) -> Dict[str, Any]:
-        """Get statistical information about the data."""
-        stats = {}
+        """Get statistical information about the data, per curve and per axis."""
+        stats = {"per_curve": [], "per_axis": []}
         try:
             axes = self._get_axes(figure)
-            
             all_data = []
+            
+            # Statistics per axis/subplot
+            for i, ax in enumerate(axes):
+                axis_data = []
+                axis_stats = {
+                    "axis_index": i,
+                    "title": ax.get_title() if ax.get_title() else f"Subplot {i+1}",
+                    "data_types": [],
+                    "data_points": 0
+                }
+                
+                # Collect data from lines in this axis
+                for line in ax.lines:
+                    if hasattr(line, '_y') and line._y is not None:
+                        y = np.array(line._y)
+                        axis_data.extend(y)
+                        axis_stats["data_points"] += len(y)
+                        if "line_plot" not in axis_stats["data_types"]:
+                            axis_stats["data_types"].append("line_plot")
+                
+                # Collect data from collections (scatter plots, histograms, etc.)
+                for collection in ax.collections:
+                    if hasattr(collection, '_offsets') and len(collection._offsets) > 0:
+                        # For scatter plots
+                        if hasattr(collection, '_offsets'):
+                            offsets = collection._offsets
+                            if len(offsets) > 0 and offsets.shape[1] >= 2:
+                                y_data = offsets[:, 1]  # Y coordinates
+                                axis_data.extend(y_data)
+                                axis_stats["data_points"] += len(y_data)
+                                if "scatter_plot" not in axis_stats["data_types"]:
+                                    axis_stats["data_types"].append("scatter_plot")
+                
+                # Collect data from patches (histograms, bar plots, etc.)
+                for patch in ax.patches:
+                    try:
+                        # For histogram bars, get the height (frequency)
+                        if hasattr(patch, 'get_height'):
+                            height = patch.get_height()
+                            if height > 0:  # Only include non-zero heights
+                                axis_data.append(float(height))
+                                axis_stats["data_points"] += 1
+                                if "histogram" not in axis_stats["data_types"]:
+                                    axis_stats["data_types"].append("histogram")
+                    except Exception:
+                        continue
+                
+                # Collect data from images (if any)
+                for image in ax.images:
+                    try:
+                        if hasattr(image, 'get_array'):
+                            img_data = image.get_array()
+                            if img_data is not None:
+                                # Flatten the image data
+                                flat_data = img_data.flatten()
+                                axis_data.extend(flat_data)
+                                axis_stats["data_points"] += len(flat_data)
+                                if "image" not in axis_stats["data_types"]:
+                                    axis_stats["data_types"].append("image")
+                    except Exception:
+                        continue
+                
+                # Calculate statistics for this axis if it has data
+                if axis_data:
+                    axis_data = np.array(axis_data)
+                    axis_stats.update({
+                        "mean": float(np.mean(axis_data)),
+                        "std": float(np.std(axis_data)),
+                        "min": float(np.min(axis_data)),
+                        "max": float(np.max(axis_data)),
+                        "median": float(np.median(axis_data)),
+                        "outliers": [float(val) for val in axis_data[(np.abs(axis_data - np.mean(axis_data)) > 2 * np.std(axis_data))]],
+                        "local_var": float(np.var(axis_data[:max(1, len(axis_data)//10)])),
+                        "trend": float(np.polyfit(np.arange(len(axis_data)), axis_data, 1)[0]) if len(axis_data) > 1 else 0.0,
+                        "skewness": float(self._calculate_skewness(axis_data)),
+                        "kurtosis": float(self._calculate_kurtosis(axis_data))
+                    })
+                    all_data.extend(axis_data)
+                else:
+                    axis_stats.update({
+                        "mean": None, "std": None, "min": None, "max": None, "median": None,
+                        "outliers": [], "local_var": None, "trend": None,
+                        "skewness": None, "kurtosis": None
+                    })
+                
+                stats["per_axis"].append(axis_stats)
+            
+            # Statistics per curve (existing functionality)
             for ax in axes:
                 for line in ax.lines:
                     if hasattr(line, '_y') and line._y is not None:
-                        all_data.extend(line._y)
+                        y = np.array(line._y)
+                        curve_stats = {
+                            "label": line.get_label(),
+                            "mean": float(np.mean(y)),
+                            "std": float(np.std(y)),
+                            "min": float(np.min(y)),
+                            "max": float(np.max(y)),
+                            "median": float(np.median(y)),
+                            "outliers": [float(val) for val in y[(np.abs(y - np.mean(y)) > 2 * np.std(y))]],
+                            "local_var": float(np.var(y[:max(1, len(y)//10)])),
+                            "trend": float(np.polyfit(np.arange(len(y)), y, 1)[0]) if len(y) > 1 else 0.0
+                        }
+                        stats["per_curve"].append(curve_stats)
             
+            # Global statistics
             if all_data:
                 all_data = np.array(all_data)
-                stats = {
+                stats["global"] = {
                     "mean": float(np.mean(all_data)),
                     "std": float(np.std(all_data)),
                     "min": float(np.min(all_data)),
                     "max": float(np.max(all_data)),
                     "median": float(np.median(all_data)),
                 }
-        
         except Exception as e:
             logger.warning(f"Error calculating statistics: {str(e)}")
-        
         return stats
     
-    def _get_colors(self, figure: Any) -> List[str]:
-        """Get the colors used in the figure."""
+    def _calculate_skewness(self, data: np.ndarray) -> float:
+        """Calculate skewness of the data."""
+        try:
+            mean = np.mean(data)
+            std = np.std(data)
+            if std == 0:
+                return 0.0
+            skewness = np.mean(((data - mean) / std) ** 3)
+            return float(skewness)
+        except Exception:
+            return 0.0
+    
+    def _calculate_kurtosis(self, data: np.ndarray) -> float:
+        """Calculate kurtosis of the data."""
+        try:
+            mean = np.mean(data)
+            std = np.std(data)
+            if std == 0:
+                return 0.0
+            kurtosis = np.mean(((data - mean) / std) ** 4) - 3  # Excess kurtosis
+            return float(kurtosis)
+        except Exception:
+            return 0.0
+    
+    def _get_colors(self, figure: Any) -> List[dict]:
+        """Get the colors used in the figure, with hex and common name if possible."""
+        def hex_to_name(hex_color):
+            try:
+                return webcolors.hex_to_name(hex_color)
+            except Exception:
+                return None
         colors = []
         try:
             axes = self._get_axes(figure)
-            
             for ax in axes:
+                # Colors from lines
                 for line in ax.lines:
                     if hasattr(line, '_color'):
-                        color = to_hex(line._color)
-                        if color not in colors:
-                            colors.append(color)
+                        color_hex = to_hex(line._color)
+                        color_name = hex_to_name(color_hex)
+                        if color_hex not in [c['hex'] for c in colors]:
+                            colors.append({"hex": color_hex, "name": color_name})
                 
+                # Colors from collections (scatter plots)
                 for collection in ax.collections:
                     if hasattr(collection, '_facecolors'):
                         for color in collection._facecolors:
                             hex_color = to_hex(color)
-                            if hex_color not in colors:
-                                colors.append(hex_color)
-        
+                            color_name = hex_to_name(hex_color)
+                            if hex_color not in [c['hex'] for c in colors]:
+                                colors.append({"hex": hex_color, "name": color_name})
+                
+                # Colors from patches (histograms, bar plots)
+                for patch in ax.patches:
+                    try:
+                        if hasattr(patch, 'get_facecolor'):
+                            facecolor = patch.get_facecolor()
+                            if facecolor is not None:
+                                hex_color = to_hex(facecolor)
+                                color_name = hex_to_name(hex_color)
+                                if hex_color not in [c['hex'] for c in colors]:
+                                    colors.append({"hex": hex_color, "name": color_name})
+                    except Exception:
+                        continue
         except Exception as e:
             logger.warning(f"Error extracting colors: {str(e)}")
-        
         return colors
     
-    def _get_markers(self, figure: Any) -> List[str]:
-        """Get the markers used in the figure."""
+    def _get_markers(self, figure: Any) -> List[dict]:
+        """Get the markers used in the figure, as readable codes and names."""
         markers = []
         try:
             axes = self._get_axes(figure)
-            
             for ax in axes:
                 for line in ax.lines:
-                    if hasattr(line, '_marker') and line._marker != 'None':
-                        if line._marker not in markers:
-                            markers.append(line._marker)
-        
+                    marker_code = line.get_marker() if hasattr(line, 'get_marker') else None
+                    if marker_code and marker_code != 'None' and marker_code not in [m['code'] for m in markers]:
+                        try:
+                            marker_name = MarkerStyle(marker_code).get_marker()
+                        except Exception:
+                            marker_name = str(marker_code)
+                        markers.append({"code": marker_code, "name": marker_name})
         except Exception as e:
             logger.warning(f"Error extracting markers: {str(e)}")
-        
         return markers
     
     def _get_line_styles(self, figure: Any) -> List[str]:

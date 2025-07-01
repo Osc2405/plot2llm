@@ -76,6 +76,7 @@ class BaseAnalyzer(ABC):
             for i, ax in enumerate(axes):
                 ax_info = {
                     "index": i,
+                    "title": self._get_axis_title(ax),
                     "type": self._get_axis_type(ax),
                     "x_label": self._get_x_label(ax),
                     "y_label": self._get_y_label(ax),
@@ -118,12 +119,12 @@ class BaseAnalyzer(ABC):
             figure: The figure object
             
         Returns:
-            Dictionary with visual information
+            Dictionary with visual information. Colors and markers are now lists of dicts with readable info.
         """
         try:
             return {
-                "colors": self._get_colors(figure) if self.include_colors else [],
-                "markers": self._get_markers(figure),
+                "colors": self._get_colors(figure) if self.include_colors else [],  # List[dict]
+                "markers": self._get_markers(figure),  # List[dict]
                 "line_styles": self._get_line_styles(figure),
                 "background_color": self._get_background_color(figure),
             }
@@ -194,16 +195,16 @@ class BaseAnalyzer(ABC):
         """Get the types of data in the figure."""
         return []
     
-    def _get_statistics(self, figure: Any) -> Dict[str, Any]:
-        """Get statistical information about the data."""
+    def _get_statistics(self, figure: Any) -> dict:
+        """Get statistical information about the data. Returns a dict with 'global' and 'per_curve'."""
         return {}
     
-    def _get_colors(self, figure: Any) -> List[str]:
-        """Get the colors used in the figure."""
+    def _get_colors(self, figure: Any) -> list:
+        """Get the colors used in the figure. Returns a list of dicts with 'hex' and 'name'."""
         return []
     
-    def _get_markers(self, figure: Any) -> List[str]:
-        """Get the markers used in the figure."""
+    def _get_markers(self, figure: Any) -> list:
+        """Get the markers used in the figure. Returns a list of dicts with 'code' and 'name'."""
         return []
     
     def _get_line_styles(self, figure: Any) -> List[str]:
@@ -212,4 +213,8 @@ class BaseAnalyzer(ABC):
     
     def _get_background_color(self, figure: Any) -> Optional[str]:
         """Get the background color of the figure."""
+        return None
+    
+    def _get_axis_title(self, ax: Any) -> Optional[str]:
+        """Get the title of an individual axis."""
         return None 
