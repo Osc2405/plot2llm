@@ -9,6 +9,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from plot2llm import FigureConverter, TextFormatter, JSONFormatter
+import json
+import os
 
 def create_sample_data():
     """Create sample data for demonstrations."""
@@ -24,6 +26,58 @@ def create_sample_data():
     }
     
     return pd.DataFrame(data)
+
+def print_llm_analysis(semantic_result, fig_name):
+    print(f"\n📊 Semantic Analysis Keys: {list(semantic_result.keys())}")
+    print(f"  - Figure type: {semantic_result['figure_info']['figure_type']}")
+    
+    # Colors information
+    colors = semantic_result['colors']
+    print(f"  - Colors: {[f'{c['hex']} ({c['name']})' if c['name'] else c['hex'] for c in colors]}")
+    
+    # Statistics information
+    stats = semantic_result['statistics']
+    if 'global' in stats:
+        g = stats['global']
+        print(f"  - Global stats: mean={g['mean']}, std={g['std']}, min={g['min']}, max={g['max']}, median={g['median']}")
+    
+    if 'per_curve' in stats:
+        for i, curve in enumerate(stats['per_curve']):
+            # Handle both old format (mean) and new format (x_mean, y_mean)
+            if 'mean' in curve:
+                mean_val = curve['mean']
+                trend_val = curve.get('trend', 0)
+            elif 'x_mean' in curve and 'y_mean' in curve:
+                mean_val = f"x={curve['x_mean']:.3f}, y={curve['y_mean']:.3f}"
+                trend_val = curve.get('trend', 0)
+            else:
+                mean_val = "N/A"
+                trend_val = 0
+            
+            outliers_count = len(curve.get('outliers', []))
+            print(f"    Curve {i+1} ({curve['label']}): mean={mean_val}, trend={trend_val}, outliers={outliers_count}")
+    
+    if 'per_axis' in stats:
+        print(f"  - Statistics per axis/subplot:")
+        for axis in stats['per_axis']:
+            title = axis.get('title', f'Subplot {axis.get("axis_index")+1}')
+            if axis.get('mean') is not None:
+                print(f"    Axis {axis.get('axis_index')} ({title}): mean={axis.get('mean')}, std={axis.get('std')}, skewness={axis.get('skewness')}, kurtosis={axis.get('kurtosis')}, outliers={len(axis.get('outliers', []))}")
+            else:
+                print(f"    Axis {axis.get('axis_index')} ({title}): no data")
+    
+    # Axis information
+    axis_info = semantic_result['axis_info']
+    print(f"  - Total axes: {axis_info.get('total_axes', 0)}")
+    print(f"  - Figure title: {axis_info.get('figure_title', 'Not found')}")
+    
+    # Guardar resultados
+    if not os.path.exists('examples_seaborn'):
+        os.makedirs('examples_seaborn')
+    if fig_name is not None:
+        plt.savefig(f'examples_seaborn/{fig_name}.png')
+        with open(f'examples_seaborn/{fig_name}.json', 'w') as f:
+            json.dump(semantic_result, f, default=str)
 
 def example_seaborn_scatter():
     """Example with seaborn scatter plot."""
@@ -42,10 +96,9 @@ def example_seaborn_scatter():
     
     # Convert to LLM format
     converter = FigureConverter()
-    result = converter.convert(fig, "seaborn", output_format="text")
-    
-    print("Analysis Result:")
-    print(result)
+    semantic_result = converter.convert(fig, output_format="semantic")
+    print_llm_analysis(semantic_result, 'scatter')
+    plt.close(fig)
     print("\n" + "="*50 + "\n")
 
 def example_seaborn_heatmap():
@@ -66,10 +119,9 @@ def example_seaborn_heatmap():
     
     # Convert to LLM format
     converter = FigureConverter()
-    result = converter.convert(fig, "seaborn", output_format="json")
-    
-    print("Analysis Result (JSON):")
-    print(result)
+    semantic_result = converter.convert(fig, output_format="semantic")
+    print_llm_analysis(semantic_result, 'heatmap')
+    plt.close(fig)
     print("\n" + "="*50 + "\n")
 
 def example_seaborn_facetgrid():
@@ -87,10 +139,9 @@ def example_seaborn_facetgrid():
     
     # Convert to LLM format
     converter = FigureConverter()
-    result = converter.convert(g, "seaborn", output_format="text")
-    
-    print("Analysis Result:")
-    print(result)
+    semantic_result = converter.convert(g, output_format="semantic")
+    print_llm_analysis(semantic_result, 'facetgrid')
+    plt.close(g.fig)
     print("\n" + "="*50 + "\n")
 
 def example_seaborn_distribution():
@@ -124,10 +175,9 @@ def example_seaborn_distribution():
     
     # Convert to LLM format
     converter = FigureConverter()
-    result = converter.convert(fig, "seaborn", output_format="text")
-    
-    print("Analysis Result:")
-    print(result)
+    semantic_result = converter.convert(fig, output_format="semantic")
+    print_llm_analysis(semantic_result, 'distribution')
+    plt.close(fig)
     print("\n" + "="*50 + "\n")
 
 def example_seaborn_regression():
@@ -147,10 +197,9 @@ def example_seaborn_regression():
     
     # Convert to LLM format
     converter = FigureConverter()
-    result = converter.convert(fig, "seaborn", output_format="text")
-    
-    print("Analysis Result:")
-    print(result)
+    semantic_result = converter.convert(fig, output_format="semantic")
+    print_llm_analysis(semantic_result, 'regression')
+    plt.close(fig)
     print("\n" + "="*50 + "\n")
 
 def example_seaborn_pairplot():
@@ -167,10 +216,9 @@ def example_seaborn_pairplot():
     
     # Convert to LLM format
     converter = FigureConverter()
-    result = converter.convert(pair_plot, "seaborn", output_format="text")
-    
-    print("Analysis Result:")
-    print(result)
+    semantic_result = converter.convert(pair_plot, output_format="semantic")
+    print_llm_analysis(semantic_result, 'pairplot')
+    plt.close(pair_plot.fig)
     print("\n" + "="*50 + "\n")
 
 def main():

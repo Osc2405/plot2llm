@@ -48,13 +48,18 @@ class FigureAnalyzer:
         
         try:
             # Route to appropriate analyzer
+            logger.debug(f"FigureAnalyzer: Routing figure_type={figure_type}")
+            
             if figure_type == "matplotlib":
                 analyzer = self.matplotlib_analyzer
+                logger.debug("Using matplotlib_analyzer")
             elif figure_type == "seaborn":
                 analyzer = self.seaborn_analyzer
+                logger.debug("Using seaborn_analyzer")
             else:
                 # For now, use matplotlib analyzer as fallback
                 analyzer = self.matplotlib_analyzer
+                logger.debug(f"Unknown figure_type={figure_type}, using matplotlib_analyzer as fallback")
             
             # Perform analysis
             analysis = analyzer.analyze(

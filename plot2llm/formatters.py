@@ -3,9 +3,39 @@ Formatters for converting analysis results to different output formats.
 """
 
 import json
+import numpy as np
 from typing import Any, Dict
 
 from .analyzers import MatplotlibAnalyzer
+
+
+def _convert_to_json_serializable(obj: Any) -> Any:
+    """
+    Convert objects to JSON-serializable format.
+    
+    Args:
+        obj: Object to convert
+        
+    Returns:
+        JSON-serializable object
+    """
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    elif isinstance(obj, dict):
+        return {key: _convert_to_json_serializable(value) for key, value in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [_convert_to_json_serializable(item) for item in obj]
+    elif hasattr(obj, '__dict__'):
+        # Convert custom objects to dict
+        return _convert_to_json_serializable(obj.__dict__)
+    else:
+        return obj
 
 
 class TextFormatter:
@@ -67,10 +97,36 @@ class TextFormatter:
 
 class JSONFormatter:
     """
-    Formats the analysis dictionary into a JSON string.
+    Formats the analysis dictionary into a JSON structure.
     """
-    def format(self, analysis: Dict[str, Any], **kwargs) -> str:
-        return json.dumps(analysis, indent=2, default=str)
+    def format(self, analysis: Dict[str, Any], **kwargs) -> Dict[str, Any]:
+        """
+        Format the analysis into a JSON-compatible dictionary.
+        
+        Args:
+            analysis: The analysis dictionary to format
+            **kwargs: Additional formatting options
+            
+        Returns:
+            The analysis dictionary (JSON-compatible)
+        """
+        # Convert numpy arrays and other non-serializable objects
+        return _convert_to_json_serializable(analysis)
+    
+    def to_string(self, analysis: Dict[str, Any], **kwargs) -> str:
+        """
+        Convert the analysis to a JSON string.
+        
+        Args:
+            analysis: The analysis dictionary to format
+            **kwargs: Additional formatting options
+            
+        Returns:
+            JSON string representation
+        """
+        # Convert to JSON-serializable format first
+        json_compatible = _convert_to_json_serializable(analysis)
+        return json.dumps(json_compatible, indent=2, ensure_ascii=False)
 
 
 class SemanticFormatter:

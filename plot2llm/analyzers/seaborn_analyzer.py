@@ -3,14 +3,19 @@ Seaborn-specific analyzer for extracting information from seaborn figures.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
+from typing import Any, Dict, List, Optional, Tuple, Union
 import matplotlib.figure as mpl_figure
 import matplotlib.axes as mpl_axes
 from matplotlib.colors import to_hex
+import warnings
 
 from .base_analyzer import BaseAnalyzer
+
+# Configure numpy to suppress warnings
+np.seterr(all='ignore')  # Suppress all numpy warnings
+warnings.filterwarnings('ignore', category=RuntimeWarning, module='numpy')
 
 logger = logging.getLogger(__name__)
 
@@ -41,57 +46,41 @@ class SeabornAnalyzer(BaseAnalyzer):
                 include_data: bool = True,
                 include_colors: bool = True,
                 include_statistics: bool = True) -> Dict[str, Any]:
-        """
-        Analyze a seaborn figure and extract relevant information.
-        
-        Args:
-            figure: The seaborn figure object
-            detail_level: Level of detail ("low", "medium", "high")
-            include_data: Whether to include data analysis
-            include_colors: Whether to include color analysis
-            include_statistics: Whether to include statistical analysis
-            
-        Returns:
-            Dictionary containing the analysis results
-        """
-        self.include_data = include_data
-        self.include_colors = include_colors
-        self.include_statistics = include_statistics
-        
+        """Analyze a seaborn figure and extract comprehensive information."""
         try:
-            # Extract basic information
-            basic_info = self.extract_basic_info(figure)
+            # Basic figure information
+            figure_info = self._get_figure_info(figure)
             
-            # Extract axes information
-            axes_info = self.extract_axes_info(figure)
+            # Detailed axis information
+            axis_info = self._get_axis_info(figure)
             
-            # Extract data information
-            data_info = self.extract_data_info(figure) if include_data else {}
+            # Color information
+            colors = self._get_colors(figure) if include_colors else []
             
-            # Extract visual information
-            visual_info = self.extract_visual_info(figure) if include_colors else {}
-            
-            # Extract seaborn-specific information
-            seaborn_info = self._extract_seaborn_info(figure)
+            # Statistical information
+            statistics = self._get_statistics(figure) if include_statistics else {"per_curve": [], "per_axis": []}
             
             # Combine all information
-            analysis = {
-                "basic_info": basic_info,
-                "axes_info": axes_info,
-                "data_info": data_info,
-                "visual_info": visual_info,
-                "seaborn_info": seaborn_info,
+            result = {
+                "figure_type": "seaborn",
+                "figure_info": figure_info,
+                "axis_info": axis_info,
+                "colors": colors,
+                "statistics": statistics
             }
             
-            # Add detail-specific information
-            if detail_level == "high":
-                analysis["detailed_info"] = self._extract_detailed_info(figure)
-            
-            return analysis
+            return result
             
         except Exception as e:
             logger.error(f"Error analyzing seaborn figure: {str(e)}")
-            raise
+            return {
+                "figure_type": "seaborn",
+                "error": str(e),
+                "figure_info": {},
+                "axis_info": {"axes": [], "figure_title": "", "total_axes": 0},
+                "colors": [],
+                "statistics": {"per_curve": [], "per_axis": []}
+            }
     
     def _get_figure_type(self, figure: Any) -> str:
         """Get the type of the seaborn figure."""
@@ -101,28 +90,41 @@ class SeabornAnalyzer(BaseAnalyzer):
                 class_name = figure.__class__.__name__
                 module_name = figure.__class__.__module__
                 
+                # Debug logging
+                logger.debug(f"SeabornAnalyzer checking figure: class_name={class_name}, module_name={module_name}")
+                
                 if 'seaborn' in module_name:
                     if 'FacetGrid' in class_name:
-                        return "seaborn.facetgrid"
+                        logger.debug("Detected FacetGrid")
+                        return "seaborn.FacetGrid"
                     elif 'PairGrid' in class_name:
-                        return "seaborn.pairgrid"
+                        logger.debug("Detected PairGrid")
+                        return "seaborn.PairGrid"
                     elif 'JointGrid' in class_name:
-                        return "seaborn.jointgrid"
+                        logger.debug("Detected JointGrid")
+                        return "seaborn.JointGrid"
                     elif 'Heatmap' in class_name:
-                        return "seaborn.heatmap"
+                        logger.debug("Detected Heatmap")
+                        return "seaborn.Heatmap"
                     elif 'ClusterGrid' in class_name:
-                        return "seaborn.clustermap"
+                        logger.debug("Detected ClusterGrid")
+                        return "seaborn.ClusterGrid"
                     else:
-                        return f"seaborn.{class_name.lower()}"
+                        logger.debug(f"Detected generic seaborn: {class_name}")
+                        return f"seaborn.{class_name}"
                 
                 # Fall back to matplotlib types
                 if isinstance(figure, mpl_figure.Figure):
-                    return "matplotlib.figure"
+                    logger.debug("Detected matplotlib.Figure")
+                    return "matplotlib.Figure"
                 elif isinstance(figure, mpl_axes.Axes):
-                    return "matplotlib.axes"
+                    logger.debug("Detected matplotlib.Axes")
+                    return "matplotlib.Axes"
             
+            logger.debug("No specific type detected, returning unknown")
             return "unknown"
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Error in _get_figure_type: {str(e)}")
             return "unknown"
     
     def _get_dimensions(self, figure: Any) -> Tuple[int, int]:
@@ -199,6 +201,29 @@ class SeabornAnalyzer(BaseAnalyzer):
         """Get the number of axes in the seaborn figure."""
         return len(self._get_axes(figure))
     
+    def _get_figure_info(self, figure: Any) -> Dict[str, Any]:
+        """Get basic information about the seaborn figure."""
+        try:
+            figure_type = self._get_figure_type(figure)
+            dimensions = self._get_dimensions(figure)
+            title = self._get_title(figure)
+            axes_count = self._get_axes_count(figure)
+            
+            return {
+                "figure_type": figure_type,
+                "dimensions": [float(dim) for dim in dimensions],
+                "title": title,
+                "axes_count": axes_count
+            }
+        except Exception as e:
+            logger.warning(f"Error getting figure info: {str(e)}")
+            return {
+                "figure_type": "unknown",
+                "dimensions": [0, 0],
+                "title": None,
+                "axes_count": 0
+            }
+    
     def _extract_seaborn_info(self, figure: Any) -> Dict[str, Any]:
         """Extract seaborn-specific information."""
         seaborn_info = {}
@@ -241,65 +266,26 @@ class SeabornAnalyzer(BaseAnalyzer):
         return seaborn_info
     
     def _detect_seaborn_plot_type(self, figure: Any) -> str:
-        """Detect the specific type of seaborn plot."""
+        """Detect seaborn plot type from the figure object."""
         try:
             if hasattr(figure, '__class__'):
                 class_name = figure.__class__.__name__
-                
-                # Common seaborn plot types
-                if 'FacetGrid' in class_name:
-                    return "facet_grid"
-                elif 'PairGrid' in class_name:
-                    return "pair_grid"
-                elif 'JointGrid' in class_name:
-                    return "joint_grid"
-                elif 'ClusterGrid' in class_name:
-                    return "cluster_grid"
-                elif 'Heatmap' in class_name:
-                    return "heatmap"
-                elif 'ViolinPlot' in class_name:
-                    return "violin_plot"
-                elif 'BoxPlot' in class_name:
-                    return "box_plot"
-                elif 'BarPlot' in class_name:
-                    return "bar_plot"
-                elif 'LinePlot' in class_name:
-                    return "line_plot"
-                elif 'ScatterPlot' in class_name:
-                    return "scatter_plot"
-                elif 'HistPlot' in class_name:
-                    return "histogram"
-                elif 'KdePlot' in class_name:
-                    return "kernel_density_estimation"
-                elif 'RegPlot' in class_name:
-                    return "regression_plot"
-                elif 'LmPlot' in class_name:
-                    return "linear_model_plot"
-                elif 'ResidPlot' in class_name:
-                    return "residual_plot"
-                elif 'DistPlot' in class_name:
-                    return "distribution_plot"
-                elif 'JointPlot' in class_name:
-                    return "joint_plot"
-                elif 'PairPlot' in class_name:
-                    return "pair_plot"
-                elif 'RelPlot' in class_name:
-                    return "relational_plot"
-                elif 'CatPlot' in class_name:
-                    return "categorical_plot"
-                elif 'PointPlot' in class_name:
-                    return "point_plot"
-                elif 'CountPlot' in class_name:
-                    return "count_plot"
-                elif 'Stripplot' in class_name:
-                    return "strip_plot"
-                elif 'SwarmPlot' in class_name:
-                    return "swarm_plot"
-                else:
-                    # Try to detect plot type from axes content
-                    return self._detect_plot_type_from_axes(figure)
-            
-            return "unknown"
+                module_name = figure.__class__.__module__
+                if 'seaborn' in module_name:
+                    if 'FacetGrid' in class_name:
+                        return "FacetGrid"
+                    elif 'PairGrid' in class_name:
+                        return "PairGrid"
+                    elif 'JointGrid' in class_name:
+                        return "JointGrid"
+                    elif 'Heatmap' in class_name:
+                        return "heatmap"
+                    elif 'ClusterGrid' in class_name:
+                        return "clustermap"
+                    else:
+                        return class_name
+            # Fallback: try to detect from axes
+            return self._detect_plot_type_from_axes(figure)
         except Exception:
             return "unknown"
     
@@ -309,14 +295,14 @@ class SeabornAnalyzer(BaseAnalyzer):
             axes = self._get_axes(figure)
             if not axes:
                 return "unknown"
-            
-            # Check the first axis for plot characteristics
             ax = axes[0]
-            
+            # Check for heatmap (QuadMesh)
+            for collection in ax.collections:
+                if collection.__class__.__name__ == "QuadMesh" and hasattr(collection, 'get_array') and collection.get_array() is not None:
+                    return "heatmap"
             # Check for heatmap (has image)
             if hasattr(ax, 'images') and ax.images:
                 return "heatmap"
-            
             # Check for scatter plot (has collections with offsets)
             if hasattr(ax, 'collections') and ax.collections:
                 for collection in ax.collections:
@@ -324,22 +310,16 @@ class SeabornAnalyzer(BaseAnalyzer):
                         offsets = collection.get_offsets()
                         if offsets is not None and len(offsets) > 0:
                             return "scatter_plot"
-            
             # Check for line plot
             if hasattr(ax, 'lines') and ax.lines:
                 return "line_plot"
-            
             # Check for bar plot (has patches)
             if hasattr(ax, 'patches') and ax.patches:
                 return "bar_plot"
-            
             # Check for histogram (has patches and specific characteristics)
             if hasattr(ax, 'patches') and ax.patches:
-                # This is a simplified check - could be enhanced
                 return "histogram"
-            
             return "unknown_seaborn_plot"
-            
         except Exception:
             return "unknown_seaborn_plot"
     
@@ -350,18 +330,31 @@ class SeabornAnalyzer(BaseAnalyzer):
             axes = self._get_axes(figure)
             
             for ax in axes:
+                # Count data from images (heatmaps)
+                for image in ax.images:
+                    try:
+                        if hasattr(image, 'get_array'):
+                            img_data = image.get_array()
+                            if img_data is not None:
+                                total_points += img_data.size
+                    except Exception:
+                        continue
+                
+                # Count data from collections (scatter plots, etc.)
                 for collection in ax.collections:
                     if hasattr(collection, 'get_offsets'):
                         offsets = collection.get_offsets()
                         if offsets is not None:
                             total_points += len(offsets)
                 
+                # Count data from lines
                 for line in ax.lines:
                     if hasattr(line, 'get_xdata'):
                         xdata = line.get_xdata()
                         if xdata is not None:
                             total_points += len(xdata)
                 
+                # Count data from patches (histograms, bar plots)
                 for patch in ax.patches:
                     total_points += 1
             
@@ -370,46 +363,195 @@ class SeabornAnalyzer(BaseAnalyzer):
             return 0
     
     def _get_data_types(self, figure: Any) -> List[str]:
-        """Get the types of data in the seaborn figure."""
         data_types = set()
-        
         try:
             axes = self._get_axes(figure)
-            
             for ax in axes:
-                # Check for different types of plots
+                # Check for heatmaps first (QuadMesh)
+                is_heatmap = False
+                for collection in ax.collections:
+                    if collection.__class__.__name__ == "QuadMesh" and hasattr(collection, 'get_array') and collection.get_array() is not None:
+                        data_types.add("heatmap")
+                        is_heatmap = True
+                        break
+                if not is_heatmap and hasattr(ax, 'images') and ax.images:
+                    for image in ax.images:
+                        if hasattr(image, 'get_array') and image.get_array() is not None:
+                            data_types.add("heatmap")
+                            is_heatmap = True
+                            break
+                if is_heatmap:
+                    continue  # Skip other types if heatmap
+                # Check for different types of plots (only if not a heatmap)
                 if ax.collections:
-                    data_types.add("scatter")
+                    for collection in ax.collections:
+                        if hasattr(collection, 'get_offsets'):
+                            offsets = collection.get_offsets()
+                            if offsets is not None and len(offsets) > 0:
+                                data_types.add("scatter_plot")
+                                break
                 if ax.lines:
-                    data_types.add("line")
+                    data_types.add("line_plot")
                 if ax.patches:
-                    data_types.add("bar")
-                if ax.images:
-                    data_types.add("image")
+                    data_types.add("histogram")
                 if ax.texts:
-                    data_types.add("text")
-            
-            # Add seaborn-specific types
+                    if "heatmap" not in data_types:
+                        data_types.add("text")
             plot_type = self._detect_seaborn_plot_type(figure)
             if plot_type != "unknown":
                 data_types.add(plot_type)
-            
         except Exception as e:
             logger.warning(f"Error getting data types: {str(e)}")
-        
         return list(data_types)
     
     def _get_statistics(self, figure: Any) -> Dict[str, Any]:
-        """Get statistical information about the data in the seaborn figure."""
-        stats = {}
+        """Get statistical information about the data in the seaborn figure, per curve and per axis."""
+        stats = {"per_curve": [], "per_axis": []}
         
         try:
             axes = self._get_axes(figure)
+            all_data = []
             
+            # Statistics per axis/subplot
             for i, ax in enumerate(axes):
-                ax_stats = {}
+                axis_data = []
+                axis_stats = {
+                    "axis_index": i,
+                    "title": ax.get_title() if ax.get_title() else f"Subplot {i+1}",
+                    "data_types": [],
+                    "data_points": 0,
+                    "matrix_data": None
+                }
                 
-                # Extract data from collections (scatter plots, etc.)
+                # Check for heatmaps first (QuadMesh)
+                has_heatmap = False
+                for collection in ax.collections:
+                    if collection.__class__.__name__ == "QuadMesh" and hasattr(collection, 'get_array'):
+                        try:
+                            arr = collection.get_array()
+                            if arr is not None:
+                                arr = np.asarray(arr)
+                                if hasattr(arr, 'mask'):
+                                    arr = np.ma.filled(arr, np.nan)
+                                matrix_data = arr.tolist() if hasattr(arr, 'tolist') else arr
+                                axis_stats["matrix_data"] = {
+                                    "shape": arr.shape if hasattr(arr, 'shape') else (arr,),
+                                    "data": matrix_data,
+                                    "min_value": float(np.nanmin(arr)),
+                                    "max_value": float(np.nanmax(arr)),
+                                    "mean_value": float(np.nanmean(arr)),
+                                    "std_value": float(np.nanstd(arr))
+                                }
+                                flat_data = arr.flatten() if hasattr(arr, 'flatten') else arr
+                                axis_data.extend(flat_data)
+                                axis_stats["data_points"] += len(flat_data)
+                                axis_stats["data_types"].append("heatmap")
+                                has_heatmap = True
+                                break
+                        except Exception as e:
+                            logger.warning(f"Error processing QuadMesh: {str(e)}")
+                            continue
+                
+                # If no QuadMesh, try images
+                if not has_heatmap:
+                    for image in ax.images:
+                        try:
+                            if hasattr(image, 'get_array'):
+                                img_data = image.get_array()
+                                if img_data is not None:
+                                    img_data = np.asarray(img_data)
+                                    if hasattr(img_data, 'mask'):
+                                        img_data = np.ma.filled(img_data, np.nan)
+                                    matrix_data = img_data.tolist() if hasattr(img_data, 'tolist') else img_data
+                                    axis_stats["matrix_data"] = {
+                                        "shape": img_data.shape if hasattr(img_data, 'shape') else (img_data,),
+                                        "data": matrix_data,
+                                        "min_value": float(np.nanmin(img_data)),
+                                        "max_value": float(np.nanmax(img_data)),
+                                        "mean_value": float(np.nanmean(img_data)),
+                                        "std_value": float(np.nanstd(img_data))
+                                    }
+                                    flat_data = img_data.flatten() if hasattr(img_data, 'flatten') else img_data
+                                    axis_data.extend(flat_data)
+                                    axis_stats["data_points"] += len(flat_data)
+                                    axis_stats["data_types"].append("heatmap")
+                                    has_heatmap = True
+                                    break
+                        except Exception as e:
+                            logger.warning(f"Error processing heatmap image: {str(e)}")
+                            continue
+                
+                # If this is a heatmap, skip other data types
+                if has_heatmap:
+                    if axis_data and len(axis_data) > 0:
+                        try:
+                            axis_data = np.array(axis_data)
+                            # Remove any NaN or infinite values
+                            axis_data = axis_data[np.isfinite(axis_data)]
+                            
+                            if len(axis_data) > 0:
+                                axis_stats.update({
+                                    "mean": float(np.nanmean(axis_data)),
+                                    "std": float(np.nanstd(axis_data)),
+                                    "min": float(np.nanmin(axis_data)),
+                                    "max": float(np.nanmax(axis_data)),
+                                    "median": float(np.nanmedian(axis_data)),
+                                    "outliers": [],
+                                    "local_var": float(np.nanvar(axis_data[:max(1, len(axis_data)//10)])),
+                                    "trend": 0.0,
+                                    "skewness": 0.0,
+                                    "kurtosis": 0.0
+                                })
+                                
+                                # Calculate outliers only if we have enough data
+                                if len(axis_data) > 3:
+                                    mean_val = np.nanmean(axis_data)
+                                    std_val = np.nanstd(axis_data)
+                                    if std_val > 0:
+                                        outliers = axis_data[np.abs(axis_data - mean_val) > 2 * std_val]
+                                        axis_stats["outliers"] = [float(val) for val in outliers]
+                                
+                                # Calculate trend only if we have enough data
+                                if len(axis_data) > 1:
+                                    try:
+                                        trend = np.polyfit(np.arange(len(axis_data)), axis_data, 1)[0]
+                                        axis_stats["trend"] = float(trend)
+                                    except Exception:
+                                        axis_stats["trend"] = 0.0
+                                
+                                # Calculate skewness and kurtosis only if we have enough data
+                                if len(axis_data) > 2:
+                                    try:
+                                        axis_stats["skewness"] = float(self._calculate_skewness(axis_data))
+                                        axis_stats["kurtosis"] = float(self._calculate_kurtosis(axis_data))
+                                    except Exception:
+                                        axis_stats["skewness"] = 0.0
+                                        axis_stats["kurtosis"] = 0.0
+                                
+                                all_data.extend(axis_data)
+                            else:
+                                axis_stats.update({
+                                    "mean": None, "std": None, "min": None, "max": None, "median": None,
+                                    "outliers": [], "local_var": None, "trend": None,
+                                    "skewness": None, "kurtosis": None
+                                })
+                        except Exception as e:
+                            logger.warning(f"Error calculating heatmap statistics for axis {i}: {str(e)}")
+                            axis_stats.update({
+                                "mean": None, "std": None, "min": None, "max": None, "median": None,
+                                "outliers": [], "local_var": None, "trend": None,
+                                "skewness": None, "kurtosis": None
+                            })
+                    else:
+                        axis_stats.update({
+                            "mean": None, "std": None, "min": None, "max": None, "median": None,
+                            "outliers": [], "local_var": None, "trend": None,
+                            "skewness": None, "kurtosis": None
+                        })
+                    stats["per_axis"].append(axis_stats)
+                    continue
+                
+                # Collect data from collections (scatter plots, etc.)
                 for collection in ax.collections:
                     if hasattr(collection, 'get_offsets'):
                         offsets = collection.get_offsets()
@@ -417,28 +559,112 @@ class SeabornAnalyzer(BaseAnalyzer):
                             x_data = offsets[:, 0]
                             y_data = offsets[:, 1]
                             
-                            # Check for valid data before calculating statistics
-                            if len(x_data) > 0 and len(y_data) > 0:
-                                try:
-                                    ax_stats[f"collection_{len(ax_stats)}"] = {
-                                        "count": len(offsets),
-                                        "x_mean": float(np.mean(x_data)),
-                                        "x_std": float(np.std(x_data)),
-                                        "x_min": float(np.min(x_data)),
-                                        "x_max": float(np.max(x_data)),
-                                        "y_mean": float(np.mean(y_data)),
-                                        "y_std": float(np.std(y_data)),
-                                        "y_min": float(np.min(y_data)),
-                                        "y_max": float(np.max(y_data)),
-                                    }
-                                except (ValueError, RuntimeWarning):
-                                    # Skip statistics if calculation fails
-                                    ax_stats[f"collection_{len(ax_stats)}"] = {
-                                        "count": len(offsets),
-                                        "error": "Could not calculate statistics"
-                                    }
+                            # Add both x and y data
+                            axis_data.extend(x_data)
+                            axis_data.extend(y_data)
+                            axis_stats["data_points"] += len(x_data) + len(y_data)
+                            if "scatter_plot" not in axis_stats["data_types"]:
+                                axis_stats["data_types"].append("scatter_plot")
                 
-                # Extract data from lines
+                # Collect data from lines
+                for line in ax.lines:
+                    if hasattr(line, 'get_xdata') and hasattr(line, 'get_ydata'):
+                        x_data = line.get_xdata()
+                        y_data = line.get_ydata()
+                        
+                        if x_data is not None and y_data is not None and len(x_data) > 0 and len(y_data) > 0:
+                            axis_data.extend(x_data)
+                            axis_data.extend(y_data)
+                            axis_stats["data_points"] += len(x_data) + len(y_data)
+                            if "line_plot" not in axis_stats["data_types"]:
+                                axis_stats["data_types"].append("line_plot")
+                
+                # Collect data from patches (histograms, bar plots)
+                for patch in ax.patches:
+                    try:
+                        if hasattr(patch, 'get_height'):
+                            height = patch.get_height()
+                            if height > 0:
+                                axis_data.append(float(height))
+                                axis_stats["data_points"] += 1
+                                if "histogram" not in axis_stats["data_types"]:
+                                    axis_stats["data_types"].append("histogram")
+                    except Exception:
+                        continue
+                
+                # Calculate statistics for this axis if it has data
+                if axis_data and len(axis_data) > 0:
+                    try:
+                        axis_data = np.array(axis_data)
+                        # Remove any NaN or infinite values
+                        axis_data = axis_data[np.isfinite(axis_data)]
+                        
+                        if len(axis_data) > 0:
+                            axis_stats.update({
+                                "mean": float(np.nanmean(axis_data)),
+                                "std": float(np.nanstd(axis_data)),
+                                "min": float(np.nanmin(axis_data)),
+                                "max": float(np.nanmax(axis_data)),
+                                "median": float(np.nanmedian(axis_data)),
+                                "outliers": [],
+                                "local_var": float(np.nanvar(axis_data[:max(1, len(axis_data)//10)])),
+                                "trend": 0.0,
+                                "skewness": 0.0,
+                                "kurtosis": 0.0
+                            })
+                            
+                            # Calculate outliers only if we have enough data
+                            if len(axis_data) > 3:
+                                mean_val = np.nanmean(axis_data)
+                                std_val = np.nanstd(axis_data)
+                                if std_val > 0:
+                                    outliers = axis_data[np.abs(axis_data - mean_val) > 2 * std_val]
+                                    axis_stats["outliers"] = [float(val) for val in outliers]
+                            
+                            # Calculate trend only if we have enough data
+                            if len(axis_data) > 1:
+                                try:
+                                    trend = np.polyfit(np.arange(len(axis_data)), axis_data, 1)[0]
+                                    axis_stats["trend"] = float(trend)
+                                except Exception:
+                                    axis_stats["trend"] = 0.0
+                            
+                            # Calculate skewness and kurtosis only if we have enough data
+                            if len(axis_data) > 2:
+                                try:
+                                    axis_stats["skewness"] = float(self._calculate_skewness(axis_data))
+                                    axis_stats["kurtosis"] = float(self._calculate_kurtosis(axis_data))
+                                except Exception:
+                                    axis_stats["skewness"] = 0.0
+                                    axis_stats["kurtosis"] = 0.0
+                            
+                            all_data.extend(axis_data)
+                        else:
+                            # No valid data
+                            axis_stats.update({
+                                "mean": None, "std": None, "min": None, "max": None, "median": None,
+                                "outliers": [], "local_var": None, "trend": None,
+                                "skewness": None, "kurtosis": None
+                            })
+                    except Exception as e:
+                        logger.warning(f"Error calculating statistics for axis {i}: {str(e)}")
+                        axis_stats.update({
+                            "mean": None, "std": None, "min": None, "max": None, "median": None,
+                            "outliers": [], "local_var": None, "trend": None,
+                            "skewness": None, "kurtosis": None
+                        })
+                else:
+                    # No data
+                    axis_stats.update({
+                        "mean": None, "std": None, "min": None, "max": None, "median": None,
+                        "outliers": [], "local_var": None, "trend": None,
+                        "skewness": None, "kurtosis": None
+                    })
+                
+                stats["per_axis"].append(axis_stats)
+            
+            # Statistics per curve (for line plots)
+            for ax in axes:
                 for line in ax.lines:
                     if hasattr(line, 'get_xdata') and hasattr(line, 'get_ydata'):
                         x_data = line.get_xdata()
@@ -446,86 +672,213 @@ class SeabornAnalyzer(BaseAnalyzer):
                         
                         if x_data is not None and y_data is not None and len(x_data) > 0 and len(y_data) > 0:
                             try:
-                                ax_stats[f"line_{len(ax_stats)}"] = {
-                                    "count": len(x_data),
-                                    "x_mean": float(np.mean(x_data)),
-                                    "x_std": float(np.std(x_data)),
-                                    "x_min": float(np.min(x_data)),
-                                    "x_max": float(np.max(x_data)),
-                                    "y_mean": float(np.mean(y_data)),
-                                    "y_std": float(np.std(y_data)),
-                                    "y_min": float(np.min(y_data)),
-                                    "y_max": float(np.max(y_data)),
-                                }
-                            except (ValueError, RuntimeWarning):
-                                # Skip statistics if calculation fails
-                                ax_stats[f"line_{len(ax_stats)}"] = {
-                                    "count": len(x_data),
-                                    "error": "Could not calculate statistics"
-                                }
-                
-                if ax_stats:
-                    stats[f"axis_{i}"] = ax_stats
+                                # Remove any NaN or infinite values
+                                x_data = np.array(x_data)[np.isfinite(x_data)]
+                                y_data = np.array(y_data)[np.isfinite(y_data)]
+                                
+                                if len(x_data) > 0 and len(y_data) > 0:
+                                    curve_stats = {
+                                        "label": line.get_label(),
+                                        "x_mean": float(np.nanmean(x_data)),
+                                        "x_std": float(np.nanstd(x_data)),
+                                        "x_min": float(np.nanmin(x_data)),
+                                        "x_max": float(np.nanmax(x_data)),
+                                        "y_mean": float(np.nanmean(y_data)),
+                                        "y_std": float(np.nanstd(y_data)),
+                                        "y_min": float(np.nanmin(y_data)),
+                                        "y_max": float(np.nanmax(y_data)),
+                                    }
+                                    stats["per_curve"].append(curve_stats)
+                            except Exception as e:
+                                logger.warning(f"Error calculating curve statistics: {str(e)}")
+                                continue
+            
+            # Global statistics
+            if all_data and len(all_data) > 0:
+                try:
+                    all_data = np.array(all_data)
+                    all_data = all_data[np.isfinite(all_data)]
+                    
+                    if len(all_data) > 0:
+                        stats["global"] = {
+                            "mean": float(np.nanmean(all_data)),
+                            "std": float(np.nanstd(all_data)),
+                            "min": float(np.nanmin(all_data)),
+                            "max": float(np.nanmax(all_data)),
+                            "median": float(np.nanmedian(all_data)),
+                        }
+                except Exception as e:
+                    logger.warning(f"Error calculating global statistics: {str(e)}")
             
         except Exception as e:
             logger.warning(f"Error getting statistics: {str(e)}")
         
         return stats
     
-    def _get_colors(self, figure: Any) -> List[str]:
-        """Get the colors used in the seaborn figure."""
-        colors = set()
-        
+    def _calculate_skewness(self, data: np.ndarray) -> float:
+        """Calculate skewness with proper handling of edge cases."""
+        try:
+            if len(data) < 3:
+                return 0.0
+            
+            # Remove NaN and infinite values
+            clean_data = data[np.isfinite(data)]
+            if len(clean_data) < 3:
+                return 0.0
+            
+            mean_val = np.nanmean(clean_data)
+            std_val = np.nanstd(clean_data)
+            
+            if std_val == 0 or not np.isfinite(std_val):
+                return 0.0
+            
+            # Calculate skewness
+            skewness = np.nanmean(((clean_data - mean_val) / std_val) ** 3)
+            return float(skewness) if np.isfinite(skewness) else 0.0
+        except Exception:
+            return 0.0
+    
+    def _calculate_kurtosis(self, data: np.ndarray) -> float:
+        """Calculate kurtosis with proper handling of edge cases."""
+        try:
+            if len(data) < 4:
+                return 0.0
+            
+            # Remove NaN and infinite values
+            clean_data = data[np.isfinite(data)]
+            if len(clean_data) < 4:
+                return 0.0
+            
+            mean_val = np.nanmean(clean_data)
+            std_val = np.nanstd(clean_data)
+            
+            if std_val == 0 or not np.isfinite(std_val):
+                return 0.0
+            
+            # Calculate kurtosis
+            kurtosis = np.nanmean(((clean_data - mean_val) / std_val) ** 4) - 3
+            return float(kurtosis) if np.isfinite(kurtosis) else 0.0
+        except Exception:
+            return 0.0
+    
+    def _get_colors(self, figure: Any) -> List[dict]:
+        """Get the colors used in the seaborn figure, with hex and common name if possible. No colors for heatmaps (QuadMesh)."""
+        def hex_to_name(hex_color):
+            try:
+                import webcolors
+                return webcolors.hex_to_name(hex_color)
+            except Exception:
+                return None
+        colors = []
         try:
             axes = self._get_axes(figure)
-            
             for ax in axes:
-                # Get colors from collections
+                # Skip axis if it has a heatmap (QuadMesh)
+                has_heatmap = False
                 for collection in ax.collections:
+                    if collection.__class__.__name__ == "QuadMesh" and hasattr(collection, 'get_array') and collection.get_array() is not None:
+                        has_heatmap = True
+                        break
+                if not has_heatmap and hasattr(ax, 'images') and ax.images:
+                    for image in ax.images:
+                        if hasattr(image, 'get_array') and image.get_array() is not None:
+                            has_heatmap = True
+                            break
+                if has_heatmap:
+                    continue
+                # Colors from collections (not QuadMesh)
+                for collection in ax.collections:
+                    if collection.__class__.__name__ == "QuadMesh":
+                        continue
                     if hasattr(collection, 'get_facecolor'):
                         facecolor = collection.get_facecolor()
                         if facecolor is not None:
                             if len(facecolor.shape) > 1:
-                                # Multiple colors
                                 for color in facecolor:
-                                    colors.add(to_hex(color))
+                                    try:
+                                        hex_color = to_hex(color)
+                                        color_name = hex_to_name(hex_color)
+                                        if hex_color not in [c['hex'] for c in colors]:
+                                            colors.append({"hex": hex_color, "name": color_name})
+                                    except Exception:
+                                        continue
                             else:
-                                colors.add(to_hex(facecolor))
-                    
+                                try:
+                                    hex_color = to_hex(facecolor)
+                                    color_name = hex_to_name(hex_color)
+                                    if hex_color not in [c['hex'] for c in colors]:
+                                        colors.append({"hex": hex_color, "name": color_name})
+                                except Exception:
+                                    continue
                     if hasattr(collection, 'get_edgecolor'):
                         edgecolor = collection.get_edgecolor()
                         if edgecolor is not None:
                             if len(edgecolor.shape) > 1:
                                 for color in edgecolor:
-                                    colors.add(to_hex(color))
+                                    try:
+                                        hex_color = to_hex(color)
+                                        color_name = hex_to_name(hex_color)
+                                        if hex_color not in [c['hex'] for c in colors]:
+                                            colors.append({"hex": hex_color, "name": color_name})
+                                    except Exception:
+                                        continue
                             else:
-                                colors.add(to_hex(edgecolor))
-                
-                # Get colors from lines
+                                try:
+                                    hex_color = to_hex(edgecolor)
+                                    color_name = hex_to_name(hex_color)
+                                    if hex_color not in [c['hex'] for c in colors]:
+                                        colors.append({"hex": hex_color, "name": color_name})
+                                except Exception:
+                                    continue
+                # Colors from lines
                 for line in ax.lines:
                     color = line.get_color()
                     if color is not None:
-                        colors.add(to_hex(color))
-                
-                # Get colors from patches
+                        try:
+                            hex_color = to_hex(color)
+                            color_name = hex_to_name(hex_color)
+                            if hex_color not in [c['hex'] for c in colors]:
+                                colors.append({"hex": hex_color, "name": color_name})
+                        except Exception:
+                            continue
+                # Colors from patches
                 for patch in ax.patches:
                     facecolor = patch.get_facecolor()
                     if facecolor is not None:
-                        colors.add(to_hex(facecolor))
-                    
+                        try:
+                            hex_color = to_hex(facecolor)
+                            color_name = hex_to_name(hex_color)
+                            if hex_color not in [c['hex'] for c in colors]:
+                                colors.append({"hex": hex_color, "name": color_name})
+                        except Exception:
+                            continue
                     edgecolor = patch.get_edgecolor()
                     if edgecolor is not None:
-                        colors.add(to_hex(edgecolor))
-            
+                        try:
+                            hex_color = to_hex(edgecolor)
+                            color_name = hex_to_name(hex_color)
+                            if hex_color not in [c['hex'] for c in colors]:
+                                colors.append({"hex": hex_color, "name": color_name})
+                        except Exception:
+                            continue
         except Exception as e:
             logger.warning(f"Error getting colors: {str(e)}")
-        
-        return list(colors)
+        return colors
     
-    def _get_markers(self, figure: Any) -> List[str]:
-        """Get the markers used in the seaborn figure."""
-        markers = set()
+    def _get_markers(self, figure: Any) -> List[dict]:
+        """Get the markers used in the seaborn figure, with codes and names."""
+        def marker_code_to_name(marker_code):
+            """Convert matplotlib marker code to readable name."""
+            marker_names = {
+                'o': 'circle', 's': 'square', '^': 'triangle_up', 'v': 'triangle_down',
+                'D': 'diamond', 'p': 'plus', '*': 'star', 'h': 'hexagon1', 'H': 'hexagon2',
+                'd': 'thin_diamond', '|': 'vline', '_': 'hline', 'P': 'plus_filled',
+                'X': 'x_filled', 'x': 'x', '+': 'plus', '1': 'tri_down', '2': 'tri_up',
+                '3': 'tri_left', '4': 'tri_right', '8': 'octagon', 'None': 'none'
+            }
+            return marker_names.get(str(marker_code), str(marker_code))
         
+        markers = []
         try:
             axes = self._get_axes(figure)
             
@@ -533,22 +886,33 @@ class SeabornAnalyzer(BaseAnalyzer):
                 for line in ax.lines:
                     marker = line.get_marker()
                     if marker is not None and marker != 'None':
-                        markers.add(str(marker))
+                        marker_code = str(marker)
+                        marker_name = marker_code_to_name(marker)
+                        if marker_code not in [m['code'] for m in markers]:
+                            markers.append({"code": marker_code, "name": marker_name})
                 
                 for collection in ax.collections:
                     if hasattr(collection, 'get_paths'):
                         # This might be a scatter plot with markers
-                        markers.add("scatter")
+                        if "scatter" not in [m['code'] for m in markers]:
+                            markers.append({"code": "scatter", "name": "scatter_points"})
             
         except Exception as e:
             logger.warning(f"Error getting markers: {str(e)}")
         
-        return list(markers)
+        return markers
     
-    def _get_line_styles(self, figure: Any) -> List[str]:
-        """Get the line styles used in the seaborn figure."""
-        line_styles = set()
+    def _get_line_styles(self, figure: Any) -> List[dict]:
+        """Get the line styles used in the seaborn figure, with codes and names."""
+        def line_style_to_name(style_code):
+            """Convert matplotlib line style code to readable name."""
+            style_names = {
+                '-': 'solid', '--': 'dashed', '-.': 'dashdot', ':': 'dotted',
+                'None': 'none', ' ': 'none', '': 'none'
+            }
+            return style_names.get(str(style_code), str(style_code))
         
+        line_styles = []
         try:
             axes = self._get_axes(figure)
             
@@ -556,25 +920,40 @@ class SeabornAnalyzer(BaseAnalyzer):
                 for line in ax.lines:
                     linestyle = line.get_linestyle()
                     if linestyle is not None and linestyle != 'None':
-                        line_styles.add(str(linestyle))
+                        style_code = str(linestyle)
+                        style_name = line_style_to_name(linestyle)
+                        if style_code not in [s['code'] for s in line_styles]:
+                            line_styles.append({"code": style_code, "name": style_name})
             
         except Exception as e:
             logger.warning(f"Error getting line styles: {str(e)}")
         
-        return list(line_styles)
+        return line_styles
     
-    def _get_background_color(self, figure: Any) -> Optional[str]:
-        """Get the background color of the seaborn figure."""
+    def _get_background_color(self, figure: Any) -> Optional[dict]:
+        """Get the background color of the seaborn figure, with hex and common name if possible."""
+        def hex_to_name(hex_color):
+            try:
+                import webcolors
+                return webcolors.hex_to_name(hex_color)
+            except Exception:
+                return None
+        
         try:
             if hasattr(figure, 'fig'):
-                return to_hex(figure.fig.get_facecolor())
+                bg_color = figure.fig.get_facecolor()
             elif hasattr(figure, 'figure'):
-                return to_hex(figure.figure.get_facecolor())
+                bg_color = figure.figure.get_facecolor()
             elif isinstance(figure, mpl_figure.Figure):
-                return to_hex(figure.get_facecolor())
+                bg_color = figure.get_facecolor()
             elif isinstance(figure, mpl_axes.Axes):
-                return to_hex(figure.get_facecolor())
-            return None
+                bg_color = figure.get_facecolor()
+            else:
+                return None
+            
+            hex_color = to_hex(bg_color)
+            color_name = hex_to_name(hex_color)
+            return {"hex": hex_color, "name": color_name}
         except Exception:
             return None
     
@@ -614,4 +993,103 @@ class SeabornAnalyzer(BaseAnalyzer):
         except Exception as e:
             logger.warning(f"Error extracting detailed info: {str(e)}")
         
-        return detailed_info 
+        return detailed_info
+    
+    def _get_axis_info(self, figure: Any) -> Dict[str, Any]:
+        """Get detailed information about axes, including titles and labels."""
+        axis_info = {"axes": [], "figure_title": "", "total_axes": 0}
+        
+        try:
+            axes = self._get_axes(figure)
+            axis_info["total_axes"] = len(axes)
+            
+            # Get figure title
+            if hasattr(figure, 'suptitle') and figure._suptitle:
+                axis_info["figure_title"] = figure._suptitle.get_text()
+            elif hasattr(figure, 'get_suptitle'):
+                axis_info["figure_title"] = figure.get_suptitle()
+            
+            for i, ax in enumerate(axes):
+                ax_info = {
+                    "index": i,
+                    "title": "",
+                    "x_label": "",
+                    "y_label": "",
+                    "x_lim": None,
+                    "y_lim": None,
+                    "has_data": False
+                }
+                
+                # Extract axis title (subplot title)
+                try:
+                    if hasattr(ax, 'get_title'):
+                        title = ax.get_title()
+                        if title and title.strip():
+                            ax_info["title"] = title.strip()
+                except Exception:
+                    pass
+                
+                # Extract X and Y axis labels
+                try:
+                    if hasattr(ax, 'get_xlabel'):
+                        x_label = ax.get_xlabel()
+                        if x_label and x_label.strip():
+                            ax_info["x_label"] = x_label.strip()
+                except Exception:
+                    pass
+                
+                try:
+                    if hasattr(ax, 'get_ylabel'):
+                        y_label = ax.get_ylabel()
+                        if y_label and y_label.strip():
+                            ax_info["y_label"] = y_label.strip()
+                except Exception:
+                    pass
+                
+                # Extract axis limits
+                try:
+                    if hasattr(ax, 'get_xlim'):
+                        x_lim = ax.get_xlim()
+                        if x_lim and len(x_lim) == 2:
+                            ax_info["x_lim"] = [float(x_lim[0]), float(x_lim[1])]
+                except Exception:
+                    pass
+                
+                try:
+                    if hasattr(ax, 'get_ylim'):
+                        y_lim = ax.get_ylim()
+                        if y_lim and len(y_lim) == 2:
+                            ax_info["y_lim"] = [float(y_lim[0]), float(y_lim[1])]
+                except Exception:
+                    pass
+                
+                # Check if axis has data
+                try:
+                    has_data = False
+                    
+                    # Check collections (scatter plots, heatmaps, etc.)
+                    if hasattr(ax, 'collections') and ax.collections:
+                        has_data = True
+                    
+                    # Check lines
+                    if hasattr(ax, 'lines') and ax.lines:
+                        has_data = True
+                    
+                    # Check patches (histograms, bar plots)
+                    if hasattr(ax, 'patches') and ax.patches:
+                        has_data = True
+                    
+                    # Check images (heatmaps)
+                    if hasattr(ax, 'images') and ax.images:
+                        has_data = True
+                    
+                    ax_info["has_data"] = has_data
+                except Exception:
+                    ax_info["has_data"] = False
+                
+                axis_info["axes"].append(ax_info)
+            
+        except Exception as e:
+            logger.warning(f"Error getting axis info: {str(e)}")
+        
+        return axis_info 

@@ -199,20 +199,20 @@ class BaseAnalyzer(ABC):
         """Get statistical information about the data. Returns a dict with 'global' and 'per_curve'."""
         return {}
     
-    def _get_colors(self, figure: Any) -> list:
-        """Get the colors used in the figure. Returns a list of dicts with 'hex' and 'name'."""
+    def _get_colors(self, figure: Any) -> List[dict]:
+        """Get the colors used in the figure, with hex and common name if possible."""
         return []
     
-    def _get_markers(self, figure: Any) -> list:
-        """Get the markers used in the figure. Returns a list of dicts with 'code' and 'name'."""
+    def _get_markers(self, figure: Any) -> List[dict]:
+        """Get the markers used in the figure, with codes and names."""
         return []
     
-    def _get_line_styles(self, figure: Any) -> List[str]:
-        """Get the line styles used in the figure."""
+    def _get_line_styles(self, figure: Any) -> List[dict]:
+        """Get the line styles used in the figure, with codes and names."""
         return []
     
-    def _get_background_color(self, figure: Any) -> Optional[str]:
-        """Get the background color of the figure."""
+    def _get_background_color(self, figure: Any) -> Optional[dict]:
+        """Get the background color of the figure, with hex and common name if possible."""
         return None
     
     def _get_axis_title(self, ax: Any) -> Optional[str]:

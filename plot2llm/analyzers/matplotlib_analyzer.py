@@ -35,7 +35,7 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 include_colors: bool = True,
                 include_statistics: bool = True) -> Dict[str, Any]:
         """
-        Analyze a matplotlib figure and extract relevant information.
+        Analyze a matplotlib figure and extract comprehensive information.
         
         Args:
             figure: The matplotlib figure object
@@ -47,40 +47,40 @@ class MatplotlibAnalyzer(BaseAnalyzer):
         Returns:
             Dictionary containing the analysis results
         """
-        self.include_data = include_data
-        self.include_colors = include_colors
-        self.include_statistics = include_statistics
-        
         try:
-            # Extract basic information
-            basic_info = self.extract_basic_info(figure)
+            # Basic figure information
+            figure_info = self._get_figure_info(figure)
             
-            # Extract axes information
-            axes_info = self.extract_axes_info(figure)
+            # Detailed axis information
+            axis_info = self._get_axis_info(figure)
             
-            # Extract data information
-            data_info = self.extract_data_info(figure) if include_data else {}
+            # Color information
+            colors = self._get_colors(figure) if include_colors else []
             
-            # Extract visual information
-            visual_info = self.extract_visual_info(figure) if include_colors else {}
+            # Statistical information
+            statistics = self._get_statistics(figure) if include_statistics else {"per_curve": [], "per_axis": []}
             
             # Combine all information
-            analysis = {
-                "basic_info": basic_info,
-                "axes_info": axes_info,
-                "data_info": data_info,
-                "visual_info": visual_info,
+            result = {
+                "figure_type": "matplotlib",
+                "figure_info": figure_info,
+                "axis_info": axis_info,
+                "colors": colors,
+                "statistics": statistics
             }
             
-            # Add detail-specific information
-            if detail_level == "high":
-                analysis["detailed_info"] = self._extract_detailed_info(figure)
-            
-            return analysis
+            return result
             
         except Exception as e:
             logger.error(f"Error analyzing matplotlib figure: {str(e)}")
-            raise
+            return {
+                "figure_type": "matplotlib",
+                "error": str(e),
+                "figure_info": {},
+                "axis_info": {"axes": [], "figure_title": "", "total_axes": 0},
+                "colors": [],
+                "statistics": {"per_curve": [], "per_axis": []}
+            }
     
     def _get_figure_type(self, figure: Any) -> str:
         """Get the type of the matplotlib figure (standardized)."""
@@ -267,8 +267,9 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             return []
     
     def _get_statistics(self, figure: Any) -> Dict[str, Any]:
-        """Get statistical information about the data, per curve and per axis."""
+        """Get statistical information about the data in the matplotlib figure, per curve and per axis."""
         stats = {"per_curve": [], "per_axis": []}
+        
         try:
             axes = self._get_axes(figure)
             all_data = []
@@ -280,38 +281,172 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                     "axis_index": i,
                     "title": ax.get_title() if ax.get_title() else f"Subplot {i+1}",
                     "data_types": [],
-                    "data_points": 0
+                    "data_points": 0,
+                    "matrix_data": None
                 }
                 
-                # Collect data from lines in this axis
-                for line in ax.lines:
-                    if hasattr(line, '_y') and line._y is not None:
-                        y = np.array(line._y)
-                        axis_data.extend(y)
-                        axis_stats["data_points"] += len(y)
-                        if "line_plot" not in axis_stats["data_types"]:
-                            axis_stats["data_types"].append("line_plot")
-                
-                # Collect data from collections (scatter plots, histograms, etc.)
+                # Check for heatmaps first (QuadMesh) - seaborn heatmaps
+                has_heatmap = False
                 for collection in ax.collections:
-                    if hasattr(collection, '_offsets') and len(collection._offsets) > 0:
-                        # For scatter plots
-                        if hasattr(collection, '_offsets'):
-                            offsets = collection._offsets
-                            if len(offsets) > 0 and offsets.shape[1] >= 2:
-                                y_data = offsets[:, 1]  # Y coordinates
-                                axis_data.extend(y_data)
-                                axis_stats["data_points"] += len(y_data)
-                                if "scatter_plot" not in axis_stats["data_types"]:
-                                    axis_stats["data_types"].append("scatter_plot")
+                    if collection.__class__.__name__ == "QuadMesh" and hasattr(collection, 'get_array'):
+                        try:
+                            arr = collection.get_array()
+                            if arr is not None:
+                                arr = np.asarray(arr)
+                                if hasattr(arr, 'mask'):
+                                    arr = np.ma.filled(arr, np.nan)
+                                matrix_data = arr.tolist() if hasattr(arr, 'tolist') else arr
+                                axis_stats["matrix_data"] = {
+                                    "shape": arr.shape if hasattr(arr, 'shape') else (arr,),
+                                    "data": matrix_data,
+                                    "min_value": float(np.nanmin(arr)),
+                                    "max_value": float(np.nanmax(arr)),
+                                    "mean_value": float(np.nanmean(arr)),
+                                    "std_value": float(np.nanstd(arr))
+                                }
+                                flat_data = arr.flatten() if hasattr(arr, 'flatten') else arr
+                                axis_data.extend(flat_data)
+                                axis_stats["data_points"] += len(flat_data)
+                                axis_stats["data_types"].append("heatmap")
+                                has_heatmap = True
+                                break
+                        except Exception as e:
+                            logger.warning(f"Error processing QuadMesh: {str(e)}")
+                            continue
                 
-                # Collect data from patches (histograms, bar plots, etc.)
+                # If no QuadMesh, try images
+                if not has_heatmap:
+                    for image in ax.images:
+                        try:
+                            if hasattr(image, 'get_array'):
+                                img_data = image.get_array()
+                                if img_data is not None:
+                                    img_data = np.asarray(img_data)
+                                    if hasattr(img_data, 'mask'):
+                                        img_data = np.ma.filled(img_data, np.nan)
+                                    matrix_data = img_data.tolist() if hasattr(img_data, 'tolist') else img_data
+                                    axis_stats["matrix_data"] = {
+                                        "shape": img_data.shape if hasattr(img_data, 'shape') else (img_data,),
+                                        "data": matrix_data,
+                                        "min_value": float(np.nanmin(img_data)),
+                                        "max_value": float(np.nanmax(img_data)),
+                                        "mean_value": float(np.nanmean(img_data)),
+                                        "std_value": float(np.nanstd(img_data))
+                                    }
+                                    flat_data = img_data.flatten() if hasattr(img_data, 'flatten') else img_data
+                                    axis_data.extend(flat_data)
+                                    axis_stats["data_points"] += len(flat_data)
+                                    axis_stats["data_types"].append("heatmap")
+                                    has_heatmap = True
+                                    break
+                        except Exception as e:
+                            logger.warning(f"Error processing heatmap image: {str(e)}")
+                            continue
+                
+                # If this is a heatmap, skip other data types
+                if has_heatmap:
+                    if axis_data and len(axis_data) > 0:
+                        try:
+                            axis_data = np.array(axis_data)
+                            # Remove any NaN or infinite values
+                            axis_data = axis_data[np.isfinite(axis_data)]
+                            
+                            if len(axis_data) > 0:
+                                axis_stats.update({
+                                    "mean": float(np.nanmean(axis_data)),
+                                    "std": float(np.nanstd(axis_data)),
+                                    "min": float(np.nanmin(axis_data)),
+                                    "max": float(np.nanmax(axis_data)),
+                                    "median": float(np.nanmedian(axis_data)),
+                                    "outliers": [],
+                                    "local_var": float(np.nanvar(axis_data[:max(1, len(axis_data)//10)])),
+                                    "trend": 0.0,
+                                    "skewness": 0.0,
+                                    "kurtosis": 0.0
+                                })
+                                
+                                # Calculate outliers only if we have enough data
+                                if len(axis_data) > 3:
+                                    mean_val = np.nanmean(axis_data)
+                                    std_val = np.nanstd(axis_data)
+                                    if std_val > 0:
+                                        outliers = axis_data[np.abs(axis_data - mean_val) > 2 * std_val]
+                                        axis_stats["outliers"] = [float(val) for val in outliers]
+                                
+                                # Calculate trend only if we have enough data
+                                if len(axis_data) > 1:
+                                    try:
+                                        trend = np.polyfit(np.arange(len(axis_data)), axis_data, 1)[0]
+                                        axis_stats["trend"] = float(trend)
+                                    except Exception:
+                                        axis_stats["trend"] = 0.0
+                                
+                                # Calculate skewness and kurtosis only if we have enough data
+                                if len(axis_data) > 2:
+                                    try:
+                                        axis_stats["skewness"] = float(self._calculate_skewness(axis_data))
+                                        axis_stats["kurtosis"] = float(self._calculate_kurtosis(axis_data))
+                                    except Exception:
+                                        axis_stats["skewness"] = 0.0
+                                        axis_stats["kurtosis"] = 0.0
+                                
+                                all_data.extend(axis_data)
+                            else:
+                                axis_stats.update({
+                                    "mean": None, "std": None, "min": None, "max": None, "median": None,
+                                    "outliers": [], "local_var": None, "trend": None,
+                                    "skewness": None, "kurtosis": None
+                                })
+                        except Exception as e:
+                            logger.warning(f"Error calculating heatmap statistics for axis {i}: {str(e)}")
+                            axis_stats.update({
+                                "mean": None, "std": None, "min": None, "max": None, "median": None,
+                                "outliers": [], "local_var": None, "trend": None,
+                                "skewness": None, "kurtosis": None
+                            })
+                    else:
+                        axis_stats.update({
+                            "mean": None, "std": None, "min": None, "max": None, "median": None,
+                            "outliers": [], "local_var": None, "trend": None,
+                            "skewness": None, "kurtosis": None
+                        })
+                    stats["per_axis"].append(axis_stats)
+                    continue
+                
+                # Collect data from collections (scatter plots, etc.)
+                for collection in ax.collections:
+                    if hasattr(collection, 'get_offsets'):
+                        offsets = collection.get_offsets()
+                        if offsets is not None and len(offsets) > 0:
+                            x_data = offsets[:, 0]
+                            y_data = offsets[:, 1]
+                            
+                            # Add both x and y data
+                            axis_data.extend(x_data)
+                            axis_data.extend(y_data)
+                            axis_stats["data_points"] += len(x_data) + len(y_data)
+                            if "scatter_plot" not in axis_stats["data_types"]:
+                                axis_stats["data_types"].append("scatter_plot")
+                
+                # Collect data from lines
+                for line in ax.lines:
+                    if hasattr(line, 'get_xdata') and hasattr(line, 'get_ydata'):
+                        x_data = line.get_xdata()
+                        y_data = line.get_ydata()
+                        
+                        if x_data is not None and y_data is not None and len(x_data) > 0 and len(y_data) > 0:
+                            axis_data.extend(x_data)
+                            axis_data.extend(y_data)
+                            axis_stats["data_points"] += len(x_data) + len(y_data)
+                            if "line_plot" not in axis_stats["data_types"]:
+                                axis_stats["data_types"].append("line_plot")
+                
+                # Collect data from patches (histograms, bar plots)
                 for patch in ax.patches:
                     try:
-                        # For histogram bars, get the height (frequency)
                         if hasattr(patch, 'get_height'):
                             height = patch.get_height()
-                            if height > 0:  # Only include non-zero heights
+                            if height > 0:
                                 axis_data.append(float(height))
                                 axis_stats["data_points"] += 1
                                 if "histogram" not in axis_stats["data_types"]:
@@ -319,38 +454,69 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                     except Exception:
                         continue
                 
-                # Collect data from images (if any)
-                for image in ax.images:
-                    try:
-                        if hasattr(image, 'get_array'):
-                            img_data = image.get_array()
-                            if img_data is not None:
-                                # Flatten the image data
-                                flat_data = img_data.flatten()
-                                axis_data.extend(flat_data)
-                                axis_stats["data_points"] += len(flat_data)
-                                if "image" not in axis_stats["data_types"]:
-                                    axis_stats["data_types"].append("image")
-                    except Exception:
-                        continue
-                
                 # Calculate statistics for this axis if it has data
-                if axis_data:
-                    axis_data = np.array(axis_data)
-                    axis_stats.update({
-                        "mean": float(np.mean(axis_data)),
-                        "std": float(np.std(axis_data)),
-                        "min": float(np.min(axis_data)),
-                        "max": float(np.max(axis_data)),
-                        "median": float(np.median(axis_data)),
-                        "outliers": [float(val) for val in axis_data[(np.abs(axis_data - np.mean(axis_data)) > 2 * np.std(axis_data))]],
-                        "local_var": float(np.var(axis_data[:max(1, len(axis_data)//10)])),
-                        "trend": float(np.polyfit(np.arange(len(axis_data)), axis_data, 1)[0]) if len(axis_data) > 1 else 0.0,
-                        "skewness": float(self._calculate_skewness(axis_data)),
-                        "kurtosis": float(self._calculate_kurtosis(axis_data))
-                    })
-                    all_data.extend(axis_data)
+                if axis_data and len(axis_data) > 0:
+                    try:
+                        axis_data = np.array(axis_data)
+                        # Remove any NaN or infinite values
+                        axis_data = axis_data[np.isfinite(axis_data)]
+                        
+                        if len(axis_data) > 0:
+                            axis_stats.update({
+                                "mean": float(np.nanmean(axis_data)),
+                                "std": float(np.nanstd(axis_data)),
+                                "min": float(np.nanmin(axis_data)),
+                                "max": float(np.nanmax(axis_data)),
+                                "median": float(np.nanmedian(axis_data)),
+                                "outliers": [],
+                                "local_var": float(np.nanvar(axis_data[:max(1, len(axis_data)//10)])),
+                                "trend": 0.0,
+                                "skewness": 0.0,
+                                "kurtosis": 0.0
+                            })
+                            
+                            # Calculate outliers only if we have enough data
+                            if len(axis_data) > 3:
+                                mean_val = np.nanmean(axis_data)
+                                std_val = np.nanstd(axis_data)
+                                if std_val > 0:
+                                    outliers = axis_data[np.abs(axis_data - mean_val) > 2 * std_val]
+                                    axis_stats["outliers"] = [float(val) for val in outliers]
+                            
+                            # Calculate trend only if we have enough data
+                            if len(axis_data) > 1:
+                                try:
+                                    trend = np.polyfit(np.arange(len(axis_data)), axis_data, 1)[0]
+                                    axis_stats["trend"] = float(trend)
+                                except Exception:
+                                    axis_stats["trend"] = 0.0
+                            
+                            # Calculate skewness and kurtosis only if we have enough data
+                            if len(axis_data) > 2:
+                                try:
+                                    axis_stats["skewness"] = float(self._calculate_skewness(axis_data))
+                                    axis_stats["kurtosis"] = float(self._calculate_kurtosis(axis_data))
+                                except Exception:
+                                    axis_stats["skewness"] = 0.0
+                                    axis_stats["kurtosis"] = 0.0
+                            
+                            all_data.extend(axis_data)
+                        else:
+                            # No valid data
+                            axis_stats.update({
+                                "mean": None, "std": None, "min": None, "max": None, "median": None,
+                                "outliers": [], "local_var": None, "trend": None,
+                                "skewness": None, "kurtosis": None
+                            })
+                    except Exception as e:
+                        logger.warning(f"Error calculating statistics for axis {i}: {str(e)}")
+                        axis_stats.update({
+                            "mean": None, "std": None, "min": None, "max": None, "median": None,
+                            "outliers": [], "local_var": None, "trend": None,
+                            "skewness": None, "kurtosis": None
+                        })
                 else:
+                    # No data
                     axis_stats.update({
                         "mean": None, "std": None, "min": None, "max": None, "median": None,
                         "outliers": [], "local_var": None, "trend": None,
@@ -359,36 +525,56 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 
                 stats["per_axis"].append(axis_stats)
             
-            # Statistics per curve (existing functionality)
+            # Statistics per curve (for line plots)
             for ax in axes:
                 for line in ax.lines:
-                    if hasattr(line, '_y') and line._y is not None:
-                        y = np.array(line._y)
-                        curve_stats = {
-                            "label": line.get_label(),
-                            "mean": float(np.mean(y)),
-                            "std": float(np.std(y)),
-                            "min": float(np.min(y)),
-                            "max": float(np.max(y)),
-                            "median": float(np.median(y)),
-                            "outliers": [float(val) for val in y[(np.abs(y - np.mean(y)) > 2 * np.std(y))]],
-                            "local_var": float(np.var(y[:max(1, len(y)//10)])),
-                            "trend": float(np.polyfit(np.arange(len(y)), y, 1)[0]) if len(y) > 1 else 0.0
-                        }
-                        stats["per_curve"].append(curve_stats)
+                    if hasattr(line, 'get_xdata') and hasattr(line, 'get_ydata'):
+                        x_data = line.get_xdata()
+                        y_data = line.get_ydata()
+                        
+                        if x_data is not None and y_data is not None and len(x_data) > 0 and len(y_data) > 0:
+                            try:
+                                # Remove any NaN or infinite values
+                                x_data = np.array(x_data)[np.isfinite(x_data)]
+                                y_data = np.array(y_data)[np.isfinite(y_data)]
+                                
+                                if len(x_data) > 0 and len(y_data) > 0:
+                                    curve_stats = {
+                                        "label": line.get_label(),
+                                        "x_mean": float(np.nanmean(x_data)),
+                                        "x_std": float(np.nanstd(x_data)),
+                                        "x_min": float(np.nanmin(x_data)),
+                                        "x_max": float(np.nanmax(x_data)),
+                                        "y_mean": float(np.nanmean(y_data)),
+                                        "y_std": float(np.nanstd(y_data)),
+                                        "y_min": float(np.nanmin(y_data)),
+                                        "y_max": float(np.nanmax(y_data)),
+                                    }
+                                    stats["per_curve"].append(curve_stats)
+                            except Exception as e:
+                                logger.warning(f"Error calculating curve statistics: {str(e)}")
+                                continue
             
             # Global statistics
-            if all_data:
-                all_data = np.array(all_data)
-                stats["global"] = {
-                    "mean": float(np.mean(all_data)),
-                    "std": float(np.std(all_data)),
-                    "min": float(np.min(all_data)),
-                    "max": float(np.max(all_data)),
-                    "median": float(np.median(all_data)),
-                }
+            if all_data and len(all_data) > 0:
+                try:
+                    all_data = np.array(all_data)
+                    all_data = all_data[np.isfinite(all_data)]
+                    
+                    if len(all_data) > 0:
+                        stats["global"] = {
+                            "mean": float(np.nanmean(all_data)),
+                            "std": float(np.nanstd(all_data)),
+                            "min": float(np.nanmin(all_data)),
+                            "max": float(np.nanmax(all_data)),
+                            "median": float(np.nanmedian(all_data)),
+                        }
+                except Exception as e:
+                    logger.warning(f"Error calculating global statistics: {str(e)}")
+            
         except Exception as e:
-            logger.warning(f"Error calculating statistics: {str(e)}")
+            logger.warning(f"Error getting statistics: {str(e)}")
+        
         return stats
     
     def _calculate_skewness(self, data: np.ndarray) -> float:
@@ -416,43 +602,54 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             return 0.0
     
     def _get_colors(self, figure: Any) -> List[dict]:
-        """Get the colors used in the figure, with hex and common name if possible."""
+        """Get the colors used in the figure, with hex and common name if possible. No colors for heatmaps."""
         def hex_to_name(hex_color):
             try:
+                import webcolors
                 return webcolors.hex_to_name(hex_color)
             except Exception:
                 return None
+        
         colors = []
         try:
             axes = self._get_axes(figure)
             for ax in axes:
+                # NO colors from images (heatmaps)
+                # Only extract from lines, collections, patches
                 # Colors from lines
                 for line in ax.lines:
                     if hasattr(line, '_color'):
-                        color_hex = to_hex(line._color)
-                        color_name = hex_to_name(color_hex)
-                        if color_hex not in [c['hex'] for c in colors]:
-                            colors.append({"hex": color_hex, "name": color_name})
-                
+                        try:
+                            color_hex = to_hex(line._color)
+                            color_name = hex_to_name(color_hex)
+                            if color_hex not in [c['hex'] for c in colors]:
+                                colors.append({"hex": color_hex, "name": color_name})
+                        except Exception:
+                            continue
                 # Colors from collections (scatter plots)
                 for collection in ax.collections:
                     if hasattr(collection, '_facecolors'):
                         for color in collection._facecolors:
-                            hex_color = to_hex(color)
-                            color_name = hex_to_name(hex_color)
-                            if hex_color not in [c['hex'] for c in colors]:
-                                colors.append({"hex": hex_color, "name": color_name})
-                
+                            try:
+                                hex_color = to_hex(color)
+                                color_name = hex_to_name(hex_color)
+                                if hex_color not in [c['hex'] for c in colors]:
+                                    colors.append({"hex": hex_color, "name": color_name})
+                            except Exception:
+                                continue
                 # Colors from patches (histograms, bar plots)
                 for patch in ax.patches:
                     try:
                         if hasattr(patch, 'get_facecolor'):
                             facecolor = patch.get_facecolor()
                             if facecolor is not None:
-                                hex_color = to_hex(facecolor)
-                                color_name = hex_to_name(hex_color)
-                                if hex_color not in [c['hex'] for c in colors]:
-                                    colors.append({"hex": hex_color, "name": color_name})
+                                try:
+                                    hex_color = to_hex(facecolor)
+                                    color_name = hex_to_name(hex_color)
+                                    if hex_color not in [c['hex'] for c in colors]:
+                                        colors.append({"hex": hex_color, "name": color_name})
+                                except Exception:
+                                    continue
                     except Exception:
                         continue
         except Exception as e:
@@ -477,8 +674,16 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             logger.warning(f"Error extracting markers: {str(e)}")
         return markers
     
-    def _get_line_styles(self, figure: Any) -> List[str]:
-        """Get the line styles used in the figure."""
+    def _get_line_styles(self, figure: Any) -> List[dict]:
+        """Get the line styles used in the figure, with codes and names."""
+        def line_style_to_name(style_code):
+            """Convert matplotlib line style code to readable name."""
+            style_names = {
+                '-': 'solid', '--': 'dashed', '-.': 'dashdot', ':': 'dotted',
+                'None': 'none', ' ': 'none', '': 'none'
+            }
+            return style_names.get(str(style_code), str(style_code))
+        
         styles = []
         try:
             axes = self._get_axes(figure)
@@ -486,22 +691,36 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             for ax in axes:
                 for line in ax.lines:
                     if hasattr(line, '_linestyle') and line._linestyle != 'None':
-                        if line._linestyle not in styles:
-                            styles.append(line._linestyle)
+                        style_code = line._linestyle
+                        style_name = line_style_to_name(style_code)
+                        if style_code not in [s['code'] for s in styles]:
+                            styles.append({"code": style_code, "name": style_name})
         
         except Exception as e:
             logger.warning(f"Error extracting line styles: {str(e)}")
         
         return styles
     
-    def _get_background_color(self, figure: Any) -> Optional[str]:
-        """Get the background color of the figure."""
+    def _get_background_color(self, figure: Any) -> Optional[dict]:
+        """Get the background color of the figure, with hex and common name if possible."""
+        def hex_to_name(hex_color):
+            try:
+                import webcolors
+                return webcolors.hex_to_name(hex_color)
+            except Exception:
+                return None
+        
         try:
             if isinstance(figure, mpl_figure.Figure):
-                return to_hex(figure.get_facecolor())
+                bg_color = figure.get_facecolor()
             elif isinstance(figure, mpl_axes.Axes):
-                return to_hex(figure.get_facecolor())
-            return None
+                bg_color = figure.get_facecolor()
+            else:
+                return None
+            
+            hex_color = to_hex(bg_color)
+            color_name = hex_to_name(hex_color)
+            return {"hex": hex_color, "name": color_name}
         except Exception:
             return None
     
@@ -538,3 +757,125 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             logger.warning(f"Error extracting detailed info: {str(e)}")
         
         return detailed_info
+
+    def _get_figure_info(self, figure: Any) -> Dict[str, Any]:
+        """Get basic information about the matplotlib figure."""
+        try:
+            figure_type = self._get_figure_type(figure)
+            dimensions = self._get_dimensions(figure)
+            title = self._get_title(figure)
+            axes_count = self._get_axes_count(figure)
+            
+            return {
+                "figure_type": figure_type,
+                "dimensions": [float(dim) for dim in dimensions],
+                "title": title,
+                "axes_count": axes_count
+            }
+        except Exception as e:
+            logger.warning(f"Error getting figure info: {str(e)}")
+            return {
+                "figure_type": "unknown",
+                "dimensions": [0, 0],
+                "title": None,
+                "axes_count": 0
+            }
+
+    def _get_axis_info(self, figure: Any) -> Dict[str, Any]:
+        """Get detailed information about axes, including titles and labels."""
+        axis_info = {"axes": [], "figure_title": "", "total_axes": 0}
+        
+        try:
+            axes = self._get_axes(figure)
+            axis_info["total_axes"] = len(axes)
+            
+            # Get figure title
+            if hasattr(figure, '_suptitle') and figure._suptitle:
+                axis_info["figure_title"] = figure._suptitle.get_text()
+            elif hasattr(figure, 'get_suptitle'):
+                axis_info["figure_title"] = figure.get_suptitle()
+            
+            for i, ax in enumerate(axes):
+                ax_info = {
+                    "index": i,
+                    "title": "",
+                    "x_label": "",
+                    "y_label": "",
+                    "x_lim": None,
+                    "y_lim": None,
+                    "has_data": False
+                }
+                
+                # Extract axis title (subplot title)
+                try:
+                    if hasattr(ax, 'get_title'):
+                        title = ax.get_title()
+                        if title and title.strip():
+                            ax_info["title"] = title.strip()
+                except Exception:
+                    pass
+                
+                # Extract X and Y axis labels
+                try:
+                    if hasattr(ax, 'get_xlabel'):
+                        x_label = ax.get_xlabel()
+                        if x_label and x_label.strip():
+                            ax_info["x_label"] = x_label.strip()
+                except Exception:
+                    pass
+                
+                try:
+                    if hasattr(ax, 'get_ylabel'):
+                        y_label = ax.get_ylabel()
+                        if y_label and y_label.strip():
+                            ax_info["y_label"] = y_label.strip()
+                except Exception:
+                    pass
+                
+                # Extract axis limits
+                try:
+                    if hasattr(ax, 'get_xlim'):
+                        x_lim = ax.get_xlim()
+                        if x_lim and len(x_lim) == 2:
+                            ax_info["x_lim"] = [float(x_lim[0]), float(x_lim[1])]
+                except Exception:
+                    pass
+                
+                try:
+                    if hasattr(ax, 'get_ylim'):
+                        y_lim = ax.get_ylim()
+                        if y_lim and len(y_lim) == 2:
+                            ax_info["y_lim"] = [float(y_lim[0]), float(y_lim[1])]
+                except Exception:
+                    pass
+                
+                # Check if axis has data
+                try:
+                    has_data = False
+                    
+                    # Check collections (scatter plots, etc.)
+                    if hasattr(ax, 'collections') and ax.collections:
+                        has_data = True
+                    
+                    # Check lines
+                    if hasattr(ax, 'lines') and ax.lines:
+                        has_data = True
+                    
+                    # Check patches (histograms, bar plots)
+                    if hasattr(ax, 'patches') and ax.patches:
+                        has_data = True
+                    
+                    # Check images (heatmaps)
+                    if hasattr(ax, 'images') and ax.images:
+                        has_data = True
+                    
+                    ax_info["has_data"] = has_data
+                except Exception:
+                    ax_info["has_data"] = False
+                
+                axis_info["axes"].append(ax_info)
+            
+        except Exception as e:
+            logger.warning(f"Error getting axis info: {str(e)}")
+        
+        return axis_info

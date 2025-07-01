@@ -23,17 +23,41 @@ def detect_figure_type(figure: Any) -> str:
         String indicating the figure type
     """
     try:
-        # Check for matplotlib figures
-        if hasattr(figure, '_suptitle') or hasattr(figure, 'axes'):
-            return "matplotlib"
+        # Check for seaborn figures FIRST (before matplotlib)
+        if hasattr(figure, '__class__'):
+            class_name = figure.__class__.__name__
+            module_name = figure.__class__.__module__
+            
+            if 'seaborn' in module_name:
+                return "seaborn"
         
-        # Check for plotly figures
-        if hasattr(figure, 'to_dict') and hasattr(figure, 'data'):
-            return "plotly"
+        # Check for matplotlib figures that contain seaborn elements
+        if hasattr(figure, '_suptitle') or hasattr(figure, 'axes'):
+            # Check if any axis contains seaborn-specific elements
+            if hasattr(figure, 'axes'):
+                for ax in figure.axes:
+                    # Check for QuadMesh (seaborn heatmaps)
+                    for collection in ax.collections:
+                        if collection.__class__.__name__ == "QuadMesh":
+                            return "seaborn"
+                    
+                    # Check for seaborn-specific plot types
+                    if hasattr(ax, 'get_children'):
+                        for child in ax.get_children():
+                            if hasattr(child, '__class__'):
+                                child_class = child.__class__.__name__
+                                if child_class in ["FacetGrid", "PairGrid", "JointGrid"]:
+                                    return "seaborn"
+            
+            return "matplotlib"
         
         # Check for seaborn figures (which are matplotlib figures)
         if hasattr(figure, 'figure') and hasattr(figure.figure, 'axes'):
             return "seaborn"
+        
+        # Check for plotly figures
+        if hasattr(figure, 'to_dict') and hasattr(figure, 'data'):
+            return "plotly"
         
         # Check for bokeh figures
         if hasattr(figure, 'renderers') and hasattr(figure, 'plot'):
