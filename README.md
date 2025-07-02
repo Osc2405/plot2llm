@@ -1,15 +1,17 @@
 # Plot2LLM
 
-A Python library for converting figures from popular plotting libraries (matplotlib, seaborn, plotly) into formats understandable by Large Language Models (LLMs).
+> ⚠️ **This library is under active development. Currently, only Matplotlib and Seaborn are supported. Support for other libraries such as Plotly, Bokeh, Altair, and Pandas is planned but not yet implemented.**
+
+A Python library for converting figures from popular visualization libraries (matplotlib, seaborn, plotly) into formats understandable by Large Language Models (LLMs).
 
 ## 🚀 Features
 
-- **Multi-library Support**: Works with matplotlib, seaborn, plotly, and more
-- **Comprehensive Analysis**: Extracts data, statistics, colors, and metadata
-- **Multiple Output Formats**: JSON, text, and semantic formats
-- **Advanced Statistics**: Per-axis and per-curve statistical analysis
-- **Heatmap Support**: Full matrix data extraction for heatmaps
-- **Robust Error Handling**: Graceful handling of edge cases and warnings
+- **Multi-library support**: Currently Matplotlib and Seaborn
+- **Comprehensive analysis**: Extracts data, statistics, colors, and metadata
+- **Multiple output formats**: JSON, text, and semantic
+- **Advanced statistics**: Per-axis and per-curve statistical analysis
+- **Heatmap support**: Full matrix data extraction for heatmaps
+- **Robust error handling**: Handles edge cases and warnings gracefully
 
 ## 📦 Installation
 
@@ -33,7 +35,7 @@ import seaborn as sns
 import numpy as np
 from plot2llm import FigureConverter
 
-# Create a simple plot
+# Create a simple heatmap
 data = np.random.rand(10, 10)
 plt.figure(figsize=(8, 6))
 sns.heatmap(data, annot=True, cmap='viridis')
@@ -51,10 +53,25 @@ print(f"Matrix data shape: {result['statistics']['per_axis'][0]['matrix_data']['
 
 ## 📊 Supported Libraries
 
-- **Matplotlib**: Line plots, scatter plots, histograms, bar charts
+- **Matplotlib**: Line plots, scatter plots, histograms, bar charts, etc.
 - **Seaborn**: Heatmaps, FacetGrid, PairGrid, distribution plots
-- **Plotly**: Interactive plots and charts
-- **Pandas**: DataFrame plotting methods
+
+**Planned (not yet implemented):**
+- Plotly
+- Bokeh
+- Altair
+- Pandas
+
+## 🛣️ Roadmap / Next Steps
+
+- [ ] Support for Plotly figures
+- [ ] Support for Bokeh
+- [ ] Support for Altair
+- [ ] Support for Pandas plots
+- [ ] Improved documentation and examples
+- [ ] More tests and cross-validation
+
+Contributions to add support for new libraries are welcome!
 
 ## 🔧 API Reference
 
@@ -73,7 +90,7 @@ converter = FigureConverter(
 
 ### Output Formats
 
-- **JSON**: Structured data format for programmatic access
+- **JSON**: Structured format for programmatic access
 - **Text**: Human-readable text description
 - **Semantic**: Rich semantic structure for LLM processing
 
@@ -144,28 +161,12 @@ for axis in axis_info['axes']:
 
 ## 🔍 Recent Improvements
 
-### ✅ Heatmap Processing
-- **Full matrix data extraction** from seaborn heatmaps
-- **QuadMesh support** for complete data access
-- **Colorbar analysis** with statistical information
-- **Robust handling** of masked arrays
-
-### ✅ Numpy Warning Optimization
-- **Global warning suppression** for cleaner output
-- **Robust array handling** with NaN and infinite values
-- **Improved statistical functions** with edge case handling
-
-### ✅ Enhanced Axis Information
-- **Detailed title extraction** for subplots
-- **Axis label detection** (X and Y labels)
-- **Data presence detection** per axis
-- **Figure title extraction** from suptitle
-
-### ✅ Consistent JSON Format
-- **Unified structure** across all analyzers
-- **Numpy array serialization** support
-- **Error handling** with fallback values
-- **Metadata inclusion** for analysis tracking
+- Full matrix data extraction in seaborn heatmaps
+- QuadMesh support
+- Colorbar and statistics analysis
+- Robust handling of arrays with NaN/infinite values
+- Detailed extraction of titles and axis labels
+- Unified JSON format and array serialization
 
 ## 🧪 Testing
 
@@ -184,71 +185,14 @@ python test_improvements.py
 
 ## 📈 Output Structure
 
-The library provides comprehensive analysis in a structured format:
-
-```json
-{
-  "figure_type": "seaborn",
-  "figure_info": {
-    "figure_type": "matplotlib.Figure",
-    "dimensions": [8.0, 6.0],
-    "title": "Sample Plot",
-    "axes_count": 2
-  },
-  "axis_info": {
-    "axes": [
-      {
-        "index": 0,
-        "title": "Main Plot",
-        "x_label": "X Axis",
-        "y_label": "Y Axis",
-        "has_data": true
-      }
-    ],
-    "figure_title": "Main Figure Title",
-    "total_axes": 1
-  },
-  "colors": [
-    {
-      "hex": "#1f77b4",
-      "name": "steel blue"
-    }
-  ],
-  "statistics": {
-    "per_axis": [
-      {
-        "axis_index": 0,
-        "title": "Main Plot",
-        "data_types": ["scatter_plot"],
-        "data_points": 100,
-        "mean": 0.5,
-        "std": 0.3,
-        "min": 0.1,
-        "max": 0.9,
-        "median": 0.5,
-        "outliers": [],
-        "skewness": 0.0,
-        "kurtosis": 0.0
-      }
-    ],
-    "per_curve": [],
-    "global": {
-      "mean": 0.5,
-      "std": 0.3,
-      "min": 0.1,
-      "max": 0.9,
-      "median": 0.5
-    }
-  }
-}
-```
+The library provides comprehensive analysis in a structured format (see examples in `/plot2llm_examples/`).
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
+2. Create a feature branch (`git checkout -b feature/new-library-support`)
+3. Make your changes and commit (`git commit -m 'Add support for X'`)
+4. Push to your branch (`git push origin feature/new-library-support`)
 5. Open a Pull Request
 
 ## 📝 License
@@ -257,13 +201,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- Built on top of matplotlib, seaborn, and plotly
+- Built on top of matplotlib and seaborn
 - Inspired by the need for better LLM-figure interaction
-- Community contributions and feedback
+- Contributions and feedback are welcome!
 
 ## 📞 Support
 
-For questions, issues, or contributions, please open an issue on GitHub or contact the maintainers.
+For questions, issues, or contributions, open an issue on GitHub or contact the maintainers.
 
 ---
 
