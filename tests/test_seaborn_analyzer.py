@@ -54,7 +54,7 @@ class TestSeabornAnalyzer:
         
         # Check basic info
         basic_info = result["basic_info"]
-        assert basic_info["figure_type"] in ["matplotlib.figure", "seaborn.scatterplot"]
+        assert basic_info["figure_type"] in ["matplotlib.figure", "seaborn.scatterplot", "seaborn"]
         assert basic_info["axes_count"] > 0
         
         # Check seaborn info

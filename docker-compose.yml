@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  plot2llm:
+    build: .
+    container_name: plot2llm-dev
+    volumes:
+      - .:/app
+      - ./data:/app/data
+      - ./output:/app/output
+    environment:
+      - PYTHONPATH=/app
+      - MPLBACKEND=Agg
+      - PLOT2LLM_LOG_LEVEL=INFO
+    working_dir: /app
+    command: python -c "import plot2llm; print('Plot2LLM development environment ready!')"
+    profiles:
+      - dev
+
+  plot2llm-test:
+    build: .
+    container_name: plot2llm-test
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app
+      - MPLBACKEND=Agg
+      - PLOT2LLM_LOG_LEVEL=DEBUG
+    working_dir: /app
+    command: python -m pytest tests/ -v --cov=plot2llm --cov-report=html
+    profiles:
+      - test
+
+  plot2llm-jupyter:
+    build: .
+    container_name: plot2llm-jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - .:/app
+      - ./notebooks:/app/notebooks
+      - ./data:/app/data
+      - ./output:/app/output
+    environment:
+      - PYTHONPATH=/app
+      - MPLBACKEND=Agg
+      - JUPYTER_ENABLE_LAB=yes
+    working_dir: /app
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token='' --NotebookApp.password=''
+    profiles:
+      - jupyter
+
+  plot2llm-docs:
+    build: .
+    container_name: plot2llm-docs
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ./docs:/app/docs
+    environment:
+      - PYTHONPATH=/app
+    working_dir: /app/docs
+    command: |
+      sh -c "
+        pip install sphinx sphinx-rtd-theme myst-parser &&
+        make html &&
+        python -m http.server 8000 --directory _build/html
+      "
+    profiles:
+      - docs
+
+  plot2llm-build:
+    build: .
+    container_name: plot2llm-build
+    volumes:
+      - .:/app
+      - ./dist:/app/dist
+    environment:
+      - PYTHONPATH=/app
+    working_dir: /app
+    command: |
+      sh -c "
+        pip install build twine &&
+        python -m build &&
+        twine check dist/*
+      "
+    profiles:
+      - build
+
+  plot2llm-lint:
+    build: .
+    container_name: plot2llm-lint
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app
+    working_dir: /app
+    command: |
+      sh -c "
+        pip install black isort flake8 mypy bandit &&
+        black --check --diff . &&
+        isort --check-only --diff . &&
+        flake8 plot2llm/ tests/ &&
+        mypy plot2llm/ &&
+        bandit -r plot2llm/
+      "
+    profiles:
+      - lint
+
+networks:
+  default:
+    name: plot2llm-network 

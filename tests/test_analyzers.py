@@ -9,18 +9,32 @@ import numpy as np
 from plot2llm.analyzers import BaseAnalyzer, MatplotlibAnalyzer
 
 
+class DummyAnalyzer(BaseAnalyzer):
+    def analyze(self, *args, **kwargs):
+        raise NotImplementedError()
+    def _get_figure_type(self, figure):
+        return "dummy"
+    def _get_dimensions(self, figure):
+        return (0, 0)
+    def _get_title(self, figure):
+        return ""
+    def _get_axes_count(self, figure):
+        return 0
+    def _get_axes(self, figure):
+        return []
+
 class TestBaseAnalyzer:
     """Test cases for the base BaseAnalyzer class."""
     
     def test_base_analyzer_initialization(self):
         """Test that base analyzer initializes correctly."""
-        analyzer = BaseAnalyzer()
+        analyzer = DummyAnalyzer()
         assert analyzer is not None
         assert hasattr(analyzer, 'analyze')
     
     def test_base_analyzer_analyze_raises_not_implemented(self):
         """Test that base analyzer raises NotImplementedError."""
-        analyzer = BaseAnalyzer()
+        analyzer = DummyAnalyzer()
         fig, ax = plt.subplots()
         
         with pytest.raises(NotImplementedError):

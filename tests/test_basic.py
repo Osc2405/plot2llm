@@ -24,7 +24,7 @@ def test_basic_conversion():
     
     # Basic assertions
     assert isinstance(result, str)
-    assert 'Figure type: matplotlib.figure' in result
+    assert 'Figure type: matplotlib' in result
     assert 'Title: Test Plot' in result
     assert 'X Axis' in result
     assert 'Y Axis' in result

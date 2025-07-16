@@ -5,10 +5,10 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="plot2llm",
-    version="0.1.0",
+    version="0.1.14",
     author="Plot2LLM Team",
     author_email="contact@plot2llm.com",
-    description="Convert Python figures to LLM-readable formats",
+    description="[ALPHA] Convert Python figures to LLM-readable formats. This package is under active development and not production-ready.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/plot2llm/plot2llm",
@@ -24,14 +24,17 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.13",
         "Topic :: Scientific/Engineering :: Visualization",
         "Topic :: Software Development :: Libraries :: Python Modules",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     python_requires=">=3.8",
     install_requires=[
-        "matplotlib>=3.5.0",
-        "numpy>=1.21.0",
-        "pandas>=1.3.0",
+        "matplotlib>=3.0.0",
+        "seaborn>=0.11.0",
+        "numpy>=1.9.0",
+        "pandas>=1.1.0",
     ],
     extras_require={
         "dev": [

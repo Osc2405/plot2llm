@@ -13,6 +13,7 @@ from matplotlib.markers import MarkerStyle
 import webcolors
 
 from .base_analyzer import BaseAnalyzer
+from plot2llm.utils import serialize_axis_values
 
 logger = logging.getLogger(__name__)
 
@@ -33,53 +34,136 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 detail_level: str = "medium",
                 include_data: bool = True,
                 include_colors: bool = True,
-                include_statistics: bool = True) -> Dict[str, Any]:
+                include_statistics: bool = True) -> dict:
         """
         Analyze a matplotlib figure and extract comprehensive information.
-        
-        Args:
-            figure: The matplotlib figure object
-            detail_level: Level of detail ("low", "medium", "high")
-            include_data: Whether to include data analysis
-            include_colors: Whether to include color analysis
-            include_statistics: Whether to include statistical analysis
-            
-        Returns:
-            Dictionary containing the analysis results
+        Returns a dict compatible with tests and formatters.
         """
+        import matplotlib.figure as mpl_figure
+        import matplotlib.axes as mpl_axes
+        if figure is None:
+            raise ValueError("Invalid figure object: None")
+        if not (isinstance(figure, mpl_figure.Figure) or isinstance(figure, mpl_axes.Axes)):
+            raise ValueError("Not a matplotlib figure")
         try:
-            # Basic figure information
+            # Basic info
             figure_info = self._get_figure_info(figure)
-            
-            # Detailed axis information
             axis_info = self._get_axis_info(figure)
-            
-            # Color information
             colors = self._get_colors(figure) if include_colors else []
-            
-            # Statistical information
             statistics = self._get_statistics(figure) if include_statistics else {"per_curve": [], "per_axis": []}
-            
-            # Combine all information
+
+            # For bar/categorical plots, ensure xticklabels are available
+            if hasattr(figure, 'canvas'):
+                try:
+                    figure.canvas.draw()
+                except Exception:
+                    pass
+
+            # Compose axes list for compatibility
+            axes = []
+            real_axes = self._get_axes(figure)
+            for idx, ax_info in enumerate(axis_info["axes"]):
+                plot_types = []
+                curve_points = []
+                x_type = None
+                if idx < len(real_axes):
+                    ax = real_axes[idx]
+                    # Detectar tipo de eje y etiquetas para x
+                    x_type_detected, x_labels = self._detect_axis_type_and_labels(ax, 'x')
+                    # Detect line plots
+                    if hasattr(ax, 'lines') and ax.lines:
+                        plot_types.append({"type": "line"})
+                        for line in ax.lines:
+                            x = line.get_xdata()
+                            y = line.get_ydata()
+                            x_serial = serialize_axis_values(x)
+                            y_serial = serialize_axis_values(y)
+                            if x_type is None:
+                                import numpy as np
+                                if np.issubdtype(np.array(x).dtype, np.datetime64):
+                                    x_type = "date"
+                                elif hasattr(x, 'dtype') and str(x.dtype).startswith('period'):
+                                    x_type = "period"
+                                elif all(isinstance(val, str) for val in x_serial):
+                                    x_type = "category"
+                                else:
+                                    x_type = "numeric"
+                            curve_points.append({"x": x_serial, "y": y_serial, "label": line.get_label()})
+                    # Detect scatter plots
+                    if hasattr(ax, 'collections') and ax.collections:
+                        plot_types.append({"type": "scatter"})
+                        for collection in ax.collections:
+                            if hasattr(collection, 'get_offsets'):
+                                offsets = collection.get_offsets()
+                                if offsets is not None and len(offsets) > 0:
+                                    x = offsets[:,0]
+                                    y = offsets[:,1]
+                                    x_serial = serialize_axis_values(x)
+                                    y_serial = serialize_axis_values(y)
+                                    if x_type is None:
+                                        import numpy as np
+                                        if np.issubdtype(np.array(x).dtype, np.datetime64):
+                                            x_type = "date"
+                                        elif all(isinstance(val, str) for val in x_serial):
+                                            x_type = "category"
+                                        else:
+                                            x_type = "numeric"
+                                    curve_points.append({"x": x_serial, "y": y_serial, "label": getattr(collection, 'get_label', lambda: None)()})
+                    # Detect bar/histogram plots
+                    if hasattr(ax, 'patches') and ax.patches:
+                        for patch_idx, patch in enumerate(ax.patches):
+                            if hasattr(patch, 'get_x') and hasattr(patch, 'get_height'):
+                                x = patch.get_x()
+                                y = patch.get_height()
+                                # Usar etiqueta de categoría si está disponible
+                                x_val = x_labels[patch_idx] if x_type_detected == "category" and patch_idx < len(x_labels) else x
+                                x_serial = [x_val] if isinstance(x_val, str) else serialize_axis_values([x_val])
+                                y_serial = serialize_axis_values([y])
+                                if x_type is None:
+                                    x_type = x_type_detected
+                                curve_points.append({"x": x_serial, "y": y_serial, "label": getattr(patch, 'get_label', lambda: None)()})
+                        plot_types.append({"type": "bar"})
+                axes.append({
+                    "title": ax_info.get("title", ""),
+                    "xlabel": ax_info.get("x_label", ""),
+                    "ylabel": ax_info.get("y_label", ""),
+                    "plot_types": plot_types,
+                    "curve_points": curve_points,
+                    "x_type": x_type
+                })
+            if not axes:
+                axes.append({"title": "", "xlabel": "", "ylabel": "", "plot_types": [], "curve_points": [], "x_type": None})
+
+            # Compose output
+            title = figure_info.get("title", "")
+            if not title and axes and axes[0].get("title"):
+                title = axes[0]["title"]
+            # Normalizar figure_type
             result = {
                 "figure_type": "matplotlib",
-                "figure_info": figure_info,
-                "axis_info": axis_info,
-                "colors": colors,
+                "title": title,
+                "axes": axes,
+                "basic_info": figure_info,
+                "axes_info": axis_info["axes"],
+                "data_info": {"plot_types": [pt for ax in axes for pt in ax["plot_types"]], "statistics": statistics},
+                "visual_info": {"colors": colors},
                 "statistics": statistics
             }
-            
+            if detail_level == "high":
+                result["detailed_info"] = self._extract_detailed_info(figure)
             return result
-            
         except Exception as e:
             logger.error(f"Error analyzing matplotlib figure: {str(e)}")
             return {
                 "figure_type": "matplotlib",
-                "error": str(e),
-                "figure_info": {},
-                "axis_info": {"axes": [], "figure_title": "", "total_axes": 0},
-                "colors": [],
-                "statistics": {"per_curve": [], "per_axis": []}
+                "title": None,
+                "axes": [],
+                "basic_info": {},
+                "axes_info": [],
+                "data_info": {"plot_types": [], "statistics": {}},
+                "visual_info": {"colors": []},
+                "statistics": {"per_curve": [], "per_axis": []},
+                "error": str(e)
             }
     
     def _get_figure_type(self, figure: Any) -> str:
@@ -266,316 +350,233 @@ class MatplotlibAnalyzer(BaseAnalyzer):
         except Exception:
             return []
     
+    def _detect_axis_type_and_labels(self, ax: Any, axis: str = 'x') -> Tuple[str, List[str]]:
+        """
+        Detecta el tipo de eje y sus etiquetas de forma robusta.
+        
+        Args:
+            ax: El eje de matplotlib
+            axis: 'x' o 'y' para indicar qué eje analizar
+            
+        Returns:
+            Tuple[str, List[str]]: (tipo_de_eje, lista_de_etiquetas)
+        """
+        try:
+            import numpy as np
+            import pandas as pd
+            
+            # Asegurar que los labels estén disponibles
+            if hasattr(ax, 'figure') and hasattr(ax.figure, 'canvas'):
+                try:
+                    ax.figure.canvas.draw()
+                except Exception:
+                    pass
+            
+            # 1. Obtener etiquetas del eje
+            if axis == 'x':
+                ticks = ax.get_xticks()
+                labels = [lbl.get_text().strip() for lbl in ax.get_xticklabels()]
+            else:
+                ticks = ax.get_yticks()
+                labels = [lbl.get_text().strip() for lbl in ax.get_yticklabels()]
+            
+            labels = [lbl for lbl in labels if lbl]  # Filtrar etiquetas vacías
+            
+            # 2. Buscar en los datos originales
+            data_values = []
+            
+            # Revisar líneas
+            for line in ax.lines:
+                if axis == 'x' and hasattr(line, 'get_xdata'):
+                    data = line.get_xdata()
+                    if len(data) > 0:
+                        data_values.extend(data)
+                elif axis == 'y' and hasattr(line, 'get_ydata'):
+                    data = line.get_ydata()
+                    if len(data) > 0:
+                        data_values.extend(data)
+            
+            # Revisar colecciones (scatter plots)
+            for collection in ax.collections:
+                if hasattr(collection, 'get_offsets'):
+                    offsets = collection.get_offsets()
+                    if offsets is not None and len(offsets) > 0:
+                        data_values.extend(offsets[:, 0 if axis == 'x' else 1])
+            
+            # Revisar patches (barras)
+            if axis == 'x':
+                for patch in ax.patches:
+                    if hasattr(patch, 'get_x'):
+                        data_values.append(patch.get_x())
+            else:
+                for patch in ax.patches:
+                    if hasattr(patch, 'get_height'):
+                        data_values.append(patch.get_height())
+            
+            # 3. Analizar los datos para determinar el tipo
+            if len(data_values) > 0:
+                data_array = np.array(data_values)
+                
+                # Verificar si son fechas
+                if np.issubdtype(data_array.dtype, np.datetime64):
+                    return "date", [pd.Timestamp(x).strftime("%Y-%m-%d") for x in data_values]
+                
+                # Verificar si son períodos
+                if hasattr(data_array, 'dtype') and str(data_array.dtype).startswith('period'):
+                    return "period", [str(x) for x in data_values]
+                
+                # Verificar si son strings/categorías
+                if all(isinstance(x, str) for x in data_values):
+                    return "category", data_values
+                
+                # Si hay etiquetas no numéricas y coinciden con la cantidad de datos
+                if labels and len(labels) == len(set(data_values)):
+                    try:
+                        float("".join(labels))  # Intentar convertir a número
+                    except ValueError:
+                        # Si no se puede convertir a número, son categorías
+                        return "category", labels
+                
+                # Si los valores son enteros consecutivos y hay etiquetas significativas
+                if all(isinstance(x, (int, np.integer)) or (isinstance(x, float) and x.is_integer()) for x in data_values):
+                    unique_values = sorted(set(data_values))
+                    if len(unique_values) > 1 and unique_values == list(range(int(min(unique_values)), int(max(unique_values)) + 1)):
+                        if labels and len(labels) >= len(unique_values):
+                            try:
+                                float("".join(labels[:len(unique_values)]))
+                            except ValueError:
+                                return "category", labels[:len(unique_values)]
+                
+                # Si no es ninguno de los anteriores, es numérico
+                return "numeric", [str(x) for x in data_values]
+            
+            # Si no hay datos pero hay etiquetas no numéricas
+            if labels:
+                try:
+                    float("".join(labels))
+                    return "numeric", labels
+                except ValueError:
+                    return "category", labels
+            
+            return "numeric", []
+            
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Error detecting axis type: {str(e)}")
+            return "numeric", []
+
     def _get_statistics(self, figure: Any) -> Dict[str, Any]:
         """Get statistical information about the data in the matplotlib figure, per curve and per axis."""
         stats = {"per_curve": [], "per_axis": []}
-        
         try:
             axes = self._get_axes(figure)
-            all_data = []
-            
-            # Statistics per axis/subplot
             for i, ax in enumerate(axes):
-                axis_data = []
                 axis_stats = {
                     "axis_index": i,
-                    "title": ax.get_title() if ax.get_title() else f"Subplot {i+1}",
+                    "title": ax.get_title() if hasattr(ax, 'get_title') and ax.get_title() else f"Subplot {i+1}",
                     "data_types": [],
                     "data_points": 0,
                     "matrix_data": None
                 }
                 
-                # Check for heatmaps first (QuadMesh) - seaborn heatmaps
-                has_heatmap = False
-                for collection in ax.collections:
-                    if collection.__class__.__name__ == "QuadMesh" and hasattr(collection, 'get_array'):
-                        try:
-                            arr = collection.get_array()
-                            if arr is not None:
-                                arr = np.asarray(arr)
-                                if hasattr(arr, 'mask'):
-                                    arr = np.ma.filled(arr, np.nan)
-                                matrix_data = arr.tolist() if hasattr(arr, 'tolist') else arr
-                                axis_stats["matrix_data"] = {
-                                    "shape": arr.shape if hasattr(arr, 'shape') else (arr,),
-                                    "data": matrix_data,
-                                    "min_value": float(np.nanmin(arr)),
-                                    "max_value": float(np.nanmax(arr)),
-                                    "mean_value": float(np.nanmean(arr)),
-                                    "std_value": float(np.nanstd(arr))
-                                }
-                                flat_data = arr.flatten() if hasattr(arr, 'flatten') else arr
-                                axis_data.extend(flat_data)
-                                axis_stats["data_points"] += len(flat_data)
-                                axis_stats["data_types"].append("heatmap")
-                                has_heatmap = True
-                                break
-                        except Exception as e:
-                            logger.warning(f"Error processing QuadMesh: {str(e)}")
-                            continue
+                # Detectar tipo de eje y etiquetas
+                x_type, x_labels = self._detect_axis_type_and_labels(ax, 'x')
+                y_type, y_labels = self._detect_axis_type_and_labels(ax, 'y')
                 
-                # If no QuadMesh, try images
-                if not has_heatmap:
-                    for image in ax.images:
-                        try:
-                            if hasattr(image, 'get_array'):
-                                img_data = image.get_array()
-                                if img_data is not None:
-                                    img_data = np.asarray(img_data)
-                                    if hasattr(img_data, 'mask'):
-                                        img_data = np.ma.filled(img_data, np.nan)
-                                    matrix_data = img_data.tolist() if hasattr(img_data, 'tolist') else img_data
-                                    axis_stats["matrix_data"] = {
-                                        "shape": img_data.shape if hasattr(img_data, 'shape') else (img_data,),
-                                        "data": matrix_data,
-                                        "min_value": float(np.nanmin(img_data)),
-                                        "max_value": float(np.nanmax(img_data)),
-                                        "mean_value": float(np.nanmean(img_data)),
-                                        "std_value": float(np.nanstd(img_data))
-                                    }
-                                    flat_data = img_data.flatten() if hasattr(img_data, 'flatten') else img_data
-                                    axis_data.extend(flat_data)
-                                    axis_stats["data_points"] += len(flat_data)
-                                    axis_stats["data_types"].append("heatmap")
-                                    has_heatmap = True
-                                    break
-                        except Exception as e:
-                            logger.warning(f"Error processing heatmap image: {str(e)}")
-                            continue
+                # Extraer puntos de la curva para este eje
+                curve_points = []
                 
-                # If this is a heatmap, skip other data types
-                if has_heatmap:
-                    if axis_data and len(axis_data) > 0:
-                        try:
-                            axis_data = np.array(axis_data)
-                            # Remove any NaN or infinite values
-                            axis_data = axis_data[np.isfinite(axis_data)]
-                            
-                            if len(axis_data) > 0:
-                                axis_stats.update({
-                                    "mean": float(np.nanmean(axis_data)),
-                                    "std": float(np.nanstd(axis_data)),
-                                    "min": float(np.nanmin(axis_data)),
-                                    "max": float(np.nanmax(axis_data)),
-                                    "median": float(np.nanmedian(axis_data)),
-                                    "outliers": [],
-                                    "local_var": float(np.nanvar(axis_data[:max(1, len(axis_data)//10)])),
-                                    "trend": 0.0,
-                                    "skewness": 0.0,
-                                    "kurtosis": 0.0
-                                })
-                                
-                                # Calculate outliers only if we have enough data
-                                if len(axis_data) > 3:
-                                    mean_val = np.nanmean(axis_data)
-                                    std_val = np.nanstd(axis_data)
-                                    if std_val > 0:
-                                        outliers = axis_data[np.abs(axis_data - mean_val) > 2 * std_val]
-                                        axis_stats["outliers"] = [float(val) for val in outliers]
-                                
-                                # Calculate trend only if we have enough data
-                                if len(axis_data) > 1:
-                                    try:
-                                        trend = np.polyfit(np.arange(len(axis_data)), axis_data, 1)[0]
-                                        axis_stats["trend"] = float(trend)
-                                    except Exception:
-                                        axis_stats["trend"] = 0.0
-                                
-                                # Calculate skewness and kurtosis only if we have enough data
-                                if len(axis_data) > 2:
-                                    try:
-                                        axis_stats["skewness"] = float(self._calculate_skewness(axis_data))
-                                        axis_stats["kurtosis"] = float(self._calculate_kurtosis(axis_data))
-                                    except Exception:
-                                        axis_stats["skewness"] = 0.0
-                                        axis_stats["kurtosis"] = 0.0
-                                
-                                all_data.extend(axis_data)
-                            else:
-                                axis_stats.update({
-                                    "mean": None, "std": None, "min": None, "max": None, "median": None,
-                                    "outliers": [], "local_var": None, "trend": None,
-                                    "skewness": None, "kurtosis": None
-                                })
-                        except Exception as e:
-                            logger.warning(f"Error calculating heatmap statistics for axis {i}: {str(e)}")
-                            axis_stats.update({
-                                "mean": None, "std": None, "min": None, "max": None, "median": None,
-                                "outliers": [], "local_var": None, "trend": None,
-                                "skewness": None, "kurtosis": None
-                            })
+                # Line plots
+                if hasattr(ax, 'lines') and ax.lines:
+                    for line in ax.lines:
+                        x = line.get_xdata()
+                        y = line.get_ydata()
+                        from plot2llm.utils import serialize_axis_values
+                        x_serial = x_labels if x_type == "category" else serialize_axis_values(x)
+                        y_serial = y_labels if y_type == "category" else serialize_axis_values(y)
+                        curve_points.append({"x": x_serial, "y": y_serial, "label": line.get_label()})
+                
+                # Scatter plots
+                if hasattr(ax, 'collections') and ax.collections:
+                    for collection in ax.collections:
+                        if hasattr(collection, 'get_offsets'):
+                            offsets = collection.get_offsets()
+                            if offsets is not None and len(offsets) > 0:
+                                x = offsets[:,0]
+                                y = offsets[:,1]
+                                from plot2llm.utils import serialize_axis_values
+                                x_serial = x_labels if x_type == "category" else serialize_axis_values(x)
+                                y_serial = y_labels if y_type == "category" else serialize_axis_values(y)
+                                curve_points.append({"x": x_serial, "y": y_serial, "label": getattr(collection, 'get_label', lambda: None)()})
+                
+                # Bar/histogram
+                if hasattr(ax, 'patches') and ax.patches:
+                    for idx, patch in enumerate(ax.patches):
+                        if hasattr(patch, 'get_x') and hasattr(patch, 'get_height'):
+                            x = patch.get_x()
+                            y = patch.get_height()
+                            # Usar etiquetas de categoría si están disponibles
+                            x_val = x_labels[idx] if x_type == "category" and idx < len(x_labels) else x
+                            from plot2llm.utils import serialize_axis_values
+                            x_serial = [x_val] if isinstance(x_val, str) else serialize_axis_values([x_val])
+                            y_serial = serialize_axis_values([y])
+                            curve_points.append({"x": x_serial, "y": y_serial, "label": getattr(patch, 'get_label', lambda: None)()})
+                
+                # Determinar si se pueden calcular estadísticas
+                can_calc_stats = y_type == "numeric"  # Solo calcular estadísticas si Y es numérico
+                
+                # Extraer datos Y para estadísticas
+                y_data = []
+                for pt in curve_points:
+                    if isinstance(pt["y"], (list, tuple)):
+                        y_data.extend(pt["y"])
                     else:
-                        axis_stats.update({
-                            "mean": None, "std": None, "min": None, "max": None, "median": None,
-                            "outliers": [], "local_var": None, "trend": None,
-                            "skewness": None, "kurtosis": None
-                        })
-                    stats["per_axis"].append(axis_stats)
-                    continue
+                        y_data.append(pt["y"])
                 
-                # Collect data from collections (scatter plots, etc.)
-                for collection in ax.collections:
-                    if hasattr(collection, 'get_offsets'):
-                        offsets = collection.get_offsets()
-                        if offsets is not None and len(offsets) > 0:
-                            x_data = offsets[:, 0]
-                            y_data = offsets[:, 1]
-                            
-                            # Add both x and y data
-                            axis_data.extend(x_data)
-                            axis_data.extend(y_data)
-                            axis_stats["data_points"] += len(x_data) + len(y_data)
-                            if "scatter_plot" not in axis_stats["data_types"]:
-                                axis_stats["data_types"].append("scatter_plot")
-                
-                # Collect data from lines
-                for line in ax.lines:
-                    if hasattr(line, 'get_xdata') and hasattr(line, 'get_ydata'):
-                        x_data = line.get_xdata()
-                        y_data = line.get_ydata()
-                        
-                        if x_data is not None and y_data is not None and len(x_data) > 0 and len(y_data) > 0:
-                            axis_data.extend(x_data)
-                            axis_data.extend(y_data)
-                            axis_stats["data_points"] += len(x_data) + len(y_data)
-                            if "line_plot" not in axis_stats["data_types"]:
-                                axis_stats["data_types"].append("line_plot")
-                
-                # Collect data from patches (histograms, bar plots)
-                for patch in ax.patches:
-                    try:
-                        if hasattr(patch, 'get_height'):
-                            height = patch.get_height()
-                            if height > 0:
-                                axis_data.append(float(height))
-                                axis_stats["data_points"] += 1
-                                if "histogram" not in axis_stats["data_types"]:
-                                    axis_stats["data_types"].append("histogram")
-                    except Exception:
-                        continue
-                
-                # Calculate statistics for this axis if it has data
-                if axis_data and len(axis_data) > 0:
-                    try:
-                        axis_data = np.array(axis_data)
-                        # Remove any NaN or infinite values
-                        axis_data = axis_data[np.isfinite(axis_data)]
-                        
-                        if len(axis_data) > 0:
-                            axis_stats.update({
-                                "mean": float(np.nanmean(axis_data)),
-                                "std": float(np.nanstd(axis_data)),
-                                "min": float(np.nanmin(axis_data)),
-                                "max": float(np.nanmax(axis_data)),
-                                "median": float(np.nanmedian(axis_data)),
-                                "outliers": [],
-                                "local_var": float(np.nanvar(axis_data[:max(1, len(axis_data)//10)])),
-                                "trend": 0.0,
-                                "skewness": 0.0,
-                                "kurtosis": 0.0
-                            })
-                            
-                            # Calculate outliers only if we have enough data
-                            if len(axis_data) > 3:
-                                mean_val = np.nanmean(axis_data)
-                                std_val = np.nanstd(axis_data)
-                                if std_val > 0:
-                                    outliers = axis_data[np.abs(axis_data - mean_val) > 2 * std_val]
-                                    axis_stats["outliers"] = [float(val) for val in outliers]
-                            
-                            # Calculate trend only if we have enough data
-                            if len(axis_data) > 1:
-                                try:
-                                    trend = np.polyfit(np.arange(len(axis_data)), axis_data, 1)[0]
-                                    axis_stats["trend"] = float(trend)
-                                except Exception:
-                                    axis_stats["trend"] = 0.0
-                            
-                            # Calculate skewness and kurtosis only if we have enough data
-                            if len(axis_data) > 2:
-                                try:
-                                    axis_stats["skewness"] = float(self._calculate_skewness(axis_data))
-                                    axis_stats["kurtosis"] = float(self._calculate_kurtosis(axis_data))
-                                except Exception:
-                                    axis_stats["skewness"] = 0.0
-                                    axis_stats["kurtosis"] = 0.0
-                            
-                            all_data.extend(axis_data)
-                        else:
-                            # No valid data
-                            axis_stats.update({
-                                "mean": None, "std": None, "min": None, "max": None, "median": None,
-                                "outliers": [], "local_var": None, "trend": None,
-                                "skewness": None, "kurtosis": None
-                            })
-                    except Exception as e:
-                        logger.warning(f"Error calculating statistics for axis {i}: {str(e)}")
-                        axis_stats.update({
-                            "mean": None, "std": None, "min": None, "max": None, "median": None,
-                            "outliers": [], "local_var": None, "trend": None,
-                            "skewness": None, "kurtosis": None
-                        })
-                else:
-                    # No data
+                import numpy as np
+                y_data = np.array(y_data)
+                if can_calc_stats and len(y_data) > 0 and np.issubdtype(y_data.dtype, np.number):
                     axis_stats.update({
-                        "mean": None, "std": None, "min": None, "max": None, "median": None,
-                        "outliers": [], "local_var": None, "trend": None,
-                        "skewness": None, "kurtosis": None
+                        "mean": float(np.nanmean(y_data)),
+                        "std": float(np.nanstd(y_data)),
+                        "min": float(np.nanmin(y_data)),
+                        "max": float(np.nanmax(y_data)),
+                        "median": float(np.nanmedian(y_data)),
+                        "outliers": [],
+                        "local_var": float(np.nanvar(y_data[:max(1, len(y_data)//10)])),
+                        "trend": None,
+                        "skewness": self._calculate_skewness(y_data),
+                        "kurtosis": self._calculate_kurtosis(y_data)
                     })
+                else:
+                    axis_stats.update({
+                        "mean": None,
+                        "std": None,
+                        "min": None,
+                        "max": None,
+                        "median": None,
+                        "outliers": [],
+                        "local_var": None,
+                        "trend": None,
+                        "skewness": None,
+                        "kurtosis": None
+                    })
+                
+                # Actualizar información del eje
+                axis_stats["x_type"] = x_type
+                axis_stats["y_type"] = y_type
+                axis_stats["curve_points"] = curve_points
+                axis_stats["data_types"].extend(["line_plot" if hasattr(ax, 'lines') and ax.lines else "scatter_plot"])
+                axis_stats["data_points"] = sum(len(pt["y"]) if isinstance(pt["y"], (list, tuple)) else 1 for pt in curve_points)
                 
                 stats["per_axis"].append(axis_stats)
             
-            # Statistics per curve (for line plots)
-            for ax in axes:
-                for line in ax.lines:
-                    if hasattr(line, 'get_xdata') and hasattr(line, 'get_ydata'):
-                        x_data = line.get_xdata()
-                        y_data = line.get_ydata()
-                        
-                        if x_data is not None and y_data is not None and len(x_data) > 0 and len(y_data) > 0:
-                            try:
-                                # Remove any NaN or infinite values
-                                x_data = np.array(x_data)[np.isfinite(x_data)]
-                                y_data = np.array(y_data)[np.isfinite(y_data)]
-                                
-                                if len(x_data) > 0 and len(y_data) > 0:
-                                    curve_stats = {
-                                        "label": line.get_label(),
-                                        "x_mean": float(np.nanmean(x_data)),
-                                        "x_std": float(np.nanstd(x_data)),
-                                        "x_min": float(np.nanmin(x_data)),
-                                        "x_max": float(np.nanmax(x_data)),
-                                        "y_mean": float(np.nanmean(y_data)),
-                                        "y_std": float(np.nanstd(y_data)),
-                                        "y_min": float(np.nanmin(y_data)),
-                                        "y_max": float(np.nanmax(y_data)),
-                                    }
-                                    stats["per_curve"].append(curve_stats)
-                            except Exception as e:
-                                logger.warning(f"Error calculating curve statistics: {str(e)}")
-                                continue
-            
-            # Global statistics
-            if all_data and len(all_data) > 0:
-                try:
-                    all_data = np.array(all_data)
-                    all_data = all_data[np.isfinite(all_data)]
-                    
-                    if len(all_data) > 0:
-                        stats["global"] = {
-                            "mean": float(np.nanmean(all_data)),
-                            "std": float(np.nanstd(all_data)),
-                            "min": float(np.nanmin(all_data)),
-                            "max": float(np.nanmax(all_data)),
-                            "median": float(np.nanmedian(all_data)),
-                        }
-                except Exception as e:
-                    logger.warning(f"Error calculating global statistics: {str(e)}")
+            return stats
             
         except Exception as e:
-            logger.warning(f"Error getting statistics: {str(e)}")
-        
-        return stats
+            import logging
+            logging.getLogger(__name__).warning(f"Error calculating matplotlib statistics: {str(e)}")
+            return stats
     
     def _calculate_skewness(self, data: np.ndarray) -> float:
         """Calculate skewness of the data."""
@@ -803,7 +804,12 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                     "y_label": "",
                     "x_lim": None,
                     "y_lim": None,
-                    "has_data": False
+                    "has_data": False,
+                    "plot_types": [],
+                    "x_type": None,
+                    "y_type": None,
+                    "has_grid": False,
+                    "has_legend": False
                 }
                 
                 # Extract axis title (subplot title)
@@ -848,6 +854,131 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                             ax_info["y_lim"] = [float(y_lim[0]), float(y_lim[1])]
                 except Exception:
                     pass
+                
+                # Check grid and legend
+                try:
+                    ax_info["has_grid"] = ax.get_xgrid() or ax.get_ygrid()
+                except Exception:
+                    pass
+                
+                try:
+                    ax_info["has_legend"] = ax.get_legend() is not None
+                except Exception:
+                    pass
+                
+                # Detect plot types and axis types
+                plot_types = []
+                x_type = None
+                y_type = None
+                
+                # Check lines (line plots)
+                if hasattr(ax, 'lines') and ax.lines:
+                    plot_types.append({"type": "line"})
+                    for line in ax.lines:
+                        x = line.get_xdata()
+                        y = line.get_ydata()
+                        if x_type is None:
+                            import numpy as np
+                            if np.issubdtype(np.array(x).dtype, np.datetime64):
+                                x_type = "DATE"
+                            elif hasattr(x, 'dtype') and str(x.dtype).startswith('period'):
+                                x_type = "PERIOD"
+                            elif all(isinstance(val, str) for val in x):
+                                x_type = "CATEGORY"
+                            else:
+                                x_type = "NUMERIC"
+                        if y_type is None:
+                            import numpy as np
+                            if np.issubdtype(np.array(y).dtype, np.datetime64):
+                                y_type = "DATE"
+                            elif all(isinstance(val, str) for val in y):
+                                y_type = "CATEGORY"
+                            else:
+                                y_type = "NUMERIC"
+                
+                # Check collections (scatter plots)
+                if hasattr(ax, 'collections') and ax.collections:
+                    plot_types.append({"type": "scatter"})
+                    for collection in ax.collections:
+                        if hasattr(collection, 'get_offsets'):
+                            offsets = collection.get_offsets()
+                            if offsets is not None and len(offsets) > 0:
+                                x = offsets[:,0]
+                                y = offsets[:,1]
+                                if x_type is None:
+                                    import numpy as np
+                                    if np.issubdtype(np.array(x).dtype, np.datetime64):
+                                        x_type = "DATE"
+                                    elif all(isinstance(val, str) for val in x):
+                                        x_type = "CATEGORY"
+                                    else:
+                                        x_type = "NUMERIC"
+                                if y_type is None:
+                                    import numpy as np
+                                    if np.issubdtype(np.array(y).dtype, np.datetime64):
+                                        y_type = "DATE"
+                                    elif all(isinstance(val, str) for val in y):
+                                        y_type = "CATEGORY"
+                                    else:
+                                        y_type = "NUMERIC"
+                
+                # Check patches (bar plots, histograms)
+                if hasattr(ax, 'patches') and ax.patches:
+                    # Determine if it's bar or histogram based on patch properties
+                    is_bar = False
+                    is_histogram = False
+                    
+                    for patch in ax.patches:
+                        if hasattr(patch, 'get_x') and hasattr(patch, 'get_height'):
+                            # Check if patches are adjacent (bar plot) or overlapping (histogram)
+                            if len(ax.patches) > 1:
+                                x_pos = patch.get_x()
+                                width = patch.get_width()
+                                # Simple heuristic: if patches are close together, it's likely a bar plot
+                                if width > 0.1:  # Bar plots typically have wider bars
+                                    is_bar = True
+                                else:
+                                    is_histogram = True
+                            else:
+                                is_bar = True
+                            break
+                    
+                    if is_bar:
+                        plot_types.append({"type": "bar"})
+                    elif is_histogram:
+                        plot_types.append({"type": "histogram"})
+                    
+                    # For bar plots, check if x-axis has categorical labels
+                    if is_bar and hasattr(ax, 'get_xticklabels'):
+                        try:
+                            xticklabels = ax.get_xticklabels()
+                            if xticklabels and all(isinstance(label.get_text(), str) for label in xticklabels):
+                                x_type = "CATEGORY"
+                            else:
+                                x_type = "NUMERIC"
+                        except Exception:
+                            x_type = "NUMERIC"
+                    
+                    if y_type is None:
+                        y_type = "NUMERIC"
+                
+                # Check images (heatmaps)
+                if hasattr(ax, 'images') and ax.images:
+                    plot_types.append({"type": "heatmap"})
+                    if x_type is None:
+                        x_type = "NUMERIC"
+                    if y_type is None:
+                        y_type = "NUMERIC"
+                
+                # Set default types if not detected
+                if x_type is None:
+                    x_type = "NUMERIC"
+                if y_type is None:
+                    y_type = "NUMERIC"
+                
+                ax_info["plot_types"] = plot_types
+                ax_info["x_type"] = x_type
+                ax_info["y_type"] = y_type
                 
                 # Check if axis has data
                 try:

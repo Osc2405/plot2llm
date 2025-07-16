@@ -105,3 +105,24 @@ def validate_detail_level(detail_level: str) -> bool:
     """
     supported_levels = ["low", "medium", "high"]
     return detail_level in supported_levels 
+
+
+def serialize_axis_values(x):
+    """
+    Serializa valores de eje para JSON/texto. Convierte fechas a string legible.
+    Args:
+        x: array/list/Series de valores
+    Returns:
+        Lista de valores serializados
+    """
+    import numpy as np
+    import pandas as pd
+    if isinstance(x, (pd.Series, np.ndarray, list)):
+        arr = np.array(x)
+        if np.issubdtype(arr.dtype, np.datetime64):
+            return [str(pd.to_datetime(val).date()) for val in arr]
+        elif arr.dtype.kind == 'O' and len(arr) > 0 and isinstance(arr[0], pd.Period):
+            return [str(val) for val in arr]
+        else:
+            return arr.tolist()
+    return list(x) 

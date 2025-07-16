@@ -128,30 +128,55 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Plot2LLM specific exclusions
-# Test and example outputs
-test_*.json
-test_*.png
-debug_*.json
-debug_*.png
-example_*.json
-example_*.png
+# --- Plot2LLM project specific ---
+# Do NOT ignore the main examples/ folder (contains minimal/advanced examples)
+!examples/
 
-# Example directories
-examples/
+# Ignore only outputs in examples/
+examples/*.json
+examples/*.png
+
+# Ignore legacy/experimental example folders
 examples_seaborn/
 examples_advanced/
 examples_validation/
 
-# Test directories
-tests_output/
+# Ignore outputs in plot2llm_examples and subfolders
+plot2llm_examples/**/*.json
+plot2llm_examples/**/*.png
+
+# Ignore test and validation outputs
 validation_results/
+tests_output/
+
+# Ignore virtual environments
+venv*/
+.env/
+.venv/
+
+# Ignore build and distribution folders
+build/
+dist/
+*.egg-info/
+
+# Ignore Python cache
+__pycache__/
+*.py[cod]
+
+# Ignore Jupyter/IPython checkpoints
+.ipynb_checkpoints/
+
+# Ignore OS/IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
 
 # Temporary files
 *.tmp
 *.temp
-temp/
 tmp/
+temp/
 
 # IDE files
 .vscode/

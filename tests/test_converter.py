@@ -27,6 +27,8 @@ class TestFigureConverter:
         assert self.converter is not None
         assert hasattr(self.converter, 'analyzers')
         assert hasattr(self.converter, 'formatters')
+        assert hasattr(self.converter, 'register_analyzer')
+        assert hasattr(self.converter, 'register_formatter')
     
     def test_register_analyzer(self):
         """Test registering a custom analyzer."""
