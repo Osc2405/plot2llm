@@ -50,6 +50,8 @@
 - ✅ **6.1** LICENSE (MIT)
 - ✅ **6.2** CONTRIBUTING.md
 - ✅ **6.3** CODE_OF_CONDUCT.md
+- ✅ **6.4** SECURITY.md
+- ✅ **6.5** GitHub Templates (Issue & PR)
 
 ### **✅ 7. Seguridad & Privacidad**
 - ✅ **7.1** No claves/credenciales en repo
@@ -78,8 +80,11 @@
 
 ### **✅ Archivos de Proyecto**
 - ✅ **LICENSE**: MIT presente ✅
-- ✅ **CONTRIBUTING.md**: Creado ✅
-- ✅ **README.md**: Revisado y actualizado ✅
+- ✅ **CONTRIBUTING.md**: Creado y actualizado con Osc2405 ✅
+- ✅ **README.md**: Revisado y actualizado con Osc2405 ✅
+- ✅ **CODE_OF_CONDUCT.md**: Creado con Osc2405 ✅
+- ✅ **SECURITY.md**: Creado con Osc2405 ✅
+- ✅ **GitHub Templates**: Issue y PR templates creados ✅
 
 ---
 

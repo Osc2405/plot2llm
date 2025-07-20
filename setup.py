@@ -6,12 +6,12 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name="plot2llm",
     version="0.1.19",  # Beta version
-    author="Plot2LLM Team",
-    author_email="contact@plot2llm.com",
-    description="[ALPHA] Convert Python figures to LLM-readable formats. This package is under active development and not production-ready.",
+    author="Osc2405",
+    author_email="orosero2405@gmail.com",
+    description="Convert Python figures to LLM-readable formats. Supports matplotlib and seaborn with multiple output formats.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/plot2llm/plot2llm",
+    url="https://github.com/Osc2405/plot2llm",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 3 - Alpha",

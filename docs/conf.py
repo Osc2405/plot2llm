@@ -17,8 +17,8 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 
 project = 'Plot2LLM'
-copyright = '2024, Tu Nombre'
-author = 'Tu Nombre'
+copyright = '2024, Osc2405'
+author = 'Osc2405'
 
 # The full version, including alpha/beta/rc tags
 release = '0.1.19'
@@ -144,7 +144,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'Plot2LLM.tex', 'Plot2LLM Documentation',
-     'Tu Nombre', 'manual'),
+     'Osc2405', 'manual'),
 ]
 
 # -- Options for manual page output ------------------------------------------
@@ -268,8 +268,8 @@ def setup(app):
     app.add_js_file('custom.js')
     
     # Add custom roles
-    app.add_role('issue', autolink('https://github.com/tu-usuario/plot2llm/issues/%s'))
-    app.add_role('pull', autolink('https://github.com/tu-usuario/plot2llm/pull/%s'))
+    app.add_role('issue', autolink('https://github.com/Osc2405/plot2llm/issues/%s'))
+app.add_role('pull', autolink('https://github.com/Osc2405/plot2llm/pull/%s'))
 
 def autolink(pattern):
     """Return a role function that creates a link to a GitHub issue/PR."""

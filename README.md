@@ -57,7 +57,7 @@ pip install plot2llm
 Or, for local development:
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/Osc2405/plot2llm.git
 cd plot2llm
 pip install -e .
 ```
@@ -206,5 +206,5 @@ MIT License
 
 ## Contact & Links
 
-- GitHub: [https://github.com/plot2llm/plot2llm](https://github.com/plot2llm/plot2llm)
-- Issues: [https://github.com/plot2llm/plot2llm/issues](https://github.com/plot2llm/plot2llm/issues)
+- GitHub: [https://github.com/Osc2405/plot2llm](https://github.com/Osc2405/plot2llm)
+- Issues: [https://github.com/Osc2405/plot2llm/issues](https://github.com/Osc2405/plot2llm/issues)
