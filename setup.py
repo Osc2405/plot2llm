@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="plot2llm",
-    version="0.1.19",  # Beta version
+    version="0.1.20",  # Beta version
     author="Osc2405",
     author_email="orosero2405@gmail.com",
     description="Convert Python figures to LLM-readable formats. Supports matplotlib and seaborn with multiple output formats.",
