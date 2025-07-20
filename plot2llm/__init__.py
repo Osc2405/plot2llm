@@ -6,7 +6,7 @@ Python visualization figures into formats that are easily understandable by
 Large Language Models (LLMs).
 """
 
-__version__ = "0.1.19"
+__version__ = "0.1.20"
 __author__ = "Plot2LLM Team"
 
 from .converter import FigureConverter

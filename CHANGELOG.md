@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.20] - 2024-07-19
+
+### Changed
+- Bump version for PyPI release
+- Updated author and contact information to Osc2405 / orosero2405@gmail.com
+- Documentation and metadata improvements for release
+
 ## [0.1.0] - 2024-12-31
 
 ### Added

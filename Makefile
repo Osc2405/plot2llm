@@ -4,7 +4,7 @@
 PYTHON = python
 PIP = pip
 PACKAGE_NAME = plot2llm
-VERSION = 0.1.19
+VERSION = 0.1.20
 
 # Colores para output
 RED = \033[0;31m
