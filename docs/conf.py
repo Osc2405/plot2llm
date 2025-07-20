@@ -21,8 +21,8 @@ copyright = '2024, Tu Nombre'
 author = 'Tu Nombre'
 
 # The full version, including alpha/beta/rc tags
-release = '0.1.5'
-version = '0.1.5'
+release = '0.1.19'
+version = '0.1.19'
 
 # -- General configuration ---------------------------------------------------
 

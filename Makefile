@@ -4,7 +4,7 @@
 PYTHON = python
 PIP = pip
 PACKAGE_NAME = plot2llm
-VERSION = 0.1.5
+VERSION = 0.1.19
 
 # Colores para output
 RED = \033[0;31m
@@ -46,6 +46,22 @@ test-fast: ## Ejecutar tests rápidos (sin cobertura)
 test-slow: ## Ejecutar tests lentos
 	@echo "$(YELLOW)Ejecutando tests lentos...$(NC)"
 	$(PYTHON) -m pytest tests/ -v -m "slow"
+
+test-matplotlib: ## Ejecutar solo tests de matplotlib
+	@echo "$(YELLOW)Ejecutando tests de matplotlib...$(NC)"
+	$(PYTHON) -m pytest tests/test_matplotlib_analyzer.py tests/test_matplotlib_formats.py -v
+
+test-unit: ## Ejecutar solo tests unitarios
+	@echo "$(YELLOW)Ejecutando tests unitarios...$(NC)"
+	$(PYTHON) -m pytest tests/ -v -m "unit"
+
+test-integration: ## Ejecutar solo tests de integración
+	@echo "$(YELLOW)Ejecutando tests de integración...$(NC)"
+	$(PYTHON) -m pytest tests/ -v -m "integration"
+
+test-parallel: ## Ejecutar tests en paralelo
+	@echo "$(YELLOW)Ejecutando tests en paralelo...$(NC)"
+	$(PYTHON) -m pytest tests/ -v -n auto
 
 lint: ## Ejecutar linting
 	@echo "$(YELLOW)Ejecutando linting...$(NC)"

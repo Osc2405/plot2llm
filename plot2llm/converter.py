@@ -92,18 +92,20 @@ class FigureConverter:
             else:
                 # It's a string format
                 format_name = output_format
-                # Validate output format
-                if not validate_output_format(format_name):
-                    raise ValueError(f"Unsupported output format: {format_name}")
                 
-                # Get the appropriate formatter
-                if format_name == "text":
+                # Check if it's a registered formatter first
+                if format_name in self.formatters:
+                    formatter = self.formatters[format_name]
+                elif format_name == "text":
                     formatter = self.text_formatter
                 elif format_name == "json":
                     formatter = self.json_formatter
                 elif format_name == "semantic":
                     formatter = self.semantic_formatter
                 else:
+                    # If not found in registered formatters or default ones, validate with utils
+                    if not validate_output_format(format_name):
+                        raise ValueError(f"Unsupported output format: {format_name}")
                     raise ValueError(f"Unsupported output format: {format_name}")
             
             # Detect figure type
@@ -151,10 +153,17 @@ def convert(figure, format='text', **kwargs):
     backend = None
     if isinstance(figure, mpl_figure.Figure) or isinstance(figure, mpl_axes.Axes):
         # Try to detect if it's a seaborn plot (by presence of seaborn attributes)
-        if hasattr(figure, 'axes') and any('seaborn' in str(type(ax)) for ax in getattr(figure, 'axes', [])):
-            backend = 'seaborn'
+        if isinstance(figure, mpl_figure.Figure):
+            axes_to_check = getattr(figure, 'axes', [])
+            if axes_to_check and any('seaborn' in str(type(ax)) for ax in axes_to_check):
+                backend = 'seaborn'
+            else:
+                backend = 'matplotlib'
         else:
+            # For individual axes, default to matplotlib
             backend = 'matplotlib'
+    else:
+        backend = 'matplotlib'
     # Fallback
     if backend is None:
         backend = 'matplotlib'

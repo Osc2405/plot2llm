@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="plot2llm",
-    version="0.1.14",
+    version="0.1.19",  # Beta version
     author="Plot2LLM Team",
     author_email="contact@plot2llm.com",
     description="[ALPHA] Convert Python figures to LLM-readable formats. This package is under active development and not production-ready.",
@@ -15,6 +15,7 @@ setup(
     packages=find_packages(),
     classifiers=[
         "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
@@ -35,6 +36,7 @@ setup(
         "seaborn>=0.11.0",
         "numpy>=1.9.0",
         "pandas>=1.1.0",
+        "webcolors>=1.11.0",
     ],
     extras_require={
         "dev": [

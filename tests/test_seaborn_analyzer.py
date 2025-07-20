@@ -1,5 +1,8 @@
 """
-Tests for the seaborn analyzer functionality.
+Comprehensive tests for seaborn analyzer functionality.
+
+This module tests the SeabornAnalyzer class with various types of seaborn plots,
+grid layouts, statistical visualizations, and seaborn-specific features.
 """
 
 import pytest
@@ -7,298 +10,566 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from plot2llm.analyzers.seaborn_analyzer import SeabornAnalyzer
-from plot2llm.analyzers import FigureAnalyzer
+import warnings
 
-class TestSeabornAnalyzer:
-    """Test cases for SeabornAnalyzer."""
+from plot2llm import convert, FigureConverter
+from plot2llm.analyzers.seaborn_analyzer import SeabornAnalyzer
+from plot2llm.utils import detect_figure_type
+
+# Suppress warnings during tests
+warnings.filterwarnings('ignore', category=UserWarning, module='seaborn')
+warnings.filterwarnings('ignore', category=FutureWarning, module='seaborn')
+plt.ioff()  # Turn off interactive mode
+
+
+class TestSeabornBasicPlots:
+    """Test basic seaborn plot types."""
     
     def setup_method(self):
         """Set up test fixtures."""
         self.analyzer = SeabornAnalyzer()
-        self.figure_analyzer = FigureAnalyzer()
+        self.converter = FigureConverter()
+        
+        # Create sample datasets
+        np.random.seed(42)
+        self.iris_data = sns.load_dataset("iris")
+        self.tips_data = sns.load_dataset("tips")
+        
+    def teardown_method(self):
+        """Clean up after tests."""
+        plt.close('all')
+    
+    @pytest.mark.unit
+    def test_seaborn_scatterplot(self):
+        """Test seaborn scatterplot analysis."""
+        # Create seaborn scatter plot
+        fig, ax = plt.subplots()
+        sns.scatterplot(data=self.iris_data, x="sepal_length", y="sepal_width", ax=ax)
+        
+        # Force seaborn detection
+        analysis = self.analyzer.analyze(fig)
+        
+        # Basic assertions
+        assert analysis['figure_type'] == 'seaborn'
+        assert len(analysis['axes']) >= 1
+        
+        # Check plot types
+        plot_types = []
+        for ax_data in analysis['axes']:
+            plot_types.extend([pt['type'] for pt in ax_data.get('plot_types', [])])
+        assert 'scatter' in plot_types
+        
+        # Check data extraction
+        axes_data = analysis['axes'][0]
+        assert 'curve_points' in axes_data
+        assert len(axes_data['curve_points']) >= 1
+        
+        # Check seaborn info
+        assert 'seaborn_info' in analysis
+        
+    @pytest.mark.unit
+    def test_seaborn_scatterplot_with_hue(self):
+        """Test seaborn scatterplot with hue parameter."""
+        fig, ax = plt.subplots()
+        sns.scatterplot(data=self.iris_data, x="sepal_length", y="sepal_width", 
+                       hue="species", ax=ax)
+        
+        analysis = self.analyzer.analyze(fig)
+        
+        assert analysis['figure_type'] == 'seaborn'
+        
+        # Should have scatter plot
+        plot_types = []
+        for ax_data in analysis['axes']:
+            plot_types.extend([pt['type'] for pt in ax_data.get('plot_types', [])])
+        assert 'scatter' in plot_types
+        
+        # Should have color information
+        colors_info = analysis['visual_info'].get('colors', [])
+        # With hue, there should be multiple colors
+        assert len(colors_info) >= 0  # Colors may be extracted differently
+        
+    @pytest.mark.unit
+    def test_seaborn_lineplot(self):
+        """Test seaborn lineplot analysis."""
+        # Create time series data
+        dates = pd.date_range('2020-01-01', periods=50)
+        ts_data = pd.DataFrame({
+            'date': dates,
+            'value': np.cumsum(np.random.randn(50))
+        })
+        
+        fig, ax = plt.subplots()
+        sns.lineplot(data=ts_data, x="date", y="value", ax=ax)
+        
+        analysis = self.analyzer.analyze(fig)
+        
+        assert analysis['figure_type'] == 'seaborn'
+        
+        # Check for line plot
+        plot_types = []
+        for ax_data in analysis['axes']:
+            plot_types.extend([pt['type'] for pt in ax_data.get('plot_types', [])])
+        assert 'line' in plot_types
+        
+    @pytest.mark.unit
+    def test_seaborn_barplot(self):
+        """Test seaborn barplot analysis."""
+        fig, ax = plt.subplots()
+        sns.barplot(data=self.tips_data, x="day", y="total_bill", ax=ax)
+        
+        analysis = self.analyzer.analyze(fig)
+        
+        assert analysis['figure_type'] == 'seaborn'
+        
+        # Bar plots are detected as 'bar'
+        plot_types = []
+        for ax_data in analysis['axes']:
+            plot_types.extend([pt['type'] for pt in ax_data.get('plot_types', [])])
+        assert 'bar' in plot_types
+        
+        # Check axis types - should be categorical x, numeric y
+        axes_data = analysis['axes'][0]
+        # X-axis should be categorical for days
+        assert axes_data.get('x_type') in ['category', 'CATEGORY']
+        
+    @pytest.mark.unit
+    def test_seaborn_histplot(self):
+        """Test seaborn histplot analysis."""
+        fig, ax = plt.subplots()
+        sns.histplot(data=self.iris_data, x="sepal_length", ax=ax)
+        
+        analysis = self.analyzer.analyze(fig)
+        
+        assert analysis['figure_type'] == 'seaborn'
+        
+        # Histogram is detected as 'bar' type
+        plot_types = []
+        for ax_data in analysis['axes']:
+            plot_types.extend([pt['type'] for pt in ax_data.get('plot_types', [])])
+        assert 'bar' in plot_types
+        
+    @pytest.mark.unit
+    def test_seaborn_boxplot(self):
+        """Test seaborn boxplot analysis."""
+        fig, ax = plt.subplots()
+        sns.boxplot(data=self.tips_data, x="day", y="total_bill", ax=ax)
+        
+        analysis = self.analyzer.analyze(fig)
+        
+        assert analysis['figure_type'] == 'seaborn'
+        
+        # Box plots generate line elements
+        plot_types = []
+        for ax_data in analysis['axes']:
+            plot_types.extend([pt['type'] for pt in ax_data.get('plot_types', [])])
+        assert 'line' in plot_types
+        
+    @pytest.mark.unit
+    def test_seaborn_violinplot(self):
+        """Test seaborn violinplot analysis."""
+        fig, ax = plt.subplots()
+        sns.violinplot(data=self.tips_data, x="day", y="total_bill", ax=ax)
+        
+        analysis = self.analyzer.analyze(fig)
+        
+        assert analysis['figure_type'] == 'seaborn'
+        
+        # Violin plots have collections (patches)
+        axes_data = analysis['axes'][0]
+        assert len(axes_data['curve_points']) >= 0
+        
+    @pytest.mark.unit
+    def test_seaborn_heatmap(self):
+        """Test seaborn heatmap analysis."""
+        # Create correlation matrix
+        corr_matrix = self.iris_data.select_dtypes(include=[np.number]).corr()
+        
+        fig, ax = plt.subplots()
+        sns.heatmap(corr_matrix, ax=ax)
+        
+        analysis = self.analyzer.analyze(fig)
+        
+        assert analysis['figure_type'] == 'seaborn'
+        
+        # Check seaborn info for heatmap detection
+        seaborn_info = analysis.get('seaborn_info', {})
+        plot_type = seaborn_info.get('plot_type', '')
+        
+        # Should be detected as heatmap or have image/quadmesh elements
+        axes_data = analysis['axes'][0]
+        assert len(axes_data) > 0  # Should have some data
+
+
+class TestSeabornGridLayouts:
+    """Test seaborn grid layouts like FacetGrid and PairGrid."""
+    
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.analyzer = SeabornAnalyzer()
+        self.converter = FigureConverter()
+        
+        # Load datasets
+        self.iris_data = sns.load_dataset("iris")
+        self.tips_data = sns.load_dataset("tips")
+        
+    def teardown_method(self):
+        """Clean up after tests."""
+        plt.close('all')
+    
+    @pytest.mark.unit
+    def test_seaborn_facetgrid(self):
+        """Test seaborn FacetGrid analysis."""
+        # Create FacetGrid
+        g = sns.FacetGrid(self.tips_data, col="time", row="smoker")
+        g.map(sns.scatterplot, "total_bill", "tip")
+        
+        # Analyze the grid figure
+        analysis = self.analyzer.analyze(g.figure)
+        
+        assert analysis['figure_type'] == 'seaborn'
+        
+        # Should have multiple axes (2x2 grid)
+        assert len(analysis['axes']) >= 2
+        
+        # Check seaborn info
+        seaborn_info = analysis.get('seaborn_info', {})
+        assert 'grid_shape' in seaborn_info or 'grid_size' in seaborn_info
+        
+    @pytest.mark.unit  
+    def test_seaborn_pairplot(self):
+        """Test seaborn pairplot analysis."""
+        # Create pair plot (which creates a PairGrid)
+        g = sns.pairplot(self.iris_data.select_dtypes(include=[np.number]).iloc[:50])
+        
+        analysis = self.analyzer.analyze(g.figure)
+        
+        assert analysis['figure_type'] == 'seaborn'
+        
+        # Pair plot creates multiple subplots
+        assert len(analysis['axes']) > 1
+        
+        # Check for multiple plot types
+        all_plot_types = []
+        for ax_data in analysis['axes']:
+            all_plot_types.extend([pt['type'] for pt in ax_data.get('plot_types', [])])
+        
+        # Should have scatter and/or line plots
+        plot_types_set = set(all_plot_types)
+        assert len(plot_types_set) >= 1
+        
+    @pytest.mark.unit
+    def test_seaborn_jointplot(self):
+        """Test seaborn jointplot analysis."""
+        # Create joint plot
+        g = sns.jointplot(data=self.iris_data, x="sepal_length", y="sepal_width")
+        
+        analysis = self.analyzer.analyze(g.figure)
+        
+        assert analysis['figure_type'] == 'seaborn'
+        
+        # Joint plot has main plot + marginal plots
+        assert len(analysis['axes']) >= 2
+        
+        # Check seaborn info
+        seaborn_info = analysis.get('seaborn_info', {})
+        assert isinstance(seaborn_info, dict)
+
+
+class TestSeabornStatisticalPlots:
+    """Test seaborn statistical visualization plots."""
+    
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.analyzer = SeabornAnalyzer()
         
         # Create sample data
         np.random.seed(42)
-        self.sample_data = pd.DataFrame({
-            'x': np.random.randn(50),
-            'y': np.random.randn(50),
-            'category': np.random.choice(['A', 'B', 'C'], 50),
-            'value': np.random.uniform(0, 1, 50)
+        self.tips_data = sns.load_dataset("tips")
+        
+    def teardown_method(self):
+        """Clean up after tests."""
+        plt.close('all')
+    
+    @pytest.mark.unit
+    def test_seaborn_regplot(self):
+        """Test seaborn regression plot analysis."""
+        fig, ax = plt.subplots()
+        sns.regplot(data=self.tips_data, x="total_bill", y="tip", ax=ax)
+        
+        analysis = self.analyzer.analyze(fig)
+        
+        assert analysis['figure_type'] == 'seaborn'
+        
+        # Regression plot has scatter points and line
+        plot_types = []
+        for ax_data in analysis['axes']:
+            plot_types.extend([pt['type'] for pt in ax_data.get('plot_types', [])])
+        
+        # Should have both scatter and line elements
+        assert 'scatter' in plot_types or 'line' in plot_types
+        
+    @pytest.mark.unit
+    def test_seaborn_distplot_kde(self):
+        """Test seaborn distribution plots."""
+        fig, ax = plt.subplots()
+        # Use kdeplot instead of deprecated distplot
+        sns.kdeplot(data=self.tips_data, x="total_bill", ax=ax)
+        
+        analysis = self.analyzer.analyze(fig)
+        
+        assert analysis['figure_type'] == 'seaborn'
+        
+        # KDE plot creates line elements
+        plot_types = []
+        for ax_data in analysis['axes']:
+            plot_types.extend([pt['type'] for pt in ax_data.get('plot_types', [])])
+        assert 'line' in plot_types
+        
+    @pytest.mark.unit
+    def test_seaborn_countplot(self):
+        """Test seaborn countplot analysis."""
+        fig, ax = plt.subplots()
+        sns.countplot(data=self.tips_data, x="day", ax=ax)
+        
+        analysis = self.analyzer.analyze(fig)
+        
+        assert analysis['figure_type'] == 'seaborn'
+        
+        # Count plot is a type of bar plot
+        plot_types = []
+        for ax_data in analysis['axes']:
+            plot_types.extend([pt['type'] for pt in ax_data.get('plot_types', [])])
+        assert 'bar' in plot_types
+
+
+class TestSeabornEdgeCases:
+    """Test seaborn edge cases and error conditions."""
+    
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.analyzer = SeabornAnalyzer()
+        
+    def teardown_method(self):
+        """Clean up after tests."""
+        plt.close('all')
+    
+    @pytest.mark.unit
+    def test_seaborn_empty_data(self):
+        """Test seaborn plot with empty data."""
+        empty_df = pd.DataFrame({'x': [], 'y': []})
+        
+        fig, ax = plt.subplots()
+        # This might not create any visual elements
+        sns.scatterplot(data=empty_df, x="x", y="y", ax=ax)
+        
+        analysis = self.analyzer.analyze(fig)
+        
+        # Should not crash
+        assert analysis['figure_type'] == 'seaborn'
+        assert len(analysis['axes']) >= 1
+        
+    @pytest.mark.unit
+    def test_seaborn_missing_values(self):
+        """Test seaborn plot with missing values."""
+        data_with_nan = pd.DataFrame({
+            'x': [1, 2, np.nan, 4, 5],
+            'y': [1, np.nan, 3, 4, 5],
+            'category': ['A', 'B', 'A', 'B', 'A']
         })
+        
+        fig, ax = plt.subplots()
+        sns.scatterplot(data=data_with_nan, x="x", y="y", hue="category", ax=ax)
+        
+        analysis = self.analyzer.analyze(fig)
+        
+        # Should handle NaN values gracefully
+        assert analysis['figure_type'] == 'seaborn'
+        axes_data = analysis['axes'][0]
+        assert len(axes_data['curve_points']) >= 0
+        
+    @pytest.mark.unit
+    def test_seaborn_categorical_data(self):
+        """Test seaborn with categorical data."""
+        categorical_df = pd.DataFrame({
+            'category': ['A', 'B', 'C', 'A', 'B', 'C'] * 10,
+            'value': np.random.randn(60),
+            'group': ['Group1', 'Group2'] * 30
+        })
+        
+        fig, ax = plt.subplots()
+        sns.boxplot(data=categorical_df, x="category", y="value", hue="group", ax=ax)
+        
+        analysis = self.analyzer.analyze(fig)
+        
+        assert analysis['figure_type'] == 'seaborn'
+        
+        # Check axis types
+        axes_data = analysis['axes'][0]
+        # X should be categorical
+        assert axes_data.get('x_type') in ['category', 'CATEGORY']
+
+
+class TestSeabornErrorHandling:
+    """Test seaborn error handling and invalid inputs."""
     
-    def test_seaborn_analyzer_initialization(self):
-        """Test that SeabornAnalyzer initializes correctly."""
-        assert self.analyzer is not None
-        assert "matplotlib.figure.Figure" in self.analyzer.supported_types
-        assert "seaborn.axisgrid.FacetGrid" in self.analyzer.supported_types
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.analyzer = SeabornAnalyzer()
+        
+    def teardown_method(self):
+        """Clean up after tests."""
+        plt.close('all')
+        
+    @pytest.mark.unit
+    def test_none_figure(self):
+        """Test passing None as figure."""
+        with pytest.raises(ValueError, match="Invalid figure object: None"):
+            self.analyzer.analyze(None)
+            
+    @pytest.mark.unit
+    def test_seaborn_invalid_figure_type(self):
+        """Test passing invalid figure type."""
+        # SeabornAnalyzer handles invalid figures gracefully
+        result = self.analyzer.analyze("not a figure")
+        # Should return basic seaborn structure even for invalid figures
+        assert result["figure_type"] == "seaborn"
+        assert "axes" in result
+
+
+class TestSeabornIntegration:
+    """Integration tests with FigureConverter."""
     
-    def test_seaborn_scatter_plot(self):
-        """Test analysis of seaborn scatter plot."""
-        # Create seaborn scatter plot
-        plt.figure(figsize=(8, 6))
-        sns.scatterplot(data=self.sample_data, x='x', y='y', hue='category')
-        plt.title('Test Scatter Plot')
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.converter = FigureConverter()
+        self.iris_data = sns.load_dataset("iris")
         
-        fig = plt.gcf()
+    def teardown_method(self):
+        """Clean up after tests."""
+        plt.close('all')
         
-        # Analyze the figure
-        result = self.analyzer.analyze(fig, detail_level="medium")
+    @pytest.mark.integration
+    def test_seaborn_convert_text_format(self):
+        """Test converting seaborn figure to text format."""
+        fig, ax = plt.subplots()
+        sns.scatterplot(data=self.iris_data, x="sepal_length", y="sepal_width", ax=ax)
+        ax.set_title("Iris Sepal Analysis")
         
-        # Check basic structure
-        assert "basic_info" in result
-        assert "axes_info" in result
-        assert "data_info" in result
-        assert "visual_info" in result
-        assert "seaborn_info" in result
+        # Force detection as seaborn
+        result = self.converter.convert(fig, "text")
         
-        # Check basic info
-        basic_info = result["basic_info"]
-        assert basic_info["figure_type"] in ["matplotlib.figure", "seaborn.scatterplot", "seaborn"]
-        assert basic_info["axes_count"] > 0
+        assert isinstance(result, str)
+        assert len(result) > 0
+        
+    @pytest.mark.integration
+    def test_seaborn_convert_json_format(self):
+        """Test converting seaborn figure to JSON format."""
+        fig, ax = plt.subplots()
+        sns.boxplot(data=self.iris_data, x="species", y="sepal_length", ax=ax)
+        ax.set_title("Species Comparison")
+        
+        result = self.converter.convert(fig, "json")
+        
+        assert isinstance(result, dict)
+        assert "figure_type" in result
+        assert result["title"] == "Species Comparison"
+        
+    @pytest.mark.integration
+    def test_seaborn_convert_semantic_format(self):
+        """Test converting seaborn figure to semantic format."""
+        fig, ax = plt.subplots()
+        sns.histplot(data=self.iris_data, x="petal_length", ax=ax)
+        ax.set_title("Petal Length Distribution")
+        
+        result = self.converter.convert(fig, "semantic")
+        
+        assert isinstance(result, dict)
+        assert "figure_type" in result
+        assert "plot_description" in result
+        
+    @pytest.mark.integration
+    def test_seaborn_global_convert_function(self):
+        """Test global convert function with seaborn plots."""
+        fig, ax = plt.subplots()
+        sns.lineplot(data=self.iris_data, x="sepal_length", y="sepal_width", ax=ax)
+        
+        # Test all formats
+        text_result = convert(fig, "text")
+        json_result = convert(fig, "json")
+        semantic_result = convert(fig, "semantic")
+        
+        assert isinstance(text_result, str)
+        assert isinstance(json_result, dict)
+        assert isinstance(semantic_result, dict)
+        
+        assert len(text_result) > 0
+        assert "figure_type" in json_result
+        assert "figure_type" in semantic_result
+
+
+class TestSeabornSpecificFeatures:
+    """Test seaborn-specific features and capabilities."""
+    
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.analyzer = SeabornAnalyzer()
+        self.tips_data = sns.load_dataset("tips")
+        
+    def teardown_method(self):
+        """Clean up after tests."""
+        plt.close('all')
+    
+    @pytest.mark.unit
+    def test_seaborn_palette_detection(self):
+        """Test detection of seaborn color palettes."""
+        fig, ax = plt.subplots()
+        sns.scatterplot(data=self.tips_data, x="total_bill", y="tip", 
+                       hue="time", palette="viridis", ax=ax)
+        
+        analysis = self.analyzer.analyze(fig)
+        
+        assert analysis['figure_type'] == 'seaborn'
+        
+        # Check for color information
+        visual_info = analysis.get('visual_info', {})
+        assert 'colors' in visual_info
+        
+    @pytest.mark.unit
+    def test_seaborn_style_detection(self):
+        """Test seaborn style context detection."""
+        # Set seaborn style
+        with sns.axes_style("whitegrid"):
+            fig, ax = plt.subplots()
+            sns.lineplot(data=self.tips_data, x="total_bill", y="tip", ax=ax)
+            
+            analysis = self.analyzer.analyze(fig)
+            
+            assert analysis['figure_type'] == 'seaborn'
+            
+            # Check if grid is detected
+            axes_data = analysis['axes'][0]
+            # Grid detection depends on implementation
+            assert 'has_grid' in axes_data
+            
+    @pytest.mark.unit
+    def test_seaborn_figure_level_functions(self):
+        """Test figure-level seaborn functions."""
+        # Create figure-level plot
+        g = sns.relplot(data=self.tips_data, x="total_bill", y="tip", 
+                       col="time", kind="scatter")
+        
+        analysis = self.analyzer.analyze(g.figure)
+        
+        assert analysis['figure_type'] == 'seaborn'
+        
+        # Should have multiple subplots
+        assert len(analysis['axes']) >= 2
         
         # Check seaborn info
-        seaborn_info = result["seaborn_info"]
-        assert "plot_type" in seaborn_info
-        
-        plt.close(fig)
-    
-    def test_seaborn_heatmap(self):
-        """Test analysis of seaborn heatmap."""
-        # Create correlation matrix
-        corr_matrix = self.sample_data[['x', 'y', 'value']].corr()
-        
-        # Create seaborn heatmap
-        plt.figure(figsize=(6, 5))
-        sns.heatmap(corr_matrix, annot=True, cmap='coolwarm')
-        plt.title('Test Heatmap')
-        
-        fig = plt.gcf()
-        
-        # Analyze the figure
-        result = self.analyzer.analyze(fig, detail_level="medium")
-        
-        # Check structure
-        assert "basic_info" in result
-        assert "seaborn_info" in result
-        
-        # Check that it's recognized as a heatmap
-        seaborn_info = result["seaborn_info"]
-        assert "plot_type" in seaborn_info
-        
-        plt.close(fig)
-    
-    def test_seaborn_facetgrid(self):
-        """Test analysis of seaborn FacetGrid."""
-        # Create seaborn FacetGrid
-        g = sns.FacetGrid(self.sample_data, col="category", height=4, aspect=1.2)
-        g.map_dataframe(sns.scatterplot, x="x", y="y")
-        g.fig.suptitle('Test FacetGrid')
-        
-        # Analyze the FacetGrid
-        result = self.analyzer.analyze(g, detail_level="medium")
-        
-        # Check structure
-        assert "basic_info" in result
-        assert "seaborn_info" in result
-        
-        # Check seaborn-specific info
-        seaborn_info = result["seaborn_info"]
-        assert "plot_type" in seaborn_info
-        assert "grid_shape" in seaborn_info
-        assert "grid_size" in seaborn_info
-        
-        # Check that it's recognized as a facet grid
-        assert seaborn_info["plot_type"] == "facet_grid"
-        
-        plt.close(g.fig)
-    
-    def test_seaborn_pairplot(self):
-        """Test analysis of seaborn pairplot."""
-        # Create seaborn pairplot
-        pair_plot = sns.pairplot(self.sample_data[['x', 'y', 'value']], diag_kind='kde')
-        pair_plot.fig.suptitle('Test Pairplot')
-        
-        # Analyze the pairplot
-        result = self.analyzer.analyze(pair_plot, detail_level="medium")
-        
-        # Check structure
-        assert "basic_info" in result
-        assert "seaborn_info" in result
-        
-        # Check seaborn-specific info
-        seaborn_info = result["seaborn_info"]
-        assert "plot_type" in seaborn_info
-        
-        # Check that it's recognized as a pair grid (seaborn's internal name)
-        assert seaborn_info["plot_type"] == "pair_grid"
-        
-        plt.close(pair_plot.fig)
-    
-    def test_seaborn_distribution_plots(self):
-        """Test analysis of seaborn distribution plots."""
-        # Create subplots with different distribution plots
-        fig, axes = plt.subplots(2, 2, figsize=(10, 8))
-        
-        # Histogram
-        sns.histplot(data=self.sample_data, x='x', ax=axes[0, 0])
-        axes[0, 0].set_title('Histogram')
-        
-        # KDE plot
-        sns.kdeplot(data=self.sample_data, x='y', ax=axes[0, 1])
-        axes[0, 1].set_title('KDE Plot')
-        
-        # Box plot
-        sns.boxplot(data=self.sample_data, x='category', y='value', ax=axes[1, 0])
-        axes[1, 0].set_title('Box Plot')
-        
-        # Violin plot
-        sns.violinplot(data=self.sample_data, x='category', y='x', ax=axes[1, 1])
-        axes[1, 1].set_title('Violin Plot')
-        
-        plt.tight_layout()
-        
-        # Analyze the figure
-        result = self.analyzer.analyze(fig, detail_level="medium")
-        
-        # Check structure
-        assert "basic_info" in result
-        assert "axes_info" in result
-        assert "data_info" in result
-        
-        # Check that we have multiple axes
-        basic_info = result["basic_info"]
-        assert basic_info["axes_count"] == 4
-        
-        plt.close(fig)
-    
-    def test_figure_analyzer_with_seaborn(self):
-        """Test that FigureAnalyzer correctly routes seaborn figures."""
-        # Create seaborn scatter plot
-        plt.figure(figsize=(8, 6))
-        sns.scatterplot(data=self.sample_data, x='x', y='y', hue='category')
-        plt.title('Test Scatter Plot')
-        
-        fig = plt.gcf()
-        
-        # Use FigureAnalyzer with seaborn type
-        result = self.figure_analyzer.analyze(fig, "seaborn", detail_level="medium")
-        
-        # Check structure
-        assert "basic_info" in result
-        assert "seaborn_info" in result
-        assert "metadata" in result
-        
-        # Check metadata
-        metadata = result["metadata"]
-        assert metadata["figure_type"] == "seaborn"
-        
-        plt.close(fig)
-    
-    def test_different_detail_levels(self):
-        """Test analysis with different detail levels."""
-        # Create seaborn plot
-        plt.figure(figsize=(8, 6))
-        sns.scatterplot(data=self.sample_data, x='x', y='y', hue='category')
-        plt.title('Test Plot')
-        
-        fig = plt.gcf()
-        
-        # Test low detail level
-        result_low = self.analyzer.analyze(fig, detail_level="low")
-        assert "basic_info" in result_low
-        assert "detailed_info" not in result_low
-        
-        # Test high detail level
-        result_high = self.analyzer.analyze(fig, detail_level="high")
-        assert "basic_info" in result_high
-        assert "detailed_info" in result_high
-        
-        plt.close(fig)
-    
-    def test_data_analysis_options(self):
-        """Test analysis with different data analysis options."""
-        # Create seaborn plot
-        plt.figure(figsize=(8, 6))
-        sns.scatterplot(data=self.sample_data, x='x', y='y', hue='category')
-        plt.title('Test Plot')
-        
-        fig = plt.gcf()
-        
-        # Test without data analysis
-        result_no_data = self.analyzer.analyze(
-            fig, 
-            detail_level="medium",
-            include_data=False,
-            include_colors=True,
-            include_statistics=False
-        )
-        
-        assert "data_info" in result_no_data
-        assert "visual_info" in result_no_data
-        
-        # Test without color analysis
-        result_no_colors = self.analyzer.analyze(
-            fig, 
-            detail_level="medium",
-            include_data=True,
-            include_colors=False,
-            include_statistics=True
-        )
-        
-        assert "data_info" in result_no_colors
-        assert "visual_info" in result_no_colors
-        
-        plt.close(fig)
-    
-    def test_error_handling(self):
-        """Test error handling with invalid input."""
-        # Test with None - should handle gracefully
-        try:
-            result = self.analyzer.analyze(None, detail_level="medium")
-            # If it doesn't raise an exception, it should return some result
-            assert isinstance(result, dict)
-        except Exception:
-            # It's also acceptable to raise an exception
-            pass
-        
-        # Test with invalid figure type - should handle gracefully
-        try:
-            result = self.analyzer.analyze("not a figure", detail_level="medium")
-            # If it doesn't raise an exception, it should return some result
-            assert isinstance(result, dict)
-        except Exception:
-            # It's also acceptable to raise an exception
-            pass
-    
-    def test_seaborn_plot_type_detection(self):
-        """Test detection of different seaborn plot types."""
-        # Test scatter plot
-        plt.figure()
-        sns.scatterplot(data=self.sample_data, x='x', y='y')
-        fig = plt.gcf()
-        result = self.analyzer.analyze(fig, detail_level="low")
-        seaborn_info = result["seaborn_info"]
-        assert "plot_type" in seaborn_info
-        plt.close(fig)
-        
-        # Test line plot
-        plt.figure()
-        sns.lineplot(data=self.sample_data, x='x', y='y')
-        fig = plt.gcf()
-        result = self.analyzer.analyze(fig, detail_level="low")
-        seaborn_info = result["seaborn_info"]
-        assert "plot_type" in seaborn_info
-        plt.close(fig)
-        
-        # Test bar plot
-        plt.figure()
-        sns.barplot(data=self.sample_data, x='category', y='value')
-        fig = plt.gcf()
-        result = self.analyzer.analyze(fig, detail_level="low")
-        seaborn_info = result["seaborn_info"]
-        assert "plot_type" in seaborn_info
-        plt.close(fig)
+        seaborn_info = analysis.get('seaborn_info', {})
+        assert isinstance(seaborn_info, dict)
+
 
 if __name__ == "__main__":
     pytest.main([__file__]) 

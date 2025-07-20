@@ -464,7 +464,7 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             import logging
             logging.getLogger(__name__).warning(f"Error detecting axis type: {str(e)}")
             return "numeric", []
-
+    
     def _get_statistics(self, figure: Any) -> Dict[str, Any]:
         """Get statistical information about the data in the matplotlib figure, per curve and per axis."""
         stats = {"per_curve": [], "per_axis": []}
@@ -572,11 +572,11 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 stats["per_axis"].append(axis_stats)
             
             return stats
-            
+        
         except Exception as e:
             import logging
             logging.getLogger(__name__).warning(f"Error calculating matplotlib statistics: {str(e)}")
-            return stats
+        return stats
     
     def _calculate_skewness(self, data: np.ndarray) -> float:
         """Calculate skewness of the data."""
@@ -637,7 +637,7 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                                 if hex_color not in [c['hex'] for c in colors]:
                                     colors.append({"hex": hex_color, "name": color_name})
                             except Exception:
-                                continue
+                                    continue
                 # Colors from patches (histograms, bar plots)
                 for patch in ax.patches:
                     try:

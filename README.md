@@ -1,4 +1,6 @@
-# Plot2LLM
+# plot2llm
+
+> **Beta Notice:** This library is currently in beta. The API may change in future releases. Please report any issues or suggestions!
 
 Convert Python figures (matplotlib, seaborn) to LLM-readable formats
 
