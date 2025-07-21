@@ -15,65 +15,69 @@ logger = logging.getLogger(__name__)
 def detect_figure_type(figure: Any) -> str:
     """
     Detect the type of figure object.
-    
+
     Args:
         figure: The figure object to analyze
-        
+
     Returns:
         String indicating the figure type
     """
     try:
         # Check for seaborn figures FIRST (before matplotlib)
-        if hasattr(figure, '__class__'):
+        if hasattr(figure, "__class__"):
             class_name = figure.__class__.__name__
             module_name = figure.__class__.__module__
-            
-            if 'seaborn' in module_name:
+
+            if "seaborn" in module_name:
                 return "seaborn"
-        
+
         # Check for matplotlib figures that contain seaborn elements
-        if hasattr(figure, '_suptitle') or hasattr(figure, 'axes'):
+        if hasattr(figure, "_suptitle") or hasattr(figure, "axes"):
             # Check if any axis contains seaborn-specific elements
-            if hasattr(figure, 'axes'):
+            if hasattr(figure, "axes"):
                 for ax in figure.axes:
                     # Check for QuadMesh (seaborn heatmaps)
                     for collection in ax.collections:
                         if collection.__class__.__name__ == "QuadMesh":
                             return "seaborn"
-                    
+
                     # Check for seaborn-specific plot types
-                    if hasattr(ax, 'get_children'):
+                    if hasattr(ax, "get_children"):
                         for child in ax.get_children():
-                            if hasattr(child, '__class__'):
+                            if hasattr(child, "__class__"):
                                 child_class = child.__class__.__name__
-                                if child_class in ["FacetGrid", "PairGrid", "JointGrid"]:
+                                if child_class in [
+                                    "FacetGrid",
+                                    "PairGrid",
+                                    "JointGrid",
+                                ]:
                                     return "seaborn"
-            
+
             return "matplotlib"
-        
+
         # Check for seaborn figures (which are matplotlib figures)
-        if hasattr(figure, 'figure') and hasattr(figure.figure, 'axes'):
+        if hasattr(figure, "figure") and hasattr(figure.figure, "axes"):
             return "seaborn"
-        
+
         # Check for plotly figures
-        if hasattr(figure, 'to_dict') and hasattr(figure, 'data'):
+        if hasattr(figure, "to_dict") and hasattr(figure, "data"):
             return "plotly"
-        
+
         # Check for bokeh figures
-        if hasattr(figure, 'renderers') and hasattr(figure, 'plot'):
+        if hasattr(figure, "renderers") and hasattr(figure, "plot"):
             return "bokeh"
-        
+
         # Check for altair figures
-        if hasattr(figure, 'to_dict') and hasattr(figure, 'mark'):
+        if hasattr(figure, "to_dict") and hasattr(figure, "mark"):
             return "altair"
-        
+
         # Check for pandas plotting (which returns matplotlib axes)
-        if hasattr(figure, 'figure') and hasattr(figure, 'get_xlabel'):
+        if hasattr(figure, "figure") and hasattr(figure, "get_xlabel"):
             return "pandas"
-        
+
         # Default to unknown
         return "unknown"
-        
+
     except Exception as e:
         logger.warning(f"Error detecting figure type: {str(e)}")
         return "unknown"
@@ -82,10 +86,10 @@ def detect_figure_type(figure: Any) -> str:
 def validate_output_format(output_format: str) -> bool:
     """
     Validate that the output format is supported.
-    
+
     Args:
         output_format: The output format to validate
-        
+
     Returns:
         True if the format is supported, False otherwise
     """
@@ -96,15 +100,15 @@ def validate_output_format(output_format: str) -> bool:
 def validate_detail_level(detail_level: str) -> bool:
     """
     Validate that the detail level is supported.
-    
+
     Args:
         detail_level: The detail level to validate
-        
+
     Returns:
         True if the detail level is supported, False otherwise
     """
     supported_levels = ["low", "medium", "high"]
-    return detail_level in supported_levels 
+    return detail_level in supported_levels
 
 
 def serialize_axis_values(x):
@@ -117,12 +121,13 @@ def serialize_axis_values(x):
     """
     import numpy as np
     import pandas as pd
+
     if isinstance(x, (pd.Series, np.ndarray, list)):
         arr = np.array(x)
         if np.issubdtype(arr.dtype, np.datetime64):
             return [str(pd.to_datetime(val).date()) for val in arr]
-        elif arr.dtype.kind == 'O' and len(arr) > 0 and isinstance(arr[0], pd.Period):
+        elif arr.dtype.kind == "O" and len(arr) > 0 and isinstance(arr[0], pd.Period):
             return [str(val) for val in arr]
         else:
             return arr.tolist()
-    return list(x) 
+    return list(x)

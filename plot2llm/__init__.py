@@ -16,27 +16,29 @@ from .formatters import TextFormatter, JSONFormatter, SemanticFormatter
 # Create a global converter instance for convenience
 _converter = FigureConverter()
 
-def convert(figure, format='text', **kwargs):
+
+def convert(figure, format="text", **kwargs):
     """
     Convert a figure to the specified format.
-    
+
     This is a convenience function that uses the global FigureConverter instance.
-    
+
     Args:
         figure: Figure from matplotlib, seaborn, plotly, etc.
         format (str): Output format ('text', 'json', 'semantic')
         **kwargs: Additional arguments passed to the converter
-        
+
     Returns:
         str or dict: Converted data in the specified format
     """
     return _converter.convert(figure, output_format=format, **kwargs)
 
+
 __all__ = [
     "convert",
     "FigureConverter",
-    "FigureAnalyzer", 
+    "FigureAnalyzer",
     "TextFormatter",
     "JSONFormatter",
-    "SemanticFormatter"
-] 
+    "SemanticFormatter",
+]
