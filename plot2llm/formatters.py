@@ -2,7 +2,7 @@
 Formatters for converting analysis results to different output formats.
 """
 
-from typing import Any, Dict, List, Set
+from typing import Any, Dict
 
 import numpy as np
 
