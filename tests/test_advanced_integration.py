@@ -357,7 +357,9 @@ class TestComplexWorkflows:
 
         ax3.plot(time_arr, baseline, "b-", label="Control", linewidth=2)
         ax3.plot(time_arr, treatment, "r-", label="Treatment", linewidth=2)
-        ax3.fill_between(time_arr, treatment - 0.1, treatment + 0.1, alpha=0.3, color="red")
+        ax3.fill_between(
+            time_arr, treatment - 0.1, treatment + 0.1, alpha=0.3, color="red"
+        )
         ax3.set_xlabel("Time (hours)")
         ax3.set_ylabel("Normalized Response")
         ax3.set_title("Time Course Analysis")

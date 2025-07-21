@@ -227,7 +227,9 @@ class TestSeabornGridLayouts:
         assert len(analysis["axes"]) >= 2
 
         # Check seaborn info
-        assert "grid_shape" in analysis.get("seaborn_info", {}) or "grid_size" in analysis.get("seaborn_info", {})
+        assert "grid_shape" in analysis.get(
+            "seaborn_info", {}
+        ) or "grid_size" in analysis.get("seaborn_info", {})
 
     @pytest.mark.unit
     def test_seaborn_pairplot(self):
