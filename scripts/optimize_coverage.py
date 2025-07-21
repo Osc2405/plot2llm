@@ -6,8 +6,8 @@ This script analyzes code coverage and suggests optimizations
 for improving test coverage and removing unused code.
 """
 
-import os
 import ast
+import os
 import subprocess
 import sys
 from pathlib import Path

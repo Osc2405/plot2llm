@@ -5,15 +5,16 @@ This module tests the MatplotlibAnalyzer class with various types of plots,
 edge cases, and error conditions to ensure robustness and accuracy.
 """
 
-import pytest
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.figure as mpl_figure
-import matplotlib.axes as mpl_axes
-from matplotlib.colors import to_hex
 import warnings
 
-from plot2llm import convert, FigureConverter
+import matplotlib.axes as mpl_axes
+import matplotlib.figure as mpl_figure
+import matplotlib.pyplot as plt
+import numpy as np
+import pytest
+from matplotlib.colors import to_hex
+
+from plot2llm import FigureConverter, convert
 from plot2llm.analyzers.matplotlib_analyzer import MatplotlibAnalyzer
 from plot2llm.utils import detect_figure_type
 

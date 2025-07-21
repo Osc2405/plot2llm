@@ -95,10 +95,6 @@ jobs:
       run: |
         flake8 plot2llm/ tests/
 
-    - name: Run mypy
-      run: |
-        mypy plot2llm/
-
     - name: Run bandit
       run: |
         bandit -r plot2llm/

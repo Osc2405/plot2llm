@@ -5,7 +5,8 @@ Quick test to verify matplotlib analyzer functionality.
 
 import matplotlib.pyplot as plt
 import numpy as np
-from plot2llm import convert, FigureConverter
+
+from plot2llm import FigureConverter, convert
 from plot2llm.analyzers.matplotlib_analyzer import MatplotlibAnalyzer
 
 # Turn off interactive mode

@@ -2,11 +2,9 @@
 Formatters for converting analysis results to different output formats.
 """
 
-import json
-import numpy as np
-from typing import Any, Dict
+from typing import Any, Dict, List, Set
 
-from .analyzers import MatplotlibAnalyzer
+import numpy as np
 
 
 def _convert_to_json_serializable(obj: Any) -> Any:

@@ -5,20 +5,21 @@ This module tests utility functions including figure type detection,
 validation functions, and helper utilities.
 """
 
-import pytest
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.figure as mpl_figure
+from unittest.mock import MagicMock, Mock, patch
+
 import matplotlib.axes as mpl_axes
-import seaborn as sns
+import matplotlib.figure as mpl_figure
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
-from unittest.mock import Mock, patch, MagicMock
+import pytest
+import seaborn as sns
 
 from plot2llm.utils import (
     detect_figure_type,
-    validate_output_format,
-    validate_detail_level,
     serialize_axis_values,
+    validate_detail_level,
+    validate_output_format,
 )
 
 plt.ioff()

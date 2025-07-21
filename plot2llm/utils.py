@@ -6,8 +6,7 @@ and other common operations used throughout the library.
 """
 
 import logging
-from typing import Any, Union
-from pathlib import Path
+from typing import Any, List, Union
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,6 @@ def detect_figure_type(figure: Any) -> str:
     try:
         # Check for seaborn figures FIRST (before matplotlib)
         if hasattr(figure, "__class__"):
-            class_name = figure.__class__.__name__
             module_name = figure.__class__.__module__
 
             if "seaborn" in module_name:
@@ -111,7 +109,7 @@ def validate_detail_level(detail_level: str) -> bool:
     return detail_level in supported_levels
 
 
-def serialize_axis_values(x):
+def serialize_axis_values(x: Union[List, Any]) -> List[str]:
     """
     Serializa valores de eje para JSON/texto. Convierte fechas a string legible.
     Args:

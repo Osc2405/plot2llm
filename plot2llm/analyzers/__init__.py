@@ -31,7 +31,7 @@ class FigureAnalyzer:
         include_data=True,
         include_colors=True,
         include_statistics=True,
-    ):
+    ) -> dict:
         """
         Analyze a figure and extract relevant information.
 
@@ -47,6 +47,7 @@ class FigureAnalyzer:
             Dictionary containing the analysis results
         """
         import logging
+
         import pandas as pd
 
         logger = logging.getLogger(__name__)
@@ -92,7 +93,7 @@ class FigureAnalyzer:
             logger.error(f"Error analyzing figure: {str(e)}")
             raise
 
-    def get_available_analyzers(self):
+    def get_available_analyzers(self) -> list[str]:
         """Get list of available analyzers."""
         return ["matplotlib", "seaborn"]
 

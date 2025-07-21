@@ -4,12 +4,13 @@ Test script to verify that the notebook examples work correctly.
 This script runs the key examples from the notebook to ensure they function properly.
 """
 
-import sys
-import os
 import json
+import os
+import sys
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 # Add the parent directory to the path to import plot2llm
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))

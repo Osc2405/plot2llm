@@ -4,11 +4,12 @@ Tests for plot2llm base analyzer functionality.
 This module tests the BaseAnalyzer abstract class and its default implementations.
 """
 
-import pytest
-import numpy as np
-import matplotlib.pyplot as plt
-from unittest.mock import Mock, patch
 from abc import ABC
+from unittest.mock import Mock, patch
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pytest
 
 from plot2llm.analyzers.base_analyzer import BaseAnalyzer
 

@@ -6,10 +6,10 @@ This script provides various options for running the matplotlib test suite
 with different configurations and reporting options.
 """
 
-import os
-import sys
-import subprocess
 import argparse
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 

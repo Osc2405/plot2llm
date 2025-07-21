@@ -4,16 +4,16 @@ Matplotlib-specific analyzer for extracting information from matplotlib figures.
 
 import logging
 from typing import Any, Dict, List, Optional, Tuple
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.figure as mpl_figure
+
 import matplotlib.axes as mpl_axes
+import matplotlib.figure as mpl_figure
+import numpy as np
 from matplotlib.colors import to_hex
 from matplotlib.markers import MarkerStyle
-import webcolors
+
+from plot2llm.utils import serialize_axis_values
 
 from .base_analyzer import BaseAnalyzer
-from plot2llm.utils import serialize_axis_values
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +41,8 @@ class MatplotlibAnalyzer(BaseAnalyzer):
         Analyze a matplotlib figure and extract comprehensive information.
         Returns a dict compatible with tests and formatters.
         """
-        import matplotlib.figure as mpl_figure
         import matplotlib.axes as mpl_axes
+        import matplotlib.figure as mpl_figure
 
         if figure is None:
             raise ValueError("Invalid figure object: None")
@@ -69,12 +69,12 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                     pass
 
             # Compose axes list for compatibility
-            axes = []
+            axes: List[Dict[str, Any]] = []
             real_axes = self._get_axes(figure)
             for idx, ax_info in enumerate(axis_info["axes"]):
-                plot_types = []
-                curve_points = []
-                x_type = None
+                plot_types: List[Dict[str, Any]] = []
+                curve_points: List[Dict[str, Any]] = []
+                x_type: Optional[str] = None
                 if idx < len(real_axes):
                     ax = real_axes[idx]
                     # Detectar tipo de eje y etiquetas para x
@@ -428,7 +428,6 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             Tuple[str, List[str]]: (tipo_de_eje, lista_de_etiquetas)
         """
         try:
-            import numpy as np
             import pandas as pd
 
             # Asegurar que los labels estén disponibles
@@ -440,10 +439,8 @@ class MatplotlibAnalyzer(BaseAnalyzer):
 
             # 1. Obtener etiquetas del eje
             if axis == "x":
-                ticks = ax.get_xticks()
                 labels = [lbl.get_text().strip() for lbl in ax.get_xticklabels()]
             else:
-                ticks = ax.get_yticks()
                 labels = [lbl.get_text().strip() for lbl in ax.get_yticklabels()]
 
             labels = [lbl for lbl in labels if lbl]  # Filtrar etiquetas vacías
@@ -565,15 +562,13 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 y_type, y_labels = self._detect_axis_type_and_labels(ax, "y")
 
                 # Extraer puntos de la curva para este eje
-                curve_points = []
+                curve_points: List[Dict[str, Any]] = []
 
                 # Line plots
                 if hasattr(ax, "lines") and ax.lines:
                     for line in ax.lines:
                         x = line.get_xdata()
                         y = line.get_ydata()
-                        from plot2llm.utils import serialize_axis_values
-
                         x_serial = (
                             x_labels
                             if x_type == "category"
@@ -596,8 +591,6 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                             if offsets is not None and len(offsets) > 0:
                                 x = offsets[:, 0]
                                 y = offsets[:, 1]
-                                from plot2llm.utils import serialize_axis_values
-
                                 x_serial = (
                                     x_labels
                                     if x_type == "category"
@@ -630,8 +623,6 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                                 if x_type == "category" and idx < len(x_labels)
                                 else x
                             )
-                            from plot2llm.utils import serialize_axis_values
-
                             x_serial = (
                                 [x_val]
                                 if isinstance(x_val, str)
@@ -660,8 +651,6 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                         y_data.extend(pt["y"])
                     else:
                         y_data.append(pt["y"])
-
-                import numpy as np
 
                 y_data = np.array(y_data)
                 if (
@@ -766,7 +755,7 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             except Exception:
                 return None
 
-        colors = []
+        colors: List[Dict[str, Any]] = []
         try:
             axes = self._get_axes(figure)
             for ax in axes:
@@ -818,7 +807,7 @@ class MatplotlibAnalyzer(BaseAnalyzer):
 
     def _get_markers(self, figure: Any) -> List[dict]:
         """Get the markers used in the figure, as readable codes and names."""
-        markers = []
+        markers: List[Dict[str, Any]] = []
         try:
             axes = self._get_axes(figure)
             for ax in axes:
@@ -856,7 +845,7 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             }
             return style_names.get(str(style_code), str(style_code))
 
-        styles = []
+        styles: List[Dict[str, Any]] = []
         try:
             axes = self._get_axes(figure)
 
@@ -1046,9 +1035,9 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                     pass
 
                 # Detect plot types and axis types
-                plot_types = []
-                x_type = None
-                y_type = None
+                plot_types: List[Dict[str, Any]] = []
+                x_type: Optional[str] = None
+                y_type: Optional[str] = None
 
                 # Check lines (line plots)
                 if hasattr(ax, "lines") and ax.lines:
@@ -1117,7 +1106,6 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                         if hasattr(patch, "get_x") and hasattr(patch, "get_height"):
                             # Check if patches are adjacent (bar plot) or overlapping (histogram)
                             if len(ax.patches) > 1:
-                                x_pos = patch.get_x()
                                 width = patch.get_width()
                                 # Simple heuristic: if patches are close together, it's likely a bar plot
                                 if width > 0.1:  # Bar plots typically have wider bars

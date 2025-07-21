@@ -1,5 +1,6 @@
-import seaborn as sns
 import matplotlib.pyplot as plt
+import seaborn as sns
+
 from plot2llm import FigureConverter
 
 # Minimal seaborn example

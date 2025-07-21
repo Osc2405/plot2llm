@@ -3,16 +3,17 @@ Seaborn-specific analyzer for extracting information from seaborn figures.
 """
 
 import logging
-import numpy as np
-import matplotlib.pyplot as plt
-from typing import Any, Dict, List, Optional, Tuple, Union
-import matplotlib.figure as mpl_figure
-import matplotlib.axes as mpl_axes
-from matplotlib.colors import to_hex
 import warnings
+from typing import Any, Dict, List, Optional, Tuple
+
+import matplotlib.axes as mpl_axes
+import matplotlib.figure as mpl_figure
+import numpy as np
+from matplotlib.colors import to_hex
+
+from plot2llm.utils import serialize_axis_values
 
 from .base_analyzer import BaseAnalyzer
-from plot2llm.utils import serialize_axis_values
 
 # Configure numpy to suppress warnings
 np.seterr(all="ignore")  # Suppress all numpy warnings
@@ -129,8 +130,6 @@ class SeabornAnalyzer(BaseAnalyzer):
                                     x_serial = serialize_axis_values(x)
                                     y_serial = serialize_axis_values(y)
                                     if x_type is None:
-                                        import numpy as np
-
                                         if np.issubdtype(
                                             np.array(x).dtype, np.datetime64
                                         ):
@@ -159,8 +158,6 @@ class SeabornAnalyzer(BaseAnalyzer):
                             x_serial = serialize_axis_values(x)
                             y_serial = serialize_axis_values(y)
                             if x_type is None:
-                                import numpy as np
-
                                 if np.issubdtype(np.array(x).dtype, np.datetime64):
                                     x_type = "date"
                                 elif hasattr(x, "dtype") and str(x.dtype).startswith(
@@ -187,7 +184,8 @@ class SeabornAnalyzer(BaseAnalyzer):
                                 # Usar etiqueta de categoría si está disponible
                                 x_val = (
                                     x_labels[patch_idx]
-                                    if x_type_detected == "category"
+                                    if x_type_detected == self.CATEGORY
+                                    and x_labels is not None
                                     and patch_idx < len(x_labels)
                                     else x
                                 )
@@ -288,27 +286,26 @@ class SeabornAnalyzer(BaseAnalyzer):
                     if "FacetGrid" in class_name:
                         logger.debug("Detected FacetGrid")
                         return "seaborn.FacetGrid"
-                    elif "PairGrid" in class_name:
+                    if "PairGrid" in class_name:
                         logger.debug("Detected PairGrid")
                         return "seaborn.PairGrid"
-                    elif "JointGrid" in class_name:
+                    if "JointGrid" in class_name:
                         logger.debug("Detected JointGrid")
                         return "seaborn.JointGrid"
-                    elif "Heatmap" in class_name:
+                    if "Heatmap" in class_name:
                         logger.debug("Detected Heatmap")
                         return "seaborn.Heatmap"
-                    elif "ClusterGrid" in class_name:
+                    if "ClusterGrid" in class_name:
                         logger.debug("Detected ClusterGrid")
                         return "seaborn.ClusterGrid"
-                    else:
-                        logger.debug(f"Detected generic seaborn: {class_name}")
-                        return f"seaborn.{class_name}"
+                    logger.debug(f"Detected generic seaborn: {class_name}")
+                    return f"seaborn.{class_name}"
 
                 # Fall back to matplotlib types
                 if isinstance(figure, mpl_figure.Figure):
                     logger.debug("Detected matplotlib.Figure")
                     return "matplotlib.Figure"
-                elif isinstance(figure, mpl_axes.Axes):
+                if isinstance(figure, mpl_axes.Axes):
                     logger.debug("Detected matplotlib.Axes")
                     return "matplotlib.Axes"
 
@@ -324,14 +321,13 @@ class SeabornAnalyzer(BaseAnalyzer):
             # Handle seaborn grid objects
             if hasattr(figure, "fig"):
                 return figure.fig.get_size_inches()
-            elif hasattr(figure, "figure"):
+            if hasattr(figure, "figure"):
                 return figure.figure.get_size_inches()
-            elif isinstance(figure, mpl_figure.Figure):
+            if isinstance(figure, mpl_figure.Figure):
                 return figure.get_size_inches()
-            elif isinstance(figure, mpl_axes.Axes):
+            if isinstance(figure, mpl_axes.Axes):
                 return figure.figure.get_size_inches()
-            else:
-                return (0, 0)
+            return (0, 0)
         except Exception:
             return (0, 0)
 
@@ -341,22 +337,22 @@ class SeabornAnalyzer(BaseAnalyzer):
             # Handle seaborn grid objects
             if hasattr(figure, "fig"):
                 fig = figure.fig
-                if fig._suptitle:
+                if getattr(fig, "_suptitle", None):
                     return fig._suptitle.get_text()
                 if fig.axes:
                     return fig.axes[0].get_title()
-            elif hasattr(figure, "figure"):
+            if hasattr(figure, "figure"):
                 fig = figure.figure
-                if fig._suptitle:
+                if getattr(fig, "_suptitle", None):
                     return fig._suptitle.get_text()
                 if fig.axes:
                     return fig.axes[0].get_title()
-            elif isinstance(figure, mpl_figure.Figure):
-                if figure._suptitle:
+            if isinstance(figure, mpl_figure.Figure):
+                if getattr(figure, "_suptitle", None):
                     return figure._suptitle.get_text()
                 if figure.axes:
                     return figure.axes[0].get_title()
-            elif isinstance(figure, mpl_axes.Axes):
+            if isinstance(figure, mpl_axes.Axes):
                 return figure.get_title()
             return None
         except Exception:
@@ -371,20 +367,18 @@ class SeabornAnalyzer(BaseAnalyzer):
                 # Check if axes is a numpy array or list
                 if hasattr(axes, "flatten"):
                     return axes.flatten().tolist()
-                elif isinstance(axes, list):
+                if isinstance(axes, list):
                     return axes
-                else:
-                    return []
-            elif hasattr(figure, "fig"):
-                return figure.fig.axes
-            elif hasattr(figure, "figure"):
-                return figure.figure.axes
-            elif isinstance(figure, mpl_figure.Figure):
-                return figure.axes
-            elif isinstance(figure, mpl_axes.Axes):
-                return [figure]
-            else:
                 return []
+            if hasattr(figure, "fig"):
+                return figure.fig.axes
+            if hasattr(figure, "figure"):
+                return figure.figure.axes
+            if isinstance(figure, mpl_figure.Figure):
+                return figure.axes
+            if isinstance(figure, mpl_axes.Axes):
+                return [figure]
+            return []
         except Exception:
             return []
 
@@ -465,16 +459,15 @@ class SeabornAnalyzer(BaseAnalyzer):
                 if "seaborn" in module_name:
                     if "FacetGrid" in class_name:
                         return "FacetGrid"
-                    elif "PairGrid" in class_name:
+                    if "PairGrid" in class_name:
                         return "PairGrid"
-                    elif "JointGrid" in class_name:
+                    if "JointGrid" in class_name:
                         return "JointGrid"
-                    elif "Heatmap" in class_name:
+                    if "Heatmap" in class_name:
                         return "heatmap"
-                    elif "ClusterGrid" in class_name:
+                    if "ClusterGrid" in class_name:
                         return "clustermap"
-                    else:
-                        return class_name
+                    return class_name
             # Fallback: try to detect from axes
             return self._detect_plot_type_from_axes(figure)
         except Exception:
@@ -550,7 +543,7 @@ class SeabornAnalyzer(BaseAnalyzer):
                             total_points += len(xdata)
 
                 # Count data from patches (histograms, bar plots)
-                for patch in ax.patches:
+                for _ in ax.patches:
                     total_points += 1
 
             return total_points
@@ -631,13 +624,9 @@ class SeabornAnalyzer(BaseAnalyzer):
                     for line in ax.lines:
                         x = line.get_xdata()
                         y = line.get_ydata()
-                        from plot2llm.utils import serialize_axis_values
-
                         x_serial = serialize_axis_values(x)
                         y_serial = serialize_axis_values(y)
                         if x_type is None:
-                            import numpy as np
-
                             if np.issubdtype(np.array(x).dtype, np.datetime64):
                                 x_type = "date"
                             elif hasattr(x, "dtype") and str(x.dtype).startswith(
@@ -659,13 +648,9 @@ class SeabornAnalyzer(BaseAnalyzer):
                             if offsets is not None and len(offsets) > 0:
                                 x = offsets[:, 0]
                                 y = offsets[:, 1]
-                                from plot2llm.utils import serialize_axis_values
-
                                 x_serial = serialize_axis_values(x)
                                 y_serial = serialize_axis_values(y)
                                 if x_type is None:
-                                    import numpy as np
-
                                     if np.issubdtype(np.array(x).dtype, np.datetime64):
                                         x_type = "date"
                                     elif all(isinstance(val, str) for val in x_serial):
@@ -687,8 +672,6 @@ class SeabornAnalyzer(BaseAnalyzer):
                         if hasattr(patch, "get_x") and hasattr(patch, "get_height"):
                             x = patch.get_x()
                             y = patch.get_height()
-                            from plot2llm.utils import serialize_axis_values
-
                             x_serial = serialize_axis_values([x])
                             y_serial = serialize_axis_values([y])
                             if x_type is None:
@@ -708,8 +691,6 @@ class SeabornAnalyzer(BaseAnalyzer):
                 y_data = []
                 for pt in curve_points:
                     y_data.extend(pt["y"])
-                import numpy as np
-
                 y_data = np.array(y_data)
                 if (
                     can_calc_stats
@@ -754,8 +735,6 @@ class SeabornAnalyzer(BaseAnalyzer):
                 stats["per_axis"].append(axis_stats)
             return stats
         except Exception as e:
-            import logging
-
             logging.getLogger(__name__).warning(
                 f"Error calculating seaborn statistics: {str(e)}"
             )
@@ -1096,7 +1075,7 @@ class SeabornAnalyzer(BaseAnalyzer):
             axis_info["total_axes"] = len(axes)
 
             # Get figure title
-            if hasattr(figure, "suptitle") and figure._suptitle:
+            if hasattr(figure, "suptitle") and getattr(figure, "_suptitle", None):
                 axis_info["figure_title"] = figure._suptitle.get_text()
             elif hasattr(figure, "get_suptitle"):
                 axis_info["figure_title"] = figure.get_suptitle()
@@ -1218,14 +1197,14 @@ class SeabornAnalyzer(BaseAnalyzer):
                 if hasattr(ax, "xaxis") and hasattr(ax, "yaxis")
                 else False
             )
-        except:
+        except Exception:
             return False
 
     def _check_legend(self, ax):
         """Check if the axis has a legend."""
         try:
             return ax.legend_ is not None if hasattr(ax, "legend_") else False
-        except:
+        except Exception:
             return False
 
     def _detect_plot_types_from_axis(self, ax):
@@ -1305,7 +1284,7 @@ class SeabornAnalyzer(BaseAnalyzer):
                     y_type = self.CATEGORY
                     y_labels = non_empty_y_labels
 
-        except Exception as e:
+        except Exception:
             # Default to numeric if detection fails
             pass
 

@@ -5,13 +5,14 @@ This module specifically tests the conversion of matplotlib figures
 to text, JSON, and semantic formats, ensuring consistency and correctness.
 """
 
-import pytest
-import numpy as np
-import matplotlib.pyplot as plt
 import json
 
-from plot2llm import convert, FigureConverter
-from plot2llm.formatters import TextFormatter, JSONFormatter, SemanticFormatter
+import matplotlib.pyplot as plt
+import numpy as np
+import pytest
+
+from plot2llm import FigureConverter, convert
+from plot2llm.formatters import JSONFormatter, SemanticFormatter, TextFormatter
 
 plt.ioff()  # Turn off interactive mode
 

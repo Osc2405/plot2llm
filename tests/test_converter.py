@@ -5,15 +5,16 @@ This module tests the FigureConverter class, format handling,
 analyzer registration, and error scenarios.
 """
 
-import pytest
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
 
-from plot2llm.converter import FigureConverter, convert
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pytest
+
 from plot2llm.analyzers import FigureAnalyzer
-from plot2llm.formatters import TextFormatter, JSONFormatter, SemanticFormatter
+from plot2llm.converter import FigureConverter, convert
+from plot2llm.formatters import JSONFormatter, SemanticFormatter, TextFormatter
 from plot2llm.utils import detect_figure_type
 
 plt.ioff()

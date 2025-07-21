@@ -3,19 +3,10 @@ Main converter class for transforming Python figures to LLM-readable formats.
 """
 
 import logging
-from typing import Any, Dict, Optional, Union
-from pathlib import Path
-
-import matplotlib.pyplot as plt
-import matplotlib.figure as mpl_figure
-import plotly.graph_objects as go
-import plotly.express as px
-import seaborn as sns
-import pandas as pd
-import numpy as np
+from typing import Any, Union
 
 from .analyzers import FigureAnalyzer
-from .formatters import TextFormatter, JSONFormatter, SemanticFormatter
+from .formatters import JSONFormatter, SemanticFormatter, TextFormatter
 from .utils import detect_figure_type, validate_output_format
 
 logger = logging.getLogger(__name__)
@@ -154,15 +145,13 @@ def convert(figure, format="text", **kwargs):
     """
     converter = FigureConverter()
     # Detect backend if not provided
-    import matplotlib.figure as mpl_figure
-    import matplotlib.axes as mpl_axes
-    import seaborn as sns
-    import matplotlib
+    import matplotlib.axes as _mpl_axes
+    import matplotlib.figure as _mpl_figure
 
     backend = None
-    if isinstance(figure, mpl_figure.Figure) or isinstance(figure, mpl_axes.Axes):
+    if isinstance(figure, _mpl_figure.Figure) or isinstance(figure, _mpl_axes.Axes):
         # Try to detect if it's a seaborn plot (by presence of seaborn attributes)
-        if isinstance(figure, mpl_figure.Figure):
+        if isinstance(figure, _mpl_figure.Figure):
             axes_to_check = getattr(figure, "axes", [])
             if axes_to_check and any(
                 "seaborn" in str(type(ax)) for ax in axes_to_check

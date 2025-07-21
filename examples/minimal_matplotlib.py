@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+
 from plot2llm import FigureConverter
 
 # Minimal matplotlib example

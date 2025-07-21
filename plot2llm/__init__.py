@@ -9,9 +9,9 @@ Large Language Models (LLMs).
 __version__ = "0.1.20"
 __author__ = "Plot2LLM Team"
 
-from .converter import FigureConverter
 from .analyzers import FigureAnalyzer
-from .formatters import TextFormatter, JSONFormatter, SemanticFormatter
+from .converter import FigureConverter
+from .formatters import JSONFormatter, SemanticFormatter, TextFormatter
 
 # Create a global converter instance for convenience
 _converter = FigureConverter()

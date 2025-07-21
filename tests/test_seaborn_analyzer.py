@@ -5,14 +5,15 @@ This module tests the SeabornAnalyzer class with various types of seaborn plots,
 grid layouts, statistical visualizations, and seaborn-specific features.
 """
 
-import pytest
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 import warnings
 
-from plot2llm import convert, FigureConverter
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pytest
+import seaborn as sns
+
+from plot2llm import FigureConverter, convert
 from plot2llm.analyzers.seaborn_analyzer import SeabornAnalyzer
 from plot2llm.utils import detect_figure_type
 

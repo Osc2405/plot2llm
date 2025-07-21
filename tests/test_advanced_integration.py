@@ -5,18 +5,19 @@ This module tests complex workflows, performance with large datasets,
 multi-library integration, and real-world scenarios.
 """
 
-import pytest
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 import time
 import warnings
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from plot2llm import convert, FigureConverter
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pytest
+import seaborn as sns
+
+from plot2llm import FigureConverter, convert
 from plot2llm.analyzers import FigureAnalyzer, MatplotlibAnalyzer, SeabornAnalyzer
-from plot2llm.formatters import TextFormatter, JSONFormatter, SemanticFormatter
+from plot2llm.formatters import JSONFormatter, SemanticFormatter, TextFormatter
 from plot2llm.utils import detect_figure_type
 
 # Suppress warnings during tests
@@ -388,9 +389,9 @@ class TestComplexWorkflows:
         """Test machine learning visualization workflow."""
         try:
             from sklearn.datasets import make_classification
-            from sklearn.model_selection import train_test_split
             from sklearn.ensemble import RandomForestClassifier
             from sklearn.metrics import confusion_matrix
+            from sklearn.model_selection import train_test_split
         except ImportError:
             pytest.skip("Scikit-learn not available")
 

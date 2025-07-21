@@ -2,9 +2,9 @@
 Base analyzer class that defines the interface for all figure analyzers.
 """
 
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
-import logging
 
 logger = logging.getLogger(__name__)
 

@@ -2,11 +2,12 @@
 Pytest configuration and shared fixtures for plot2llm tests.
 """
 
-import pytest
-import matplotlib.pyplot as plt
-import matplotlib
 import warnings
+
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
+import pytest
 
 
 def pytest_configure(config):
@@ -64,9 +65,3 @@ def subplot_figure():
 
 
 # Pytest markers
-def pytest_configure(config):
-    """Register custom markers."""
-    config.addinivalue_line("markers", "unit: mark test as a unit test")
-    config.addinivalue_line("markers", "integration: mark test as an integration test")
-    config.addinivalue_line("markers", "slow: mark test as slow running")
-    config.addinivalue_line("markers", "edge_case: mark test as edge case test")
