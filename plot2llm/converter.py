@@ -177,3 +177,8 @@ def convert(figure, format='text', **kwargs):
         return converter.semantic_formatter.format(analysis, **kwargs)
     else:
         raise ValueError(f"Unsupported format: {format}") 
+
+__all__ = [
+    "FigureConverter",
+    "convert"
+] 

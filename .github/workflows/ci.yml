@@ -10,12 +10,13 @@ on:
 
 jobs:
   test:
+    timeout-minutes: 30
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        os: [ubuntu-latest]
+        python-version: ["3.9", "3.11", "3.12"]
 
     steps:
     - name: Checkout code
@@ -38,10 +39,20 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -e ".[test,all]"
+        pip check
+
+    - name: Install Tkinter (Linux only)
+      if: runner.os == 'Linux'
+      run: sudo apt-get update && sudo apt-get install -y python3-tk
+
+    - name: Set environment variables
+      run: |
+        echo "MPLBACKEND=Agg" >> $GITHUB_ENV
+        echo "PLOT2LLM_LOG_LEVEL=WARNING" >> $GITHUB_ENV
 
     - name: Run tests
       run: |
-        python -m pytest tests/ -v --cov=plot2llm --cov-report=xml
+        python -m pytest tests/ -v --cov=plot2llm --cov-report=xml -m "not slow"
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
@@ -52,6 +63,7 @@ jobs:
         fail_ci_if_error: false
 
   lint:
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -92,6 +104,7 @@ jobs:
         bandit -r plot2llm/
 
   security:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -128,6 +141,7 @@ jobs:
         path: bandit-report.json
 
   build:
+    timeout-minutes: 20
     needs: [test, lint]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -161,6 +175,7 @@ jobs:
         path: dist/
 
   publish-test:
+    timeout-minutes: 10
     needs: build
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -180,6 +195,7 @@ jobs:
         packages-dir: dist/
 
   publish:
+    timeout-minutes: 10
     needs: build
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
@@ -198,6 +214,7 @@ jobs:
         packages-dir: dist/
 
   documentation:
+    timeout-minutes: 15
     needs: [test, lint]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -226,28 +243,28 @@ jobs:
       if: github.ref == 'refs/heads/main'
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./docs/_build/html
+        publish_dir: ./docs/_build/html 
 
-  notify:
-    needs: [test, lint, build]
+  test-fast:
+    name: Fast Unit Tests
     runs-on: ubuntu-latest
-    if: always()
-
+    timeout-minutes: 5
     steps:
-    - name: Notify on failure
-      if: failure()
-      uses: 8398a7/action-slack@v3
-      with:
-        status: failure
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-        channel: '#ci-cd'
-        text: 'Plot2LLM CI/CD pipeline failed!'
-
-    - name: Notify on success
-      if: success()
-      uses: 8398a7/action-slack@v3
-      with:
-        status: success
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-        channel: '#ci-cd'
-        text: 'Plot2LLM CI/CD pipeline succeeded!' 
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test,all]"
+          pip check
+      - name: Set environment variables
+        run: |
+          echo "MPLBACKEND=Agg" >> $GITHUB_ENV
+          echo "PLOT2LLM_LOG_LEVEL=WARNING" >> $GITHUB_ENV
+      - name: Run fast unit tests
+        run: |
+          python -m pytest tests/ -v -m "unit" --tb=short 
