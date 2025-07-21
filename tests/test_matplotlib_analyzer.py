@@ -7,16 +7,12 @@ edge cases, and error conditions to ensure robustness and accuracy.
 
 import warnings
 
-import matplotlib.axes as mpl_axes
-import matplotlib.figure as mpl_figure
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
-from matplotlib.colors import to_hex
 
 from plot2llm import FigureConverter, convert
 from plot2llm.analyzers.matplotlib_analyzer import MatplotlibAnalyzer
-from plot2llm.utils import detect_figure_type
 
 # Suppress matplotlib warnings during tests
 warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib")

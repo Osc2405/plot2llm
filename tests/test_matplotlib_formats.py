@@ -11,8 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
-from plot2llm import FigureConverter, convert
-from plot2llm.formatters import JSONFormatter, SemanticFormatter, TextFormatter
+from plot2llm import FigureConverter
 
 plt.ioff()  # Turn off interactive mode
 
@@ -123,7 +122,6 @@ class TestMatplotlibJSONFormat:
         results = [self.converter.convert(fig, "json") for fig in plots]
 
         # All should have same top-level structure
-        expected_keys = {"figure_type", "title", "axes"}
         for result in results:
             assert isinstance(result, dict)
             # Check that main keys exist (some might be None)

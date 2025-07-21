@@ -5,10 +5,8 @@ This module tests utility functions including figure type detection,
 validation functions, and helper utilities.
 """
 
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
-import matplotlib.axes as mpl_axes
-import matplotlib.figure as mpl_figure
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd

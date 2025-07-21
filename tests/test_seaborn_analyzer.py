@@ -15,7 +15,6 @@ import seaborn as sns
 
 from plot2llm import FigureConverter, convert
 from plot2llm.analyzers.seaborn_analyzer import SeabornAnalyzer
-from plot2llm.utils import detect_figure_type
 
 # Suppress warnings during tests
 warnings.filterwarnings("ignore", category=UserWarning, module="seaborn")
@@ -192,10 +191,6 @@ class TestSeabornBasicPlots:
         assert analysis["figure_type"] == "seaborn"
 
         # Check seaborn info for heatmap detection
-        seaborn_info = analysis.get("seaborn_info", {})
-        plot_type = seaborn_info.get("plot_type", "")
-
-        # Should be detected as heatmap or have image/quadmesh elements
         axes_data = analysis["axes"][0]
         assert len(axes_data) > 0  # Should have some data
 
@@ -232,8 +227,7 @@ class TestSeabornGridLayouts:
         assert len(analysis["axes"]) >= 2
 
         # Check seaborn info
-        seaborn_info = analysis.get("seaborn_info", {})
-        assert "grid_shape" in seaborn_info or "grid_size" in seaborn_info
+        assert "grid_shape" in analysis.get("seaborn_info", {}) or "grid_size" in analysis.get("seaborn_info", {})
 
     @pytest.mark.unit
     def test_seaborn_pairplot(self):

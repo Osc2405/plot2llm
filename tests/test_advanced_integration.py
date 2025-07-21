@@ -7,7 +7,6 @@ multi-library integration, and real-world scenarios.
 
 import time
 import warnings
-from unittest.mock import MagicMock, patch
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,9 +14,8 @@ import pandas as pd
 import pytest
 import seaborn as sns
 
-from plot2llm import FigureConverter, convert
-from plot2llm.analyzers import FigureAnalyzer, MatplotlibAnalyzer, SeabornAnalyzer
-from plot2llm.formatters import JSONFormatter, SemanticFormatter, TextFormatter
+from plot2llm import FigureConverter
+from plot2llm.analyzers import MatplotlibAnalyzer, SeabornAnalyzer
 from plot2llm.utils import detect_figure_type
 
 # Suppress warnings during tests
@@ -177,7 +175,7 @@ class TestMultiLibraryIntegration:
         ax.set_title("Mixed Matplotlib + Seaborn Plot")
 
         # Test detection and conversion
-        figure_type = detect_figure_type(fig)
+        detect_figure_type(fig)
         result = self.converter.convert(fig, "json")
 
         assert isinstance(result, dict)
@@ -323,7 +321,7 @@ class TestComplexWorkflows:
         errors = [0.1, 0.15, 0.2, 0.12]
 
         x_pos = np.arange(len(conditions))
-        bars = ax1.bar(
+        ax1.bar(
             x_pos,
             means,
             yerr=errors,
@@ -353,13 +351,13 @@ class TestComplexWorkflows:
 
         # Time course
         ax3 = plt.subplot(2, 2, 4)
-        time = np.linspace(0, 24, 100)
-        baseline = np.ones_like(time)
-        treatment = 1 + 0.5 * np.exp(-time / 6) * np.sin(time / 2)
+        time_arr = np.linspace(0, 24, 100)
+        baseline = np.ones_like(time_arr)
+        treatment = 1 + 0.5 * np.exp(-time_arr / 6) * np.sin(time_arr / 2)
 
-        ax3.plot(time, baseline, "b-", label="Control", linewidth=2)
-        ax3.plot(time, treatment, "r-", label="Treatment", linewidth=2)
-        ax3.fill_between(time, treatment - 0.1, treatment + 0.1, alpha=0.3, color="red")
+        ax3.plot(time_arr, baseline, "b-", label="Control", linewidth=2)
+        ax3.plot(time_arr, treatment, "r-", label="Treatment", linewidth=2)
+        ax3.fill_between(time_arr, treatment - 0.1, treatment + 0.1, alpha=0.3, color="red")
         ax3.set_xlabel("Time (hours)")
         ax3.set_ylabel("Normalized Response")
         ax3.set_title("Time Course Analysis")
@@ -426,7 +424,7 @@ class TestComplexWorkflows:
         # Confusion matrix
         y_pred = model.predict(X_test)
         cm = confusion_matrix(y_test, y_pred)
-        im = axes[0, 1].imshow(cm, interpolation="nearest", cmap="Blues")
+        axes[0, 1].imshow(cm, interpolation="nearest", cmap="Blues")
         axes[0, 1].set_title("Confusion Matrix")
         axes[0, 1].set_xlabel("Predicted")
         axes[0, 1].set_ylabel("Actual")
