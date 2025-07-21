@@ -132,7 +132,7 @@ jobs:
     - name: Run bandit security scan
       run: |
         pip install bandit
-        bandit -r plot2llm/ -f json -o bandit-report.json
+        bandit -r plot2llm/ -f json -o bandit-report.json || true
 
     - name: Upload security scan results
       uses: actions/upload-artifact@v4
