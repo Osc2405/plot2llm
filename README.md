@@ -1,50 +1,46 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Osc2405/plot2llm/main/plot2llm/assets/logo.png" width="200" alt="plot2llm logo">
+</p>
+
 # plot2llm
 
-> **Beta Notice:** This library is currently in beta. The API may change in future releases. Please report any issues or suggestions!
+[![PyPI](https://img.shields.io/pypi/v/plot2llm)](https://pypi.org/project/plot2llm/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/pypi/pyversions/plot2llm)](https://pypi.org/project/plot2llm/)
 
-Convert Python figures (matplotlib, seaborn) to LLM-readable formats
+> **Convert your Python plots into LLM-ready structured outputs — from matplotlib and seaborn.**
 
----
+**Plot2LLM** bridges the gap between data visualization and AI. Instantly extract technical summaries, JSON, or LLM-optimized context from your figures for explainable AI, documentation, or RAG pipelines.
 
-## Introduction & Motivation
-
-**Plot2LLM** is a Python library designed to bridge the gap between data visualization and AI. It analyzes and converts figures from matplotlib and seaborn into structured, LLM-friendly text or JSON. This enables:
-- Automated documentation of plots
-- Feeding plot information to Large Language Models (LLMs)
-- Building explainable AI pipelines
-- Generating technical summaries for reports
+> 🧠 **Use the `'semantic'` format to generate structured context optimized for GPT, Claude or any RAG pipeline.**
 
 ---
 
-## Supported Features
+## Features
 
-- **Matplotlib support:**
-  - Line, scatter, bar, histogram, box, violin, and more
-  - Multi-axes and subplots
-  - Extraction of axes, labels, data, colors, statistics
-- **Seaborn support:**
-  - Common plot types: scatter, line, box, violin, histogram, FacetGrid, PairPlot, etc.
-  - Automatic detection of seaborn-specific features
-- **Output formats:**
-  - `'text'`: Human-readable technical summary
-  - `'json'`: Structured JSON/dict
-  - `'semantic'`: LLM-optimized dict with standard keys
-- **Error handling:**
-  - Graceful handling of invalid figures or unsupported formats
-- **Extensible:**
-  - Add your own formatters or analyzers
+| Feature                        | Status           |
+|--------------------------------|------------------|
+| Matplotlib plots               | ✅ Full support  |
+| Seaborn plots                  | ✅ Major types   |
+| JSON/Text/Semantic output      | ✅               |
+| Custom formatters/analyzers    | ✅               |
+| Multi-axes/subplots            | ✅               |
+| Level of detail control        | ✅               |
+| Error handling                 | ✅               |
+| Extensible API                 | ✅               |
+| Plotly/Bokeh/Altair detection  | 🚧 Planned      |
+| Jupyter plugin                 | 🚧 Planned      |
+| Export to Markdown/HTML        | 🚧 Planned      |
+| Image-based plot analysis      | 🚧 Planned      |
 
 ---
 
-## Roadmap / Pending Features
+## Who is this for?
 
-- [ ] **Plotly, Bokeh, Altair support** (planned)
-- [ ] **Interactive plot extraction**
-- [ ] **Image-based plot analysis**
-- [ ] **More advanced statistics and trend detection**
-- [ ] **Better support for custom matplotlib artists**
-- [ ] **Jupyter notebook integration**
-- [ ] **Export to Markdown/HTML**
+- Data Scientists who want to document or explain their plots automatically
+- AI engineers building RAG or explainable pipelines
+- Jupyter Notebook users creating technical visualizations
+- Developers generating automated reports with AI
 
 ---
 
@@ -68,11 +64,17 @@ pip install -e .
 
 ```python
 import matplotlib.pyplot as plt
+import numpy as np
 from plot2llm import FigureConverter
 
+x = np.linspace(0, 2 * np.pi, 100)
 fig, ax = plt.subplots()
-ax.plot([1, 2, 3], [2, 4, 6])
-ax.set_title('Demo Plot')
+ax.plot(x, np.sin(x), label="sin(x)", color="royalblue")
+ax.plot(x, np.cos(x), label="cos(x)", color="orange")
+ax.set_title('Sine and Cosine Waves')
+ax.set_xlabel('Angle [radians]')
+ax.set_ylabel('Value')
+ax.legend()
 
 converter = FigureConverter()
 text_result = converter.convert(fig, 'text')
@@ -170,17 +172,24 @@ Number of axes: 1
 
 ---
 
-## API Reference (Summary)
+## API Reference
 
-### `FigureConverter`
-- `convert(figure, output_format='text')`: Convert a figure to the specified format. `output_format` can be `'text'`, `'json'`, `'semantic'`, or a custom formatter object.
-- `register_analyzer(name, analyzer)`: Add a custom analyzer.
-- `register_formatter(name, formatter)`: Add a custom formatter.
+See the full [API Reference](docs/API.md) for details on all classes and methods.
 
-### Formatters
-- `TextFormatter`: Returns a technical, human-readable summary.
-- `JSONFormatter`: Returns a structured dict (JSON-serializable).
-- `SemanticFormatter`: Returns a dict optimized for LLMs, with standard keys.
+---
+
+## Project Status
+
+This project is in **beta**. Major functionalities (matplotlib, seaborn, extensibility, output formats) are stable and tested. Plotly, Bokeh, Altair, Jupyter plugin, and image-based analysis are planned but not yet implemented. We welcome contributions or feedback.
+
+- [x] Matplotlib support
+- [x] Seaborn support
+- [x] Extensible formatters/analyzers
+- [x] Multi-format output (text, json, semantic)
+- [ ] Plotly/Bokeh/Altair integration
+- [ ] Jupyter plugin
+- [ ] Export to Markdown/HTML
+- [ ] Image-based plot analysis
 
 ---
 
@@ -206,5 +215,9 @@ MIT License
 
 ## Contact & Links
 
-- GitHub: [https://github.com/Osc2405/plot2llm](https://github.com/Osc2405/plot2llm)
-- Issues: [https://github.com/Osc2405/plot2llm/issues](https://github.com/Osc2405/plot2llm/issues)
+- [GitHub repo](https://github.com/Osc2405/plot2llm)
+- [Issues](https://github.com/Osc2405/plot2llm/issues)
+
+---
+
+*Try it, give feedback, or suggest a formatter you’d like to see!*
