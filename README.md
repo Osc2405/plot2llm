@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Osc2405/plot2llm/main/logo.png" width="200" alt="plot2llm logo">
+  <img src="https://raw.githubusercontent.com/Osc2405/plot2llm/refs/heads/main/assets/logo.png" width="200" alt="plot2llm logo">
 </p>
 
 # plot2llm
