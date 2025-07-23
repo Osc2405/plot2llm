@@ -95,15 +95,24 @@ class SeabornAnalyzer(BaseAnalyzer):
                 plot_types = []
                 curve_points = []
                 x_type = None
+                y_type = None
+                has_grid = ax_info.get("has_grid", False)
+                has_legend = ax_info.get("has_legend", False)
+                x_range = ax_info.get("x_lim")
+                y_range = ax_info.get("y_lim")
+                spine_visibility = None  # Placeholder
+                tick_density = None      # Placeholder
                 if idx < len(real_axes):
                     ax = real_axes[idx]
                     # Detect basic axis info
                     ax_info = self._analyze_axis_properties(ax)
 
-                    # Detectar tipo de eje y etiquetas para x
+                    # Detectar tipo de eje y etiquetas para x/y
                     x_type_detected, y_type_detected, x_labels, y_labels = (
                         self._detect_axis_type_and_labels(ax)
                     )
+                    x_type = x_type_detected
+                    y_type = y_type_detected
 
                     # Special handling for histograms - they should have numeric X axis
                     plot_types_detected = self._detect_plot_types_from_axis(ax)
@@ -111,13 +120,12 @@ class SeabornAnalyzer(BaseAnalyzer):
                         "ylabel", ""
                     ).lower() in ["count", "frequency", "density"]:
                         # This looks like a histogram
-                        x_type_detected = self.NUMERIC  # Histograms have numeric X axis
+                        x_type = self.NUMERIC  # Histograms have numeric X axis
                         plot_types_detected = (
                             ["histogram"]
                             if "bar" in plot_types_detected
                             else plot_types_detected
                         )
-
                     # Detect scatter plots
                     if hasattr(ax, "collections") and ax.collections:
                         plot_types.append({"type": "scatter"})
@@ -129,26 +137,7 @@ class SeabornAnalyzer(BaseAnalyzer):
                                     y = offsets[:, 1]
                                     x_serial = serialize_axis_values(x)
                                     y_serial = serialize_axis_values(y)
-                                    if x_type is None:
-                                        if np.issubdtype(
-                                            np.array(x).dtype, np.datetime64
-                                        ):
-                                            x_type = "date"
-                                        elif all(
-                                            isinstance(val, str) for val in x_serial
-                                        ):
-                                            x_type = "category"
-                                        else:
-                                            x_type = "numeric"
-                                    curve_points.append(
-                                        {
-                                            "x": x_serial,
-                                            "y": y_serial,
-                                            "label": getattr(
-                                                collection, "get_label", lambda: None
-                                            )(),
-                                        }
-                                    )
+                                    curve_points.append({"x": x_serial, "y": y_serial, "label": getattr(collection, "get_label", lambda: None)()})
                     # Detect line plots
                     if hasattr(ax, "lines") and ax.lines:
                         plot_types.append({"type": "line"})
@@ -157,71 +146,44 @@ class SeabornAnalyzer(BaseAnalyzer):
                             y = line.get_ydata()
                             x_serial = serialize_axis_values(x)
                             y_serial = serialize_axis_values(y)
-                            if x_type is None:
-                                if np.issubdtype(np.array(x).dtype, np.datetime64):
-                                    x_type = "date"
-                                elif hasattr(x, "dtype") and str(x.dtype).startswith(
-                                    "period"
-                                ):
-                                    x_type = "period"
-                                elif all(isinstance(val, str) for val in x_serial):
-                                    x_type = "category"
-                                else:
-                                    x_type = "numeric"
-                            curve_points.append(
-                                {
-                                    "x": x_serial,
-                                    "y": y_serial,
-                                    "label": line.get_label(),
-                                }
-                            )
+                            curve_points.append({"x": x_serial, "y": y_serial, "label": line.get_label()})
                     # Detect bar/histogram plots
                     if hasattr(ax, "patches") and ax.patches:
                         for patch_idx, patch in enumerate(ax.patches):
                             if hasattr(patch, "get_x") and hasattr(patch, "get_height"):
                                 x = patch.get_x()
                                 y = patch.get_height()
-                                # Usar etiqueta de categoría si está disponible
-                                x_val = (
-                                    x_labels[patch_idx]
-                                    if x_type_detected == self.CATEGORY
-                                    and x_labels is not None
-                                    and patch_idx < len(x_labels)
-                                    else x
-                                )
-                                x_serial = (
-                                    [x_val]
-                                    if isinstance(x_val, str)
-                                    else serialize_axis_values([x_val])
-                                )
+                                x_val = x_labels[patch_idx] if x_type == self.CATEGORY and x_labels is not None and patch_idx < len(x_labels) else x
+                                x_serial = [x_val] if isinstance(x_val, str) else serialize_axis_values([x_val])
                                 y_serial = serialize_axis_values([y])
-                                if x_type is None:
-                                    x_type = x_type_detected
-                                curve_points.append(
-                                    {
-                                        "x": x_serial,
-                                        "y": y_serial,
-                                        "label": getattr(
-                                            patch, "get_label", lambda: None
-                                        )(),
-                                    }
-                                )
+                                curve_points.append({"x": x_serial, "y": y_serial, "label": getattr(patch, "get_label", lambda: None)()})
                         plot_types.append({"type": "bar"})
-                axes.append(
-                    {
-                        "title": ax_info.get("title", ""),
-                        "xlabel": ax_info.get("x_label", ""),
-                        "ylabel": ax_info.get("y_label", ""),
-                        "plot_types": plot_types,
-                        "curve_points": curve_points,
-                        "x_type": x_type_detected,
-                        "y_type": y_type_detected,
-                        "has_grid": ax_info.get("has_grid", False),
-                        "has_legend": ax_info.get("has_legend", False),
-                        "x_range": ax_info.get("x_lim"),
-                        "y_range": ax_info.get("y_lim"),
-                    }
-                )
+                # Estructura enriquecida por eje
+                axes.append({
+                    "title": ax_info.get("title", ""),
+                    "xlabel": ax_info.get("x_label", ""),
+                    "ylabel": ax_info.get("y_label", ""),
+                    "plot_types": plot_types,
+                    "curve_points": curve_points,
+                    "x_type": x_type,
+                    "y_type": y_type,
+                    "has_grid": has_grid,
+                    "has_legend": has_legend,
+                    "x_range": x_range,
+                    "y_range": y_range,
+                    "spine_visibility": spine_visibility,
+                    "tick_density": tick_density,
+                    # Placeholders for advanced analysis fields
+                    "pattern_type": None,
+                    "confidence_score": None,
+                    "periodicity": None,
+                    "shape_characteristics": None,
+                    "likely_domain": None,
+                    "data_context": None,
+                    "purpose_inference": None,
+                    "complexity_level": None,
+                    "mathematical_properties": None
+                })
             if not axes:
                 axes.append(
                     {

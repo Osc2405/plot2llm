@@ -75,13 +75,22 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 plot_types: List[Dict[str, Any]] = []
                 curve_points: List[Dict[str, Any]] = []
                 x_type: Optional[str] = None
+                y_type: Optional[str] = None
+                has_grid = ax_info.get("has_grid", False)
+                has_legend = ax_info.get("has_legend", False)
+                x_range = ax_info.get("x_lim")
+                y_range = ax_info.get("y_lim")
+                spine_visibility = None  # Placeholder, could be improved
+                tick_density = None      # Placeholder, could be improved
                 if idx < len(real_axes):
                     ax = real_axes[idx]
-                    # Detectar tipo de eje y etiquetas para x
-                    x_type_detected, x_labels = self._detect_axis_type_and_labels(
-                        ax, "x"
-                    )
-                    # Detect line plots
+                    # Detectar tipo de eje y etiquetas para x/y
+                    x_type_detected, x_labels = self._detect_axis_type_and_labels(ax, "x")
+                    y_type_detected, y_labels = self._detect_axis_type_and_labels(ax, "y")
+                    x_type = x_type_detected
+                    y_type = y_type_detected
+                    # Detectar plot types y curve_points
+                    # Line plots
                     if hasattr(ax, "lines") and ax.lines:
                         plot_types.append({"type": "line"})
                         for line in ax.lines:
@@ -89,27 +98,8 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                             y = line.get_ydata()
                             x_serial = serialize_axis_values(x)
                             y_serial = serialize_axis_values(y)
-                            if x_type is None:
-                                import numpy as np
-
-                                if np.issubdtype(np.array(x).dtype, np.datetime64):
-                                    x_type = "date"
-                                elif hasattr(x, "dtype") and str(x.dtype).startswith(
-                                    "period"
-                                ):
-                                    x_type = "period"
-                                elif all(isinstance(val, str) for val in x_serial):
-                                    x_type = "category"
-                                else:
-                                    x_type = "numeric"
-                            curve_points.append(
-                                {
-                                    "x": x_serial,
-                                    "y": y_serial,
-                                    "label": line.get_label(),
-                                }
-                            )
-                    # Detect scatter plots
+                            curve_points.append({"x": x_serial, "y": y_serial, "label": line.get_label()})
+                    # Scatter plots
                     if hasattr(ax, "collections") and ax.collections:
                         plot_types.append({"type": "scatter"})
                         for collection in ax.collections:
@@ -120,69 +110,44 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                                     y = offsets[:, 1]
                                     x_serial = serialize_axis_values(x)
                                     y_serial = serialize_axis_values(y)
-                                    if x_type is None:
-                                        import numpy as np
-
-                                        if np.issubdtype(
-                                            np.array(x).dtype, np.datetime64
-                                        ):
-                                            x_type = "date"
-                                        elif all(
-                                            isinstance(val, str) for val in x_serial
-                                        ):
-                                            x_type = "category"
-                                        else:
-                                            x_type = "numeric"
-                                    curve_points.append(
-                                        {
-                                            "x": x_serial,
-                                            "y": y_serial,
-                                            "label": getattr(
-                                                collection, "get_label", lambda: None
-                                            )(),
-                                        }
-                                    )
-                    # Detect bar/histogram plots
+                                    curve_points.append({"x": x_serial, "y": y_serial, "label": getattr(collection, "get_label", lambda: None)()})
+                    # Bar/histogram
                     if hasattr(ax, "patches") and ax.patches:
                         for patch_idx, patch in enumerate(ax.patches):
                             if hasattr(patch, "get_x") and hasattr(patch, "get_height"):
                                 x = patch.get_x()
                                 y = patch.get_height()
-                                # Usar etiqueta de categoría si está disponible
-                                x_val = (
-                                    x_labels[patch_idx]
-                                    if x_type_detected == "category"
-                                    and patch_idx < len(x_labels)
-                                    else x
-                                )
-                                x_serial = (
-                                    [x_val]
-                                    if isinstance(x_val, str)
-                                    else serialize_axis_values([x_val])
-                                )
+                                x_val = x_labels[patch_idx] if x_type == "category" and patch_idx < len(x_labels) else x
+                                x_serial = [x_val] if isinstance(x_val, str) else serialize_axis_values([x_val])
                                 y_serial = serialize_axis_values([y])
-                                if x_type is None:
-                                    x_type = x_type_detected
-                                curve_points.append(
-                                    {
-                                        "x": x_serial,
-                                        "y": y_serial,
-                                        "label": getattr(
-                                            patch, "get_label", lambda: None
-                                        )(),
-                                    }
-                                )
+                                curve_points.append({"x": x_serial, "y": y_serial, "label": getattr(patch, "get_label", lambda: None)()})
                         plot_types.append({"type": "bar"})
-                axes.append(
-                    {
-                        "title": ax_info.get("title", ""),
-                        "xlabel": ax_info.get("x_label", ""),
-                        "ylabel": ax_info.get("y_label", ""),
-                        "plot_types": plot_types,
-                        "curve_points": curve_points,
-                        "x_type": x_type,
-                    }
-                )
+                # Estructura enriquecida por eje
+                axes.append({
+                    "title": ax_info.get("title", ""),
+                    "xlabel": ax_info.get("x_label", ""),
+                    "ylabel": ax_info.get("y_label", ""),
+                    "plot_types": plot_types,
+                    "curve_points": curve_points,
+                    "x_type": x_type,
+                    "y_type": y_type,
+                    "has_grid": has_grid,
+                    "has_legend": has_legend,
+                    "x_range": x_range,
+                    "y_range": y_range,
+                    "spine_visibility": spine_visibility,
+                    "tick_density": tick_density,
+                    # Placeholders for advanced analysis fields
+                    "pattern_type": None,
+                    "confidence_score": None,
+                    "periodicity": None,
+                    "shape_characteristics": None,
+                    "likely_domain": None,
+                    "data_context": None,
+                    "purpose_inference": None,
+                    "complexity_level": None,
+                    "mathematical_properties": None
+                })
             if not axes:
                 axes.append(
                     {
