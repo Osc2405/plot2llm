@@ -195,7 +195,11 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                         "outliers": outliers,
                         "correlations": correlations,
                         "key_statistics": key_statistics
-                    }
+                    },
+                    "axis_semantics": self._infer_axis_semantics(
+                        [pt for cp in curve_points for pt in cp.get("x", [])],
+                        [pt for cp in curve_points for pt in cp.get("y", [])]
+                    )
                 }
                 axes.append(current_axis)
 

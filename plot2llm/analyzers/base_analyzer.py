@@ -628,3 +628,79 @@ class BaseAnalyzer(ABC):
             return {"pearson": pearson_corr}
         except ValueError:
             return None
+
+    def _detect_numeric_type(self, values):
+        """Detect if values are numeric, even if they are strings representing numbers."""
+        if not values:
+            return None
+        try:
+            # Try to convert all to float
+            floats = [float(v) for v in values]
+            return "numeric"
+        except Exception:
+            # If all are strings but not numbers, treat as category
+            if all(isinstance(v, str) for v in values):
+                return "category"
+            return None
+
+    def _detect_temporal_type(self, values):
+        """Detect if values are dates, timestamps, or temporal sequences."""
+        import re, datetime
+        if not values:
+            return None
+        # Check for datetime strings
+        date_patterns = [
+            r"\d{4}-\d{2}-\d{2}",  # YYYY-MM-DD
+            r"\d{2}/\d{2}/\d{4}",  # DD/MM/YYYY
+            r"\d{4}/\d{2}/\d{2}",  # YYYY/MM/DD
+        ]
+        for v in values:
+            if isinstance(v, str):
+                for pat in date_patterns:
+                    if re.match(pat, v):
+                        return "date"
+            if isinstance(v, (datetime.date, datetime.datetime)):
+                return "date"
+        # Check for timestamps (large ints/floats)
+        if all(isinstance(v, (int, float)) and v > 1e9 for v in values):
+            return "timestamp"
+        # Check for monotonic sequence (temporal index)
+        if all(isinstance(v, (int, float)) for v in values):
+            diffs = [values[i+1] - values[i] for i in range(len(values)-1)]
+            if all(d > 0 for d in diffs):
+                return "temporal_sequence"
+        return None
+
+    def _validate_type_consistency(self, axes):
+        """Check that x_type and y_type are consistent across all axes."""
+        x_types = set(ax.get("x_type") for ax in axes if ax.get("x_type"))
+        y_types = set(ax.get("y_type") for ax in axes if ax.get("y_type"))
+        return {
+            "x_type_consistent": len(x_types) <= 1,
+            "y_type_consistent": len(y_types) <= 1,
+            "x_types": list(x_types),
+            "y_types": list(y_types),
+        }
+
+    def _infer_axis_semantics(self, x_values, y_values):
+        """Infer axis semantics for X and Y."""
+        x_sem = None
+        y_sem = None
+        # X axis
+        if self._detect_temporal_type(x_values) in ["date", "timestamp", "temporal_sequence"]:
+            x_sem = "temporal"
+        elif self._detect_numeric_type(x_values) == "numeric":
+            x_sem = "continuous"
+        else:
+            x_sem = "category"
+        # Y axis
+        if self._detect_numeric_type(y_values) == "numeric":
+            if all(isinstance(v, int) and v >= 0 for v in y_values):
+                y_sem = "count"
+            elif all(isinstance(v, float) and 0 <= v <= 1 for v in y_values):
+                y_sem = "proportion"
+            else:
+                y_sem = "metric"
+        else:
+            y_sem = "category"
+        return {"x_semantics": x_sem, "y_semantics": y_sem}

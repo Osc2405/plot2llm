@@ -275,13 +275,22 @@ class JSONFormatter:
         return self.format(analysis, **kwargs)
 
 
+def _remove_nulls(obj):
+    """Recursively remove all keys with value None from dicts and lists."""
+    if isinstance(obj, dict):
+        return {k: _remove_nulls(v) for k, v in obj.items() if v is not None}
+    elif isinstance(obj, list):
+        return [_remove_nulls(v) for v in obj if v is not None]
+    else:
+        return obj
+
 class SemanticFormatter:
     """
     Formats the analysis dictionary into a semantic structure optimized for LLM understanding.
     Returns the analysis dictionary in a standardized format.
     """
 
-    def format(self, analysis: Dict[str, Any], **kwargs) -> Dict[str, Any]:
+    def format(self, analysis: Dict[str, Any], include_curve_points: bool = False, **kwargs) -> Dict[str, Any]:
         if not isinstance(analysis, dict):
             raise ValueError("Invalid plot data: input must be a dict")
 
@@ -305,7 +314,29 @@ class SemanticFormatter:
         }
 
         # --- AXES ---
-        axes = semantic_analysis.get("axes", [])
+        axes = []
+        for ax in semantic_analysis.get("axes", []):
+            axis_entry = {
+                "title": ax.get("title", ""),
+                "xlabel": ax.get("xlabel") or ax.get("x_label", ""),
+                "ylabel": ax.get("ylabel") or ax.get("y_label", ""),
+                "plot_types": ax.get("plot_types", []),
+                "x_type": ax.get("x_type", "unknown"),
+                "y_type": ax.get("y_type", "unknown"),
+                "has_grid": ax.get("has_grid", False),
+                "has_legend": ax.get("has_legend", False),
+                "x_range": ax.get("x_range"),
+                "y_range": ax.get("y_range"),
+                "spine_visibility": ax.get("spine_visibility"),
+                "tick_density": ax.get("tick_density"),
+                "pattern": ax.get("pattern"),
+                "shape": ax.get("shape"),
+                "domain_context": ax.get("domain_context"),
+                "stats": ax.get("stats"),
+            }
+            if include_curve_points:
+                axis_entry["curve_points"] = ax.get("curve_points", [])
+            axes.append(axis_entry)
 
         # --- LAYOUT ---
         layout = None
@@ -325,45 +356,27 @@ class SemanticFormatter:
         data_info = semantic_analysis.get("data_info", {})
         statistics = semantic_analysis.get("statistics", {})
         total_data_points = 0
-        x_ranges, y_ranges = [], []
-        x_types, y_types = [], []
-        missing_values_list = []
-        if "per_axis" in statistics and statistics["per_axis"]:
-            for axis_stats in statistics["per_axis"]:
-                total_data_points += axis_stats.get("data_points", 0)
-                x_type = axis_stats.get("x_type") or (axis_stats.get("data_types", [None])[0])
-                x_types.append(x_type)
-                x_range = axis_stats.get("x_range")
-                if not x_range:
-                    x_range = [axis_stats.get("min"), axis_stats.get("max")]
-                x_ranges.append({"min": x_range[0] if x_range else None, "max": x_range[1] if x_range else None, "type": x_type})
-                y_type = axis_stats.get("y_type") or (axis_stats.get("data_types", [None])[0])
-                y_types.append(y_type)
-                y_range = axis_stats.get("y_range")
-                if not y_range:
-                    y_range = [axis_stats.get("min"), axis_stats.get("max")]
-                y_ranges.append({"min": y_range[0] if y_range else None, "max": y_range[1] if y_range else None, "type": y_type})
-                missing_values_list.append(axis_stats.get("missing_values"))
-        else:
-            total_data_points = data_info.get("data_points")
-            if axes:
-                ax0 = axes[0]
-                x_types = [ax0.get("x_type")]
-                y_types = [ax0.get("y_type")]
-                x_range = ax0.get("x_range", [None, None])
-                y_range = ax0.get("y_range", [None, None])
-                x_ranges = [{"min": x_range[0], "max": x_range[1], "type": x_types[0]}]
-                y_ranges = [{"min": y_range[0], "max": y_range[1], "type": y_types[0]}]
-                missing_values_list = [None]
-            else:
-                x_types = y_types = x_ranges = y_ranges = missing_values_list = [None]
+        x_range = None
+        y_range = None
+        x_type = None
+        y_type = None
+        missing_values = None
+        if axes:
+            ax0 = axes[0]
+            x_type = ax0.get("x_type")
+            y_type = ax0.get("y_type")
+            x_range = ax0.get("x_range", [None, None])
+            y_range = ax0.get("y_range", [None, None])
+            missing_values = None
         data_summary = {
-            "total_data_points": total_data_points,
-            "x_ranges": x_ranges if len(x_ranges) > 1 else x_ranges[0],
-            "y_ranges": y_ranges if len(y_ranges) > 1 else y_ranges[0],
-            "missing_values": missing_values_list if len(missing_values_list) > 1 else missing_values_list[0],
-            "x_types": x_types if len(x_types) > 1 else x_types[0],
-            "y_types": y_types if len(y_types) > 1 else y_types[0],
+            "total_data_points": data_info.get("data_points", 0),
+            "data_ranges": {
+                "x": {"min": x_range[0], "max": x_range[1], "type": x_type} if x_range else None,
+                "y": {"min": y_range[0], "max": y_range[1], "type": y_type} if y_range else None,
+            },
+            "missing_values": missing_values,
+            "x_type": x_type,
+            "y_type": y_type,
         }
 
         # --- STATISTICAL INSIGHTS ---
@@ -374,11 +387,14 @@ class SemanticFormatter:
         # We assume single-axis analysis for now, so we take the first element.
         # This can be expanded for multi-axis plots later.
         statistical_insights = statistical_insights_list[0] if statistical_insights_list else {
-            "trends": None,
-            "distributions": None,
-            "correlations": None,
+            "trend": None,
+            "distribution": None,
+            "correlations": [],
             "key_statistics": None,
         }
+        # Ensure correlations is always a list
+        if statistical_insights.get("correlations") and not isinstance(statistical_insights["correlations"], list):
+            statistical_insights["correlations"] = [statistical_insights["correlations"]]
 
         # --- PATTERN ANALYSIS ---
         pattern_analysis_list = [ax.get("pattern", {}) for ax in axes]
@@ -522,19 +538,23 @@ class SemanticFormatter:
         # --- Compose output ---
         semantic_output = {
             "metadata": metadata,
-            "axes": axes,
+            "axes": [_remove_nulls(ax) for ax in axes],
         }
         if layout:
             semantic_output["layout"] = layout
-        semantic_output["data_summary"] = data_summary
-        semantic_output["statistical_insights"] = statistical_insights
-        semantic_output["pattern_analysis"] = pattern_analysis
-        semantic_output["visual_elements"] = visual_elements
-        semantic_output["domain_context"] = domain_context
-        semantic_output["llm_description"] = llm_description
-        semantic_output["llm_context"] = llm_context
+        semantic_output["data_summary"] = _remove_nulls(data_summary)
+        semantic_output["statistical_insights"] = _remove_nulls(statistical_insights)
+        semantic_output["pattern_analysis"] = _remove_nulls(pattern_analysis)
+        semantic_output["visual_elements"] = _remove_nulls(visual_elements)
+        semantic_output["domain_context"] = _remove_nulls(domain_context)
+        semantic_output["llm_description"] = _remove_nulls(llm_description)
+        semantic_output["llm_context"] = _remove_nulls(llm_context)
         # Optionally add other sections if present
-        for key in ["data_info", "visual_info", "statistics", "plot_description"]:
+        for key in ["data_info", "visual_info", "plot_description"]:
             if key in semantic_analysis:
-                semantic_output[key] = semantic_analysis[key]
+                if key == "data_info" and "statistics" in semantic_analysis[key]:
+                    semantic_analysis[key].pop("statistics", None)
+                semantic_output[key] = _remove_nulls(semantic_analysis[key])
+        if "statistics" in semantic_output:
+            del semantic_output["statistics"]
         return semantic_output

@@ -24,17 +24,28 @@ ax1.set_xlabel("Quarter")
 ax1.set_ylabel("Revenue (in millions)")
 
 analysis_mpl = analyzer.analyze(fig1, figure_type="matplotlib")
+# Test default: curve_points should NOT be included
 semantic_output_mpl = formatter.format(analysis_mpl)
 
 # print("\n=== Matplotlib Semantic Output (FULL) ===")
 # print(json.dumps(semantic_output_mpl, indent=2, ensure_ascii=False))
 
-print("\n=== Matplotlib Semantic Output (SECTIONS) ===")
+# print("\n=== Matplotlib Semantic Output (SECTIONS, NO curve_points) ===")
+# for key in [
+#     "metadata", "axes", "layout", "data_summary", "statistical_insights", "pattern_analysis", "visual_elements", "domain_context", "llm_description", "llm_context"
+# ]:
+#     if key in semantic_output_mpl:
+#         print_section(key, semantic_output_mpl[key])
+
+# Test with curve_points explicitly included
+semantic_output_mpl_with_curves = formatter.format(analysis_mpl, include_curve_points=True)
+
+print("\n=== Matplotlib Semantic Output (SECTIONS, WITH curve_points) ===")
 for key in [
     "metadata", "axes", "layout", "data_summary", "statistical_insights", "pattern_analysis", "visual_elements", "domain_context", "llm_description", "llm_context"
 ]:
-    if key in semantic_output_mpl:
-        print_section(key, semantic_output_mpl[key])
+    if key in semantic_output_mpl_with_curves:
+        print_section(key, semantic_output_mpl_with_curves[key])
 
 # --- Seaborn Example (No Clear Pattern) ---
 # import pandas as pd
