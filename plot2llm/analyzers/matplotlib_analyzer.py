@@ -188,13 +188,24 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                     "tick_density": tick_density,
                     "pattern": pattern_results,
                     "shape": shape_results,
-                    "domain_context": domain_context,
+                    "domain_context": {
+                        "likely_domain": domain,
+                        "purpose": purpose,
+                        "complexity_level": complexity,
+                        "mathematical_properties": {
+                            "function_type": pattern_results.get("pattern_type"),
+                            "is_analytical": pattern_results.get("confidence_score", 0) > 0.9,
+                            "theoretical_vs_measured": "theoretical" if pattern_results.get("confidence_score", 0) > 0.95 else "measured"
+                        }
+                    },
                     "stats": {
                         "trend": trend,
                         "distribution": distribution,
                         "outliers": outliers,
                         "key_statistics": key_statistics
-                    }
+                    },
+                    "x_semantics": x_type,  # Agregar semantics para mejorar el when
+                    "y_semantics": y_type   # Agregar semantics para mejorar el why
                 }
 
                 # --- Data Summary ---

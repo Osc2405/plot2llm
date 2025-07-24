@@ -1,68 +1,90 @@
-from plot2llm.formatters import SemanticFormatter
-from plot2llm.analyzers import FigureAnalyzer
 import matplotlib.pyplot as plt
-import seaborn as sns
-import json
 import numpy as np
+import seaborn as sns
+from plot2llm import FigureAnalyzer
+from plot2llm.formatters import SemanticFormatter
+import json
 
-# Utilidad para imprimir secciones de forma clara
 def print_section(title, section):
-    print(f"\n--- {title} ---")
-    print(json.dumps(section, indent=2, ensure_ascii=False))
+    """Utility function to print sections clearly"""
+    print(f"\n=== {title} ===")
+    print(json.dumps(section, indent=2))
 
-analyzer = FigureAnalyzer()
-formatter = SemanticFormatter()
+def test_semantic_output():
+    analyzer = FigureAnalyzer()
+    formatter = SemanticFormatter()
+    
+    # Test 1: Matplotlib - Linear Business Data
+    print("\n" + "="*50)
+    print("MATPLOTLIB TEST - Business Revenue Growth")
+    print("="*50)
+    
+    # Crear datos de ejemplo (lineal con un poco de ruido)
+    np.random.seed(42)
+    x = np.linspace(0, 10, 20)
+    y = 2 * x + 1 + np.random.normal(0, 0.5, 20)  # y = 2x + 1 con ruido
+    
+    # Crear gráfico matplotlib
+    fig1, ax1 = plt.subplots(figsize=(10, 6))
+    ax1.plot(x, y, 'bo-', label='Revenue Growth')
+    ax1.set_title('Business Revenue Growth Over Time')
+    ax1.set_xlabel('Time (months)')
+    ax1.set_ylabel('Revenue (millions)')
+    ax1.grid(True)
+    ax1.legend()
+    
+    # Analizar y formatear
+    analysis_mpl = analyzer.analyze(fig1, figure_type="matplotlib")
+    semantic_output_mpl = formatter.format(analysis_mpl)
+    
+    # Mostrar todas las secciones
+    sections = [
+        "metadata",
+        "axes",
+        "layout",
+        "data_summary",
+        "statistical_insights",
+        "pattern_analysis",
+        "visual_elements",
+        "domain_context",
+        "llm_description",
+        "llm_context"
+    ]
+    
+    for section in sections:
+        if section in semantic_output_mpl:
+            print_section(section.upper(), semantic_output_mpl[section])
+    
+    plt.close(fig1)
+    
+    # Test 2: Seaborn - Scatter Plot
+    print("\n" + "="*50)
+    print("SEABORN TEST - Customer Satisfaction vs Experience")
+    print("="*50)
+    
+    # Crear datos para seaborn (relación no lineal)
+    np.random.seed(42)
+    n_points = 30
+    x_sns = np.linspace(0, 10, n_points)
+    y_sns = 0.5 * x_sns**2 - 2 * x_sns + np.random.normal(0, 3, n_points)
+    
+    # Crear gráfico seaborn
+    fig2, ax2 = plt.subplots(figsize=(10, 6))
+    sns.scatterplot(x=x_sns, y=y_sns, ax=ax2)
+    ax2.set_title('Customer Satisfaction vs Experience Level')
+    ax2.set_xlabel('Years of Experience')
+    ax2.set_ylabel('Satisfaction Score')
+    
+    # Analizar y formatear
+    analysis_sns = analyzer.analyze(fig2, figure_type="seaborn")
+    semantic_output_sns = formatter.format(analysis_sns)
+    
+    # Mostrar todas las secciones
+    for section in sections:
+        if section in semantic_output_sns:
+            print_section(section.upper(), semantic_output_sns[section])
+    
+    plt.close(fig2)
 
-# --- Matplotlib Example (Linear Pattern with Outliers) ---
-fig1, ax1 = plt.subplots()
-x = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-y = 2 * x + 5 + np.random.normal(0, 0.5, 10) # y = 2x + 5 with some noise
-y[8] = 30 # Add an outlier
-ax1.plot(x, y, label="Sales Data")
-ax1.set_title("Matplotlib Plot with Sales Trend and Outlier")
-ax1.set_xlabel("Quarter")
-ax1.set_ylabel("Revenue (in millions)")
-
-analysis_mpl = analyzer.analyze(fig1, figure_type="matplotlib")
-# Test default: curve_points should NOT be included
-semantic_output_mpl = formatter.format(analysis_mpl)
-
-# print("\n=== Matplotlib Semantic Output (FULL) ===")
-# print(json.dumps(semantic_output_mpl, indent=2, ensure_ascii=False))
-
-# print("\n=== Matplotlib Semantic Output (SECTIONS, NO curve_points) ===")
-# for key in [
-#     "metadata", "axes", "layout", "data_summary", "statistical_insights", "pattern_analysis", "visual_elements", "domain_context", "llm_description", "llm_context"
-# ]:
-#     if key in semantic_output_mpl:
-#         print_section(key, semantic_output_mpl[key])
-
-# Test with curve_points explicitly included
-semantic_output_mpl_with_curves = formatter.format(analysis_mpl, include_curve_points=True)
-
-print("\n=== Matplotlib Semantic Output (SECTIONS, WITH curve_points) ===")
-for key in [
-    "metadata", "axes", "layout", "data_summary", "statistical_insights", "pattern_analysis", "visual_elements", "domain_context", "llm_description", "llm_context"
-]:
-    if key in semantic_output_mpl_with_curves:
-        print_section(key, semantic_output_mpl_with_curves[key])
-
-# --- Seaborn Example (No Clear Pattern) ---
-# import pandas as pd
-# df = pd.DataFrame({"x": [1, 2, 3, 4, 5, 6, 7, 8], "y": [5, 2, 4, 8, 7, 6, 9, 8]})
-# fig2, ax2 = plt.subplots()
-# sns.scatterplot(data=df, x="x", y="y", ax=ax2)
-# ax2.set_title("Seaborn Scatter Plot (No Clear Pattern)")
-
-# analysis_sns = analyzer.analyze(fig2, figure_type="seaborn")
-# semantic_output_sns = formatter.format(analysis_sns)
-
-# print("\n=== Seaborn Semantic Output (FULL) ===")
-# print(json.dumps(semantic_output_sns, indent=2, ensure_ascii=False))
-
-# print("\n=== Seaborn Semantic Output (SECTIONS) ===")
-# for key in [
-#     "metadata", "axes", "layout", "data_summary", "statistical_insights", "pattern_analysis", "visual_elements", "domain_context", "llm_description", "llm_context"
-# ]:
-#     if key in semantic_output_sns:
-#         print_section(key, semantic_output_sns[key]) 
+if __name__ == "__main__":
+    test_semantic_output() 
