@@ -91,21 +91,21 @@ class SeabornAnalyzer(BaseAnalyzer):
             # Compose axes list for compatibility
             axes = []
             real_axes = self._get_axes(figure)
-            for idx, ax_info in enumerate(axis_info["axes"]):
+            for idx, ax_info_item in enumerate(axis_info["axes"]):
                 plot_types = []
                 curve_points = []
                 x_type = None
                 y_type = None
-                has_grid = ax_info.get("has_grid", False)
-                has_legend = ax_info.get("has_legend", False)
-                x_range = ax_info.get("x_lim")
-                y_range = ax_info.get("y_lim")
+                has_grid = ax_info_item.get("has_grid", False)
+                has_legend = ax_info_item.get("has_legend", False)
+                x_range = ax_info_item.get("x_lim")
+                y_range = ax_info_item.get("y_lim")
                 spine_visibility = None  # Placeholder
                 tick_density = None      # Placeholder
                 if idx < len(real_axes):
                     ax = real_axes[idx]
                     # Detect basic axis info
-                    ax_info = self._analyze_axis_properties(ax)
+                    ax_properties = self._analyze_axis_properties(ax)
 
                     # Detectar tipo de eje y etiquetas para x/y
                     x_type_detected, y_type_detected, x_labels, y_labels = (
@@ -116,7 +116,7 @@ class SeabornAnalyzer(BaseAnalyzer):
 
                     # Special handling for histograms - they should have numeric X axis
                     plot_types_detected = self._detect_plot_types_from_axis(ax)
-                    if "bar" in plot_types_detected and ax_info.get(
+                    if "bar" in plot_types_detected and ax_properties.get(
                         "ylabel", ""
                     ).lower() in ["count", "frequency", "density"]:
                         # This looks like a histogram
@@ -158,11 +158,38 @@ class SeabornAnalyzer(BaseAnalyzer):
                                 y_serial = serialize_axis_values([y])
                                 curve_points.append({"x": x_serial, "y": y_serial, "label": getattr(patch, "get_label", lambda: None)()})
                         plot_types.append({"type": "bar"})
+
+                # --- Pattern and Shape Analysis ---
+                pattern_results = self._analyze_patterns(x_data, y_data) if x_data.size > 0 and y_data.size > 0 else {}
+                shape_results = self._analyze_shape_characteristics(y_data) if y_data.size > 0 else {}
+
+                # --- Domain Context Intelligence ---
+                domain = self._infer_domain(
+                    ax_properties.get("title", ""),
+                    ax_properties.get("x_label", ""),
+                    ax_properties.get("y_label", ""),
+                    pattern_results.get("pattern_type") if pattern_results else None
+                )
+                purpose = self._infer_purpose(
+                    pattern_results,
+                    len(curve_points),
+                    x_type
+                )
+                complexity = self._assess_complexity_level(
+                    pattern_results,
+                    2 # Assuming 2 variables for now
+                )
+                domain_context = {
+                    "likely_domain": domain,
+                    "purpose_inference": purpose,
+                    "complexity_level": complexity,
+                }
+
                 # Estructura enriquecida por eje
-                axes.append({
-                    "title": ax_info.get("title", ""),
-                    "xlabel": ax_info.get("x_label", ""),
-                    "ylabel": ax_info.get("y_label", ""),
+                current_axis = {
+                    "title": ax_properties.get("title", ""),
+                    "xlabel": ax_properties.get("x_label", ""),
+                    "ylabel": ax_properties.get("y_label", ""),
                     "plot_types": plot_types,
                     "curve_points": curve_points,
                     "x_type": x_type,
@@ -173,28 +200,16 @@ class SeabornAnalyzer(BaseAnalyzer):
                     "y_range": y_range,
                     "spine_visibility": spine_visibility,
                     "tick_density": tick_density,
-                    # Placeholders for advanced analysis fields
-                    "pattern_type": None,
-                    "confidence_score": None,
-                    "periodicity": None,
-                    "shape_characteristics": None,
-                    "likely_domain": None,
-                    "data_context": None,
-                    "purpose_inference": None,
-                    "complexity_level": None,
-                    "mathematical_properties": None
-                })
-            if not axes:
-                axes.append(
-                    {
-                        "title": "",
-                        "xlabel": "",
-                        "ylabel": "",
-                        "plot_types": [],
-                        "curve_points": [],
-                        "x_type": None,
-                    }
-                )
+                    "pattern": pattern_results,
+                    "shape": shape_results,
+                    "domain_context": domain_context
+                }
+                axes.append(current_axis)
+    
+            # Overwrite with last axis' analysis for now (for top-level info)
+            if 'figure_analysis' not in locals() and 'axes' in locals() and axes:
+                 figure_analysis = axes[-1]
+
             # Compose output for seaborn tests and formatters
             title = figure_info.get("title", "")
             if not title and axes and axes[0].get("title"):
@@ -206,13 +221,16 @@ class SeabornAnalyzer(BaseAnalyzer):
                 "basic_info": figure_info,
                 "axes_info": axis_info["axes"],
                 "data_info": {
-                    "plot_types": [pt for ax in axes for pt in ax["plot_types"]],
+                    "plot_types": [pt for ax in axes for pt in ax.get("plot_types", [])],
                     "statistics": statistics,
                 },
                 "visual_info": {"colors": colors},
                 "seaborn_info": seaborn_info,
                 "statistics": statistics,
             }
+            if 'figure_analysis' in locals():
+                result.update(figure_analysis)
+
             if detail_level == "high":
                 result["detailed_info"] = self._extract_detailed_info(figure)
             return result

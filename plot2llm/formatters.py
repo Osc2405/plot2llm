@@ -305,34 +305,7 @@ class SemanticFormatter:
         }
 
         # --- AXES ---
-        axes = []
-        axes_source = semantic_analysis.get("axes") or []  # Usar solo axes enriquecidos
-        for ax in axes_source:
-            axes.append({
-                "title": ax.get("title", ""),
-                "xlabel": ax.get("xlabel") or ax.get("x_label", ""),
-                "ylabel": ax.get("ylabel") or ax.get("y_label", ""),
-                "plot_types": ax.get("plot_types", []),
-                "curve_points": ax.get("curve_points", []),
-                "x_type": ax.get("x_type", "unknown"),
-                "y_type": ax.get("y_type", "unknown"),
-                "has_grid": ax.get("has_grid", False),
-                "has_legend": ax.get("has_legend", False),
-                "x_range": ax.get("x_range"),
-                "y_range": ax.get("y_range"),
-                "spine_visibility": ax.get("spine_visibility"),
-                "tick_density": ax.get("tick_density"),
-                # Placeholders for advanced analysis fields
-                "pattern_type": ax.get("pattern_type"),
-                "confidence_score": ax.get("confidence_score"),
-                "periodicity": ax.get("periodicity"),
-                "shape_characteristics": ax.get("shape_characteristics"),
-                "likely_domain": ax.get("likely_domain"),
-                "data_context": ax.get("data_context"),
-                "purpose_inference": ax.get("purpose_inference"),
-                "complexity_level": ax.get("complexity_level"),
-                "mathematical_properties": ax.get("mathematical_properties"),
-            })
+        axes = semantic_analysis.get("axes", [])
 
         # --- LAYOUT ---
         layout = None
@@ -431,38 +404,15 @@ class SemanticFormatter:
             statistical_insights["correlations"] = []
 
         # --- PATTERN ANALYSIS ---
+        pattern_analysis_list = [ax.get("pattern", {}) for ax in axes]
+        shape_characteristics_list = [ax.get("shape", {}) for ax in axes]
+
         pattern_analysis = {
-            "pattern_type": [],
-            "confidence_score": [],
-            "periodicity": [],
-            "shape_characteristics": []
+            "pattern_type": pattern_analysis_list[0].get("pattern_type") if pattern_analysis_list else None,
+            "confidence_score": pattern_analysis_list[0].get("confidence_score") if pattern_analysis_list else None,
+            "equation_estimate": pattern_analysis_list[0].get("equation_estimate") if pattern_analysis_list else None,
+            "shape_characteristics": shape_characteristics_list[0] if shape_characteristics_list else None,
         }
-        if "per_axis" in statistics and statistics["per_axis"]:
-            for axis_stats in statistics["per_axis"]:
-                pattern_analysis["pattern_type"].append(axis_stats.get("pattern_type"))
-                pattern_analysis["confidence_score"].append(axis_stats.get("confidence_score"))
-                periodicity = axis_stats.get("periodicity", {})
-                pattern_analysis["periodicity"].append({
-                    "is_periodic": periodicity.get("is_periodic"),
-                    "estimated_period": periodicity.get("estimated_period"),
-                    "cycles_detected": periodicity.get("cycles_detected"),
-                    "amplitude": periodicity.get("amplitude"),
-                    "phase_shift": periodicity.get("phase_shift"),
-                })
-                shape = axis_stats.get("shape_characteristics", {})
-                pattern_analysis["shape_characteristics"].append({
-                    "smoothness": shape.get("smoothness"),
-                    "monotonicity": shape.get("monotonicity"),
-                    "symmetry": shape.get("symmetry"),
-                    "continuity": shape.get("continuity"),
-                })
-        else:
-            pattern_analysis = {
-                "pattern_type": None,
-                "confidence_score": None,
-                "periodicity": None,
-                "shape_characteristics": None
-            }
 
         # --- VISUAL ELEMENTS ---
         visual_elements = {
@@ -492,30 +442,16 @@ class SemanticFormatter:
             visual_elements["accessibility_score"] = visual_info["accessibility_score"]
 
         # --- DOMAIN CONTEXT ---
-        domain_context = {
+        domain_context_list = [
+            ax.get("domain_context", {}) for ax in axes
+        ]
+
+        domain_context = domain_context_list[0] if domain_context_list else {
             "likely_domain": None,
-            "data_context": None,
             "purpose_inference": None,
             "complexity_level": None,
             "mathematical_properties": None
         }
-        if "per_axis" in statistics and statistics["per_axis"]:
-            axis_stats = statistics["per_axis"][0]
-            domain_context = {
-                "likely_domain": axis_stats.get("likely_domain", semantic_analysis.get("likely_domain")),
-                "data_context": axis_stats.get("data_context", semantic_analysis.get("data_context")),
-                "purpose_inference": axis_stats.get("purpose_inference", semantic_analysis.get("purpose_inference")),
-                "complexity_level": axis_stats.get("complexity_level", semantic_analysis.get("complexity_level")),
-                "mathematical_properties": axis_stats.get("mathematical_properties", semantic_analysis.get("mathematical_properties")),
-            }
-        else:
-            domain_context = {
-                "likely_domain": semantic_analysis.get("likely_domain"),
-                "data_context": semantic_analysis.get("data_context"),
-                "purpose_inference": semantic_analysis.get("purpose_inference"),
-                "complexity_level": semantic_analysis.get("complexity_level"),
-                "mathematical_properties": semantic_analysis.get("mathematical_properties"),
-            }
 
         # --- LLM DESCRIPTION ---
         title = semantic_analysis.get("title") or metadata.get("figure_type", "figure")
@@ -536,14 +472,19 @@ class SemanticFormatter:
             "how": f"Using {figure_type} with {plot_types_str} and {axes_count} axis/axes."
         }
         key_insights = []
-        if "statistical_insights" in locals() and statistical_insights["key_statistics"]:
+        if statistical_insights.get("key_statistics"):
             for i, ks in enumerate(statistical_insights["key_statistics"]):
                 if ks and ks.get("mean") is not None:
-                    key_insights.append(f"Axis {i+1}: Mean={ks['mean']}, Median={ks['median']}, Std={ks['std']}, Range={ks['range']}.")
+                    key_insights.append(f"Axis {i+1}: Mean={ks.get('mean', 'N/A'):.2f}, Median={ks.get('median', 'N/A'):.2f}, Std={ks.get('std', 'N/A'):.2f}.")
+
+        if pattern_analysis.get("pattern_type"):
+            key_insights.append(f"A {pattern_analysis.get('pattern_type')} pattern was detected with a confidence of {pattern_analysis.get('confidence_score', 0):.2f}.")
+
         if not key_insights:
             key_insights = ["No significant statistical insights detected."]
+            
         mathematical_insights = {
-            "equation_estimate": None,
+            "equation_estimate": pattern_analysis.get("equation_estimate"),
             "notable_points": None
         }
         llm_description = {

@@ -122,8 +122,45 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                                 y_serial = serialize_axis_values([y])
                                 curve_points.append({"x": x_serial, "y": y_serial, "label": getattr(patch, "get_label", lambda: None)()})
                         plot_types.append({"type": "bar"})
-                # Estructura enriquecida por eje
-                axes.append({
+                
+                # --- Analysis ---
+                x_data_list = []
+                y_data_list = []
+                for p in curve_points:
+                    x_data_list.extend(p.get("x", []))
+                    y_data_list.extend(p.get("y", []))
+
+                x_data = np.array(x_data_list)
+                y_data = np.array(y_data_list)
+
+                # --- Pattern and Shape Analysis ---
+                pattern_results = self._analyze_patterns(x_data, y_data) if x_data.size > 0 and y_data.size > 0 else {}
+                shape_results = self._analyze_shape_characteristics(y_data) if y_data.size > 0 else {}
+                
+                # --- Domain Context Intelligence ---
+                domain = self._infer_domain(
+                    ax_info.get("title", ""),
+                    ax_info.get("x_label", ""),
+                    ax_info.get("y_label", ""),
+                    pattern_results.get("pattern_type") if pattern_results else None
+                )
+                purpose = self._infer_purpose(
+                    pattern_results,
+                    len(curve_points),
+                    x_type
+                )
+                complexity = self._assess_complexity_level(
+                    pattern_results,
+                    2 # Assuming 2 variables for now
+                )
+                domain_context = {
+                    "likely_domain": domain,
+                    "purpose_inference": purpose,
+                    "complexity_level": complexity,
+                }
+
+                # --- Build Enriched Axis ---
+                current_axis = {
                     "title": ax_info.get("title", ""),
                     "xlabel": ax_info.get("x_label", ""),
                     "ylabel": ax_info.get("y_label", ""),
@@ -137,34 +174,22 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                     "y_range": y_range,
                     "spine_visibility": spine_visibility,
                     "tick_density": tick_density,
-                    # Placeholders for advanced analysis fields
-                    "pattern_type": None,
-                    "confidence_score": None,
-                    "periodicity": None,
-                    "shape_characteristics": None,
-                    "likely_domain": None,
-                    "data_context": None,
-                    "purpose_inference": None,
-                    "complexity_level": None,
-                    "mathematical_properties": None
-                })
-            if not axes:
-                axes.append(
-                    {
-                        "title": "",
-                        "xlabel": "",
-                        "ylabel": "",
-                        "plot_types": [],
-                        "curve_points": [],
-                        "x_type": None,
-                    }
-                )
+                    "pattern": pattern_results,
+                    "shape": shape_results,
+                    "domain_context": domain_context
+                }
+                axes.append(current_axis)
+
+            # This part is tricky as there's one analysis per figure, but we are in a loop per axis.
+            # For now, let's just overwrite with the last axis' analysis.
+            if 'analysis_results' in locals():
+                figure_analysis = analysis_results
 
             # Compose output
             title = figure_info.get("title", "")
             if not title and axes and axes[0].get("title"):
                 title = axes[0]["title"]
-            # Normalizar figure_type
+            
             result = {
                 "figure_type": "matplotlib",
                 "title": title,
@@ -172,14 +197,19 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 "basic_info": figure_info,
                 "axes_info": axis_info["axes"],
                 "data_info": {
-                    "plot_types": [pt for ax in axes for pt in ax["plot_types"]],
+                    "plot_types": [pt for ax in axes for pt in ax.get("plot_types", [])],
                     "statistics": statistics,
                 },
                 "visual_info": {"colors": colors},
                 "statistics": statistics,
             }
+            if 'figure_analysis' in locals():
+                # Merge the analysis of the last axis into the top-level result
+                result.update(figure_analysis)
+
             if detail_level == "high":
                 result["detailed_info"] = self._extract_detailed_info(figure)
+
             return result
         except Exception as e:
             logger.error(f"Error analyzing matplotlib figure: {str(e)}")

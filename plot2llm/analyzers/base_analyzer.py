@@ -6,6 +6,10 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 
+import numpy as np
+
+from plot2llm.domain_knowledge import DOMAIN_KEYWORDS
+
 logger = logging.getLogger(__name__)
 
 
@@ -224,3 +228,387 @@ class BaseAnalyzer(ABC):
     def _get_axis_title(self, ax: Any) -> Optional[str]:
         """Get the title of an individual axis."""
         return None
+
+    # --- Pattern Analysis Methods ---
+    def _detect_linear_pattern(self, x: np.ndarray, y: np.ndarray) -> Optional[Tuple[float, float]]:
+        """
+        Detects a linear pattern (y = mx + b) in the data.
+
+        Args:
+            x: X-coordinates of the data points.
+            y: Y-coordinates of the data points.
+
+        Returns:
+            A tuple (m, b) representing the slope and intercept of the fitted line,
+            or None if a pattern cannot be determined.
+        """
+        if len(x) < 2 or len(y) < 2 or len(x) != len(y):
+            return None
+        try:
+            # Fit a first-degree polynomial (a line)
+            coeffs = np.polyfit(x, y, 1)
+            if len(coeffs) == 2:
+                return float(coeffs[0]), float(coeffs[1])
+        except (np.linalg.LinAlgError, ValueError) as e:
+            logger.warning(f"Could not fit linear pattern: {e}")
+            return None
+        return None
+
+    def _detect_polynomial_pattern(self, x: np.ndarray, y: np.ndarray, max_degree: int = 4) -> Optional[np.ndarray]:
+        """
+        Detects a polynomial pattern (y = a*x^n + b*x^(n-1) + ... + z) in the data.
+
+        Args:
+            x: X-coordinates of the data points.
+            y: Y-coordinates of the data points.
+            max_degree: The maximum polynomial degree to test.
+
+        Returns:
+            The coefficients of the best-fit polynomial, or None.
+        """
+        if len(x) < max_degree + 1 or len(y) < max_degree + 1 or len(x) != len(y):
+            return None
+        try:
+            best_coeffs = None
+            best_error = np.inf
+            for degree in range(2, max_degree + 1):
+                coeffs = np.polyfit(x, y, degree)
+                model = np.poly1d(coeffs)
+                error = np.sum((model(x) - y) ** 2)
+                if error < best_error:
+                    best_error = error
+                    best_coeffs = coeffs
+            return best_coeffs
+        except (np.linalg.LinAlgError, ValueError) as e:
+            logger.warning(f"Could not fit polynomial pattern: {e}")
+            return None
+        return None
+
+    def _detect_exponential_pattern(self, x: np.ndarray, y: np.ndarray) -> Optional[Tuple[float, float]]:
+        """
+        Detects an exponential pattern (y = a * exp(b*x)).
+        """
+        if len(x) < 2 or len(y) < 2 or len(x) != len(y) or np.any(y <= 0):
+            return None
+        try:
+            # y = a * exp(b*x) => log(y) = log(a) + b*x
+            log_y = np.log(y)
+            coeffs = np.polyfit(x, log_y, 1)
+            b = coeffs[0]
+            log_a = coeffs[1]
+            a = np.exp(log_a)
+            return a, b
+        except (np.linalg.LinAlgError, ValueError) as e:
+            logger.warning(f"Could not fit exponential pattern: {e}")
+            return None
+        return None
+
+    def _detect_logarithmic_pattern(self, x: np.ndarray, y: np.ndarray) -> Optional[Tuple[float, float]]:
+        """
+        Detects a logarithmic pattern (y = a * log(x) + b).
+        """
+        if len(x) < 2 or len(y) < 2 or len(x) != len(y) or np.any(x <= 0):
+            return None
+        try:
+            # y = a * log(x) + b is a linear relationship between y and log(x)
+            log_x = np.log(x)
+            coeffs = np.polyfit(log_x, y, 1)
+            return float(coeffs[0]), float(coeffs[1])
+        except (np.linalg.LinAlgError, ValueError) as e:
+            logger.warning(f"Could not fit logarithmic pattern: {e}")
+            return None
+        return None
+
+    def _detect_sinusoidal_pattern(self, x: np.ndarray, y: np.ndarray) -> Optional[Tuple[float, float, float, float]]:
+        """
+        Detects a sinusoidal pattern (y = a*sin(b*x + c) + d).
+        """
+        if len(x) < 5 or len(y) < 5 or len(x) != len(y):
+            return None
+        try:
+            from scipy.optimize import curve_fit
+
+            def sin_func(x, a, b, c, d):
+                return a * np.sin(b * x + c) + d
+
+            # Provide initial guesses for the parameters
+            guess_freq = (2 * np.pi) / (x[np.argmax(np.abs(np.fft.fftfreq(len(x))))] * (x[1] - x[0])) if len(x) > 1 else 1
+            guess_amp = np.std(y) * 2**0.5
+            guess_offset = np.mean(y)
+            guess = [guess_amp, guess_freq, 0, guess_offset]
+
+            params, _ = curve_fit(sin_func, x, y, p0=guess, maxfev=10000)
+            return tuple(params)
+        except ImportError:
+            logger.warning("Scipy not installed, skipping sinusoidal pattern detection.")
+            return None
+        except (RuntimeError, ValueError) as e:
+            logger.warning(f"Could not fit sinusoidal pattern: {e}")
+            return None
+        return None
+
+    def _calculate_confidence_score(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:
+        """
+        Calculates the confidence score (R-squared) for a model's predictions.
+        """
+        if len(y_true) == 0 or len(y_pred) == 0 or len(y_true) != len(y_pred):
+            return 0.0
+        
+        ss_res = np.sum((y_true - y_pred) ** 2)
+        ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
+        
+        if ss_tot == 0:
+            # Handle the case where all y values are the same
+            return 1.0 if ss_res == 0 else 0.0
+            
+        r2 = 1 - (ss_res / ss_tot)
+        return max(0.0, r2)  # R-squared can be negative, clip to 0
+
+    def _calculate_aic(self, n: int, sse: float, k: int) -> float:
+        """
+        Calculates the Akaike Information Criterion (AIC) for a model.
+        """
+        if n <= 0 or sse < 0 or k <= 0:
+            return np.inf
+        
+        aic = n * np.log(sse / n) + 2 * k
+        return aic
+        
+    def _analyze_patterns(self, x: np.ndarray, y: np.ndarray) -> Optional[Dict[str, Any]]:
+        """
+        Analyzes the data for various patterns and returns the best fit based on AIC.
+        """
+        if len(x) < 2 or len(y) < 2:
+            return None
+
+        patterns = []
+
+        # Linear
+        linear_coeffs = self._detect_linear_pattern(x, y)
+        if linear_coeffs:
+            m, b = linear_coeffs
+            y_pred = m * x + b
+            score = self._calculate_confidence_score(y, y_pred)
+            sse = np.sum((y - y_pred) ** 2)
+            aic = self._calculate_aic(len(y), sse, 2)
+            patterns.append({"type": "linear", "coeffs": (m, b), "score": score, "aic": aic, "equation": f"y = {m:.2f}x + {b:.2f}"})
+
+        # Polynomial
+        for degree in range(2, 5):
+            poly_coeffs = np.polyfit(x, y, degree)
+            model = np.poly1d(poly_coeffs)
+            y_pred = model(x)
+            score = self._calculate_confidence_score(y, y_pred)
+            sse = np.sum((y - y_pred) ** 2)
+            aic = self._calculate_aic(len(y), sse, degree + 1)
+            patterns.append({"type": f"polynomial (deg {degree})", "coeffs": poly_coeffs, "score": score, "aic": aic, "equation": str(model)})
+
+        # Exponential
+        exp_coeffs = self._detect_exponential_pattern(x, y)
+        if exp_coeffs:
+            a, b = exp_coeffs
+            y_pred = a * np.exp(b * x)
+            score = self._calculate_confidence_score(y, y_pred)
+            sse = np.sum((y - y_pred) ** 2)
+            aic = self._calculate_aic(len(y), sse, 2)
+            patterns.append({"type": "exponential", "coeffs": (a, b), "score": score, "aic": aic, "equation": f"y = {a:.2f} * exp({b:.2f}x)"})
+
+        # Logarithmic
+        log_coeffs = self._detect_logarithmic_pattern(x, y)
+        if log_coeffs:
+            a, b = log_coeffs
+            y_pred = a * np.log(x) + b
+            score = self._calculate_confidence_score(y, y_pred)
+            sse = np.sum((y - y_pred) ** 2)
+            aic = self._calculate_aic(len(y), sse, 2)
+            patterns.append({"type": "logarithmic", "coeffs": (a, b), "score": score, "aic": aic, "equation": f"y = {a:.2f} * log(x) + {b:.2f}"})
+            
+        # Sinusoidal
+        sin_coeffs = self._detect_sinusoidal_pattern(x, y)
+        if sin_coeffs:
+            a, b, c, d = sin_coeffs
+            y_pred = a * np.sin(b * x + c) + d
+            score = self._calculate_confidence_score(y, y_pred)
+            sse = np.sum((y - y_pred) ** 2)
+            aic = self._calculate_aic(len(y), sse, 4)
+            patterns.append({"type": "sinusoidal", "coeffs": (a, b, c, d), "score": score, "aic": aic, "equation": f"y = {a:.2f}sin({b:.2f}x + {c:.2f}) + {d:.2f}"})
+
+        if not patterns:
+            return None
+
+        # Return the best pattern based on AIC
+        best_pattern = min(patterns, key=lambda p: p["aic"])
+        return {
+            "pattern_type": best_pattern["type"],
+            "equation_estimate": best_pattern["equation"],
+            "coefficients": best_pattern["coeffs"],
+            "confidence_score": best_pattern["score"]
+        }
+
+    def _analyze_shape_characteristics(self, y: np.ndarray) -> Dict[str, str]:
+        """
+        Analyzes the shape characteristics of the data.
+        """
+        if len(y) < 3:
+            return {}
+
+        diffs = np.diff(y)
+        
+        # Monotonicity
+        if np.all(diffs >= 0):
+            monotonicity = "increasing"
+        elif np.all(diffs <= 0):
+            monotonicity = "decreasing"
+        else:
+            monotonicity = "mixed"
+
+        # Smoothness
+        second_deriv = np.diff(y, 2)
+        if np.all(np.abs(second_deriv) < 1e-5):
+            smoothness = "smooth"
+        elif np.mean(np.abs(second_deriv)) < 0.1 * np.mean(np.abs(diffs)):
+            smoothness = "piecewise"
+        else:
+            smoothness = "discrete"
+
+        # Symmetry
+        mean = np.mean(y)
+        skewness = np.mean(((y - mean) / np.std(y)) ** 3) if np.std(y) > 0 else 0
+        if abs(skewness) < 0.5:
+            symmetry = "symmetric"
+        else:
+            symmetry = "asymmetric"
+
+        # Continuity
+        if np.max(np.abs(diffs)) > 5 * np.median(np.abs(diffs)):
+            continuity = "discontinuous"
+        else:
+            continuity = "continuous"
+
+        return {
+            "monotonicity": monotonicity,
+            "smoothness": smoothness,
+            "symmetry": symmetry,
+            "continuity": continuity
+        }
+
+    def _infer_domain(self, title: str, xlabel: str, ylabel: str, pattern_type: Optional[str]) -> str:
+        """
+        Infers the likely domain of the plot based on keywords and patterns.
+        """
+        text_corpus = (title + " " + xlabel + " " + ylabel).lower()
+        
+        domain_scores = {domain: 0 for domain in DOMAIN_KEYWORDS}
+
+        # Score based on keywords
+        for domain, keywords in DOMAIN_KEYWORDS.items():
+            for keyword in keywords:
+                if keyword in text_corpus:
+                    domain_scores[domain] += 2 # Higher weight for keywords
+        
+        # Boost score based on pattern
+        if pattern_type in ["linear", "polynomial", "exponential", "logarithmic", "sinusoidal"]:
+            domain_scores["mathematics"] += 1 # Lower weight for pattern
+
+        # Determine the best domain
+        if not any(domain_scores.values()):
+            return "general"
+            
+        best_domain = max(domain_scores, key=domain_scores.get)
+        return best_domain
+
+    def _infer_purpose(self, pattern_info: Optional[Dict[str, Any]], num_series: int, x_type: str) -> str:
+        """
+        Infers the likely purpose of the plot.
+        """
+        if pattern_info and pattern_info.get("confidence_score", 0) > 0.99:
+            return "Educational"
+        if num_series > 1:
+            return "Comparison"
+        if x_type == "date" or x_type == "period":
+            return "Monitoring"
+        
+        return "Analysis"
+
+    def _assess_complexity_level(self, pattern_info: Optional[Dict[str, Any]], num_variables: int) -> str:
+        """
+        Assesses the complexity level of the plot.
+        """
+        if pattern_info:
+            pattern_type = pattern_info.get("pattern_type", "")
+            if "polynomial" in pattern_type and "deg 4" in pattern_type:
+                return "Advanced"
+            if "sinusoidal" in pattern_type:
+                return "Advanced"
+            if "polynomial" in pattern_type:
+                return "Intermediate"
+        
+        if num_variables > 2:
+            return "Intermediate"
+
+        return "Basic"
+
+    # --- Statistical Insights Methods ---
+    def _detect_trend(self, y: np.ndarray, x: Optional[np.ndarray] = None) -> Optional[str]:
+        """
+        Detects the overall trend in a series of data.
+        """
+        if len(y) < 3:
+            return None
+        
+        if x is None:
+            x = np.arange(len(y))
+        
+        coeffs = np.polyfit(x, y, 1)
+        slope = coeffs[0]
+
+        if abs(slope) < 1e-1:
+            return "stable"
+        elif slope > 0:
+            return "increasing"
+        else:
+            return "decreasing"
+
+    def _analyze_distribution(self, data: np.ndarray) -> Dict[str, Any]:
+        """
+        Analyzes the distribution of a dataset.
+        """
+        if len(data) < 5:
+            return {}
+            
+        skewness = np.mean(((data - np.mean(data)) / np.std(data)) ** 3) if np.std(data) > 0 else 0
+        kurtosis = np.mean(((data - np.mean(data)) / np.std(data)) ** 4) - 3 if np.std(data) > 0 else 0
+        
+        return {
+            "skewness": skewness,
+            "kurtosis": kurtosis,
+            "normality_test": None  # Placeholder for Shapiro-Wilk etc.
+        }
+
+    def _detect_outliers(self, data: np.ndarray) -> List[float]:
+        """
+        Detects outliers in a dataset using the IQR method.
+        """
+        if len(data) < 5:
+            return []
+            
+        q1, q3 = np.percentile(data, [25, 75])
+        iqr = q3 - q1
+        lower_bound = q1 - (1.5 * iqr)
+        upper_bound = q3 + (1.5 * iqr)
+        
+        outliers = [d for d in data if d < lower_bound or d > upper_bound]
+        return outliers
+
+    def _calculate_correlations(self, x: np.ndarray, y: np.ndarray) -> Optional[Dict[str, float]]:
+        """
+        Calculates the Pearson correlation between two variables.
+        """
+        if len(x) < 2 or len(y) < 2 or len(x) != len(y):
+            return None
+
+        try:
+            pearson_corr = np.corrcoef(x, y)[0, 1]
+            return {"pearson": pearson_corr}
+        except ValueError:
+            return None
