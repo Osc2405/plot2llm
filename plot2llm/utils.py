@@ -7,6 +7,9 @@ and other common operations used throughout the library.
 
 import logging
 from typing import Any, List, Union
+import os
+import json
+from jsonschema import validate, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -129,3 +132,16 @@ def serialize_axis_values(x: Union[List, Any]) -> List[str]:
         else:
             return arr.tolist()
     return list(x)
+
+
+def validate_semantic_output(output: dict, schema_path: str = None) -> bool:
+    """
+    Valida el output semántico contra el schema JSON.
+    Lanza ValidationError si no es válido.
+    """
+    if schema_path is None:
+        schema_path = os.path.join(os.path.dirname(__file__), '../schemas/semantic_output_schema.json')
+    with open(schema_path, 'r', encoding='utf-8') as f:
+        schema = json.load(f)
+    validate(instance=output, schema=schema)
+    return True

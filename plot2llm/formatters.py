@@ -5,6 +5,7 @@ Formatters for converting analysis results to different output formats.
 from typing import Any, Dict
 
 import numpy as np
+from plot2llm.sections.section_factory import get_section_builder
 
 
 def _convert_to_json_serializable(obj: Any) -> Any:
@@ -294,261 +295,22 @@ class SemanticFormatter:
         if not isinstance(analysis, dict):
             raise ValueError("Invalid plot data: input must be a dict")
 
-        # Convert to JSON serializable format
         semantic_analysis = _convert_to_json_serializable(analysis)
 
-        # --- METADATA ---
-        metadata = semantic_analysis.get("metadata", {})
-        if not metadata:
-            metadata = {
-                "figure_type": semantic_analysis.get("figure_type"),
-                "detail_level": semantic_analysis.get("detail_level", "medium"),
-                "analysis_timestamp": semantic_analysis.get("analysis_timestamp"),
-                "analyzer_version": semantic_analysis.get("analyzer_version", "unknown"),
-            }
-        metadata = {
-            "figure_type": metadata.get("figure_type", "unknown"),
-            "detail_level": metadata.get("detail_level", "medium"),
-            "analysis_timestamp": metadata.get("analysis_timestamp", None),
-            "analyzer_version": metadata.get("analyzer_version", "unknown"),
-        }
-
-        # --- AXES ---
-        axes = []
-        for ax in semantic_analysis.get("axes", []):
-            axis_entry = {
-                "title": ax.get("title", ""),
-                "xlabel": ax.get("xlabel") or ax.get("x_label", ""),
-                "ylabel": ax.get("ylabel") or ax.get("y_label", ""),
-                "plot_types": ax.get("plot_types", []),
-                "x_type": ax.get("x_type", "unknown"),
-                "y_type": ax.get("y_type", "unknown"),
-                "has_grid": ax.get("has_grid", False),
-                "has_legend": ax.get("has_legend", False),
-                "x_range": ax.get("x_range"),
-                "y_range": ax.get("y_range"),
-                "spine_visibility": ax.get("spine_visibility"),
-                "tick_density": ax.get("tick_density"),
-                "pattern": ax.get("pattern"),
-                "shape": ax.get("shape"),
-                "domain_context": ax.get("domain_context"),
-                "stats": ax.get("stats"),
-            }
-            if include_curve_points:
-                axis_entry["curve_points"] = ax.get("curve_points", [])
-            axes.append(axis_entry)
-
-        # --- LAYOUT ---
-        layout = None
-        seaborn_info = semantic_analysis.get("seaborn_info", {})
-        detailed_info = semantic_analysis.get("detailed_info", {})
-        if "grid_shape" in seaborn_info:
-            layout = {
-                "shape": seaborn_info.get("grid_shape"),
-                "size": seaborn_info.get("grid_size"),
-            }
-        elif "grid_layout" in detailed_info:
-            layout = detailed_info["grid_layout"]
-        elif axes:
-            layout = {"shape": (1, len(axes)), "size": len(axes), "nrows": 1, "ncols": len(axes)}
-
-        # --- DATA SUMMARY ---
-        data_info = semantic_analysis.get("data_info", {})
-        statistics = semantic_analysis.get("statistics", {})
-        total_data_points = 0
-        x_range = None
-        y_range = None
-        x_type = None
-        y_type = None
-        missing_values = None
-        if axes:
-            ax0 = axes[0]
-            x_type = ax0.get("x_type")
-            y_type = ax0.get("y_type")
-            x_range = ax0.get("x_range", [None, None])
-            y_range = ax0.get("y_range", [None, None])
-            missing_values = None
-        data_summary = {
-            "total_data_points": data_info.get("data_points", 0),
-            "data_ranges": {
-                "x": {"min": x_range[0], "max": x_range[1], "type": x_type} if x_range else None,
-                "y": {"min": y_range[0], "max": y_range[1], "type": y_type} if y_range else None,
-            },
-            "missing_values": missing_values,
-            "x_type": x_type,
-            "y_type": y_type,
-        }
-
-        # --- STATISTICAL INSIGHTS ---
-        statistical_insights_list = [
-            ax.get("stats", {}) for ax in axes
+        # Modular section builders
+        section_names = [
+            "metadata", "axes", "layout", "data_summary", "statistical_insights",
+            "pattern_analysis", "visual_elements", "domain_context", "llm_description", "llm_context"
         ]
-        
-        # We assume single-axis analysis for now, so we take the first element.
-        # This can be expanded for multi-axis plots later.
-        statistical_insights = statistical_insights_list[0] if statistical_insights_list else {
-            "trend": None,
-            "distribution": None,
-            "correlations": [],
-            "key_statistics": None,
-        }
-        # Ensure correlations is always a list
-        if statistical_insights.get("correlations") and not isinstance(statistical_insights["correlations"], list):
-            statistical_insights["correlations"] = [statistical_insights["correlations"]]
+        semantic_output = {}
+        for section in section_names:
+            builder = get_section_builder(section)
+            if builder:
+                if section == "axes":
+                    semantic_output[section] = builder(semantic_analysis, include_curve_points=include_curve_points)
+                else:
+                    semantic_output[section] = builder(semantic_analysis)
 
-        # --- PATTERN ANALYSIS ---
-        pattern_analysis_list = [ax.get("pattern", {}) for ax in axes]
-        shape_characteristics_list = [ax.get("shape", {}) for ax in axes]
-
-        pattern_analysis = {
-            "pattern_type": pattern_analysis_list[0].get("pattern_type") if pattern_analysis_list else None,
-            "confidence_score": pattern_analysis_list[0].get("confidence_score") if pattern_analysis_list else None,
-            "equation_estimate": pattern_analysis_list[0].get("equation_estimate") if pattern_analysis_list else None,
-            "shape_characteristics": shape_characteristics_list[0] if shape_characteristics_list else None,
-        }
-
-        # --- VISUAL ELEMENTS ---
-        visual_elements = {
-            "lines": [],
-            "axes_styling": [],
-            "primary_colors": [],
-            "accessibility_score": None
-        }
-        for ax in axes:
-            line_elements = []
-            if any(pt.get("type") == "line" for pt in ax.get("plot_types", [])):
-                for cp in ax.get("curve_points", []):
-                    if cp.get("label") and cp.get("label") != "_nolegend_":
-                        line_elements.append(cp["label"])
-            visual_elements["lines"].append(line_elements)
-        for ax in axes:
-            styling = {
-                "has_grid": ax.get("has_grid", False),
-                "spine_visibility": ax.get("spine_visibility"),
-                "tick_density": ax.get("tick_density"),
-            }
-            visual_elements["axes_styling"].append(styling)
-        visual_info = semantic_analysis.get("visual_info", {})
-        if "colors" in visual_info:
-            visual_elements["primary_colors"] = [c.get("hex") for c in visual_info["colors"] if c.get("hex")]
-        if "accessibility_score" in visual_info:
-            visual_elements["accessibility_score"] = visual_info["accessibility_score"]
-
-        # --- DOMAIN CONTEXT ---
-        domain_context_list = [
-            ax.get("domain_context", {}) for ax in axes
-        ]
-
-        domain_context = domain_context_list[0] if domain_context_list else {
-            "likely_domain": None,
-            "purpose_inference": None,
-            "complexity_level": None,
-            "mathematical_properties": None
-        }
-
-        # --- LLM DESCRIPTION ---
-        title = semantic_analysis.get("title") or metadata.get("figure_type", "figure")
-        figure_type = metadata.get("figure_type", "figure")
-        axes_count = len(axes)
-        plot_types = set()
-        for ax in axes:
-            for pt in ax.get("plot_types", []):
-                if pt.get("type"):
-                    plot_types.add(pt["type"])
-        plot_types_str = ", ".join(sorted(plot_types)) if plot_types else "plot"
-        one_sentence_summary = f"This is a {figure_type} {plot_types_str} with {axes_count} axis/axes. Title: '{title}'."
-        structured_analysis = {
-            "what": f"A {plot_types_str} visualization of the data.",
-            "where": f"Axes: {axes_count}, X: {axes[0].get('xlabel', '') if axes else ''}, Y: {axes[0].get('ylabel', '') if axes else ''}",
-            "when": None,
-            "why": "To analyze and visualize the relationship or distribution in the data.",
-            "how": f"Using {figure_type} with {plot_types_str} and {axes_count} axis/axes."
-        }
-        key_insights = []
-        ks = statistical_insights.get("key_statistics")
-        if isinstance(ks, dict) and ks.get("mean") is not None:
-            key_insights.append(
-                f"Mean={ks.get('mean', 'N/A'):.2f}, Median={ks.get('median', 'N/A'):.2f}, Std={ks.get('std', 'N/A'):.2f}."
-            )
-        elif isinstance(ks, list):
-            for i, k in enumerate(ks):
-                if isinstance(k, dict) and k.get("mean") is not None:
-                    key_insights.append(
-                        f"Axis {i+1}: Mean={k.get('mean', 'N/A'):.2f}, Median={k.get('median', 'N/A'):.2f}, Std={k.get('std', 'N/A'):.2f}."
-                    )
-
-        if pattern_analysis.get("pattern_type"):
-            key_insights.append(f"A {pattern_analysis.get('pattern_type')} pattern was detected with a confidence of {pattern_analysis.get('confidence_score', 0):.2f}.")
-
-        if not key_insights:
-            key_insights = ["No significant statistical insights detected."]
-            
-        mathematical_insights = {
-            "equation_estimate": pattern_analysis.get("equation_estimate"),
-            "notable_points": None
-        }
-        llm_description = {
-            "one_sentence_summary": one_sentence_summary,
-            "structured_analysis": structured_analysis,
-            "key_insights": key_insights,
-            "mathematical_insights": mathematical_insights
-        }
-
-        # --- LLM CONTEXT ---
-        hints = []
-        suggestions = []
-        questions = []
-        concepts = []
-        if plot_types:
-            if "line" in plot_types:
-                hints.append("Look for trends, slopes, and inflection points.")
-                suggestions.append("Consider fitting a regression or analyzing periodicity.")
-                questions.append("Is there a clear trend or periodic pattern in the data?")
-                concepts.extend(["trend analysis", "regression", "time series"])
-            if "scatter" in plot_types:
-                hints.append("Check for clusters, outliers, and correlation between variables.")
-                suggestions.append("Try calculating the correlation coefficient or clustering.")
-                questions.append("Are the variables correlated? Are there any outliers?")
-                concepts.extend(["correlation", "outlier detection", "clustering"])
-            if "histogram" in plot_types:
-                hints.append("Observe the distribution shape and spread.")
-                suggestions.append("Estimate skewness, kurtosis, and check for multimodality.")
-                questions.append("Is the distribution normal, skewed, or multimodal?")
-                concepts.extend(["distribution", "skewness", "kurtosis"])
-            if "bar" in plot_types:
-                hints.append("Compare the heights of the bars for categorical differences.")
-                suggestions.append("Look for the largest and smallest categories.")
-                questions.append("Which category has the highest/lowest value?")
-                concepts.extend(["categorical comparison", "ranking"])
-        if not hints:
-            hints.append("Interpret the axes, labels, and data points to understand the visualization.")
-        if not suggestions:
-            suggestions.append("Explore summary statistics and relationships in the data.")
-        if not questions:
-            questions.append("What does this plot reveal about the data?")
-        if not concepts:
-            concepts.append("data visualization")
-        llm_context = {
-            "interpretation_hints": hints,
-            "analysis_suggestions": suggestions,
-            "common_questions": questions,
-            "related_concepts": list(set(concepts)),
-        }
-
-        # --- Compose output ---
-        semantic_output = {
-            "metadata": metadata,
-            "axes": [_remove_nulls(ax) for ax in axes],
-        }
-        if layout:
-            semantic_output["layout"] = layout
-        semantic_output["data_summary"] = _remove_nulls(data_summary)
-        semantic_output["statistical_insights"] = _remove_nulls(statistical_insights)
-        semantic_output["pattern_analysis"] = _remove_nulls(pattern_analysis)
-        semantic_output["visual_elements"] = _remove_nulls(visual_elements)
-        semantic_output["domain_context"] = _remove_nulls(domain_context)
-        semantic_output["llm_description"] = _remove_nulls(llm_description)
-        semantic_output["llm_context"] = _remove_nulls(llm_context)
         # Optionally add other sections if present
         for key in ["data_info", "visual_info", "plot_description"]:
             if key in semantic_analysis:

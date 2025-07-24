@@ -13,6 +13,8 @@ from .analyzers import FigureAnalyzer
 from .converter import FigureConverter
 from .formatters import JSONFormatter, SemanticFormatter, TextFormatter
 
+# Import sections submodule for modular semantic output
+
 # Create a global converter instance for convenience
 _converter = FigureConverter()
 

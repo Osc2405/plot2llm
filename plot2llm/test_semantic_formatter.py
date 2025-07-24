@@ -3,6 +3,7 @@ import numpy as np
 import seaborn as sns
 from plot2llm import FigureAnalyzer
 from plot2llm.formatters import SemanticFormatter
+from plot2llm.utils import validate_semantic_output
 import json
 
 def print_section(title, section):
@@ -55,6 +56,13 @@ def test_semantic_output():
         if section in semantic_output_mpl:
             print_section(section.upper(), semantic_output_mpl[section])
     
+    # Validar schema
+    try:
+        validate_semantic_output(semantic_output_mpl)
+        print("\n✅ Matplotlib output: Schema validation PASSED")
+    except Exception as e:
+        print(f"\n❌ Matplotlib output: Schema validation FAILED: {e}")
+    
     plt.close(fig1)
     
     # Test 2: Seaborn - Scatter Plot
@@ -83,6 +91,13 @@ def test_semantic_output():
     for section in sections:
         if section in semantic_output_sns:
             print_section(section.upper(), semantic_output_sns[section])
+    
+    # Validar schema
+    try:
+        validate_semantic_output(semantic_output_sns)
+        print("\n✅ Seaborn output: Schema validation PASSED")
+    except Exception as e:
+        print(f"\n❌ Seaborn output: Schema validation FAILED: {e}")
     
     plt.close(fig2)
 
