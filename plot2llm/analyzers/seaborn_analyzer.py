@@ -185,6 +185,18 @@ class SeabornAnalyzer(BaseAnalyzer):
                     "complexity_level": complexity,
                 }
 
+                # --- Statistical Insights ---
+                trend = self._detect_trend(y_data, x_data)
+                distribution = self._analyze_distribution(y_data)
+                outliers = self._detect_outliers(y_data)
+                correlations = self._calculate_correlations(x_data, y_data)
+                key_statistics = {
+                    "mean": float(np.nanmean(y_data)) if y_data.size > 0 else 0,
+                    "median": float(np.nanmedian(y_data)) if y_data.size > 0 else 0,
+                    "std": float(np.nanstd(y_data)) if y_data.size > 0 else 0,
+                    "range": (float(np.nanmin(y_data)), float(np.nanmax(y_data))) if y_data.size > 0 else (0, 0),
+                }
+
                 # Estructura enriquecida por eje
                 current_axis = {
                     "title": ax_properties.get("title", ""),
@@ -202,7 +214,14 @@ class SeabornAnalyzer(BaseAnalyzer):
                     "tick_density": tick_density,
                     "pattern": pattern_results,
                     "shape": shape_results,
-                    "domain_context": domain_context
+                    "domain_context": domain_context,
+                    "stats": {
+                        "trend": trend,
+                        "distribution": distribution,
+                        "outliers": outliers,
+                        "correlations": correlations,
+                        "key_statistics": key_statistics
+                    }
                 }
                 axes.append(current_axis)
     

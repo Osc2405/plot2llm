@@ -367,41 +367,18 @@ class SemanticFormatter:
         }
 
         # --- STATISTICAL INSIGHTS ---
-        statistical_insights = {
-            "trends": [],
-            "distributions": [],
-            "correlations": [],
-            "key_statistics": []
+        statistical_insights_list = [
+            ax.get("stats", {}) for ax in axes
+        ]
+        
+        # We assume single-axis analysis for now, so we take the first element.
+        # This can be expanded for multi-axis plots later.
+        statistical_insights = statistical_insights_list[0] if statistical_insights_list else {
+            "trends": None,
+            "distributions": None,
+            "correlations": None,
+            "key_statistics": None,
         }
-        if "per_axis" in statistics and statistics["per_axis"]:
-            for axis_stats in statistics["per_axis"]:
-                trend = {
-                    "overall_trend": axis_stats.get("trend"),
-                    "seasonality_detected": axis_stats.get("seasonality", None)
-                }
-                distribution = {
-                    "x_distribution": axis_stats.get("x_distribution", None),
-                    "y_distribution": axis_stats.get("y_distribution", None),
-                    "outliers_detected": bool(axis_stats.get("outliers")),
-                    "skewness": axis_stats.get("skewness"),
-                }
-                key_stats = {
-                    "mean": axis_stats.get("mean"),
-                    "median": axis_stats.get("median"),
-                    "std": axis_stats.get("std"),
-                    "range": [axis_stats.get("min"), axis_stats.get("max")],
-                }
-                statistical_insights["trends"].append(trend)
-                statistical_insights["distributions"].append(distribution)
-                statistical_insights["key_statistics"].append(key_stats)
-        else:
-            statistical_insights["trends"] = None
-            statistical_insights["distributions"] = None
-            statistical_insights["key_statistics"] = None
-        if "correlations" in statistics and statistics["correlations"]:
-            statistical_insights["correlations"] = statistics["correlations"]
-        else:
-            statistical_insights["correlations"] = []
 
         # --- PATTERN ANALYSIS ---
         pattern_analysis_list = [ax.get("pattern", {}) for ax in axes]
@@ -472,10 +449,17 @@ class SemanticFormatter:
             "how": f"Using {figure_type} with {plot_types_str} and {axes_count} axis/axes."
         }
         key_insights = []
-        if statistical_insights.get("key_statistics"):
-            for i, ks in enumerate(statistical_insights["key_statistics"]):
-                if ks and ks.get("mean") is not None:
-                    key_insights.append(f"Axis {i+1}: Mean={ks.get('mean', 'N/A'):.2f}, Median={ks.get('median', 'N/A'):.2f}, Std={ks.get('std', 'N/A'):.2f}.")
+        ks = statistical_insights.get("key_statistics")
+        if isinstance(ks, dict) and ks.get("mean") is not None:
+            key_insights.append(
+                f"Mean={ks.get('mean', 'N/A'):.2f}, Median={ks.get('median', 'N/A'):.2f}, Std={ks.get('std', 'N/A'):.2f}."
+            )
+        elif isinstance(ks, list):
+            for i, k in enumerate(ks):
+                if isinstance(k, dict) and k.get("mean") is not None:
+                    key_insights.append(
+                        f"Axis {i+1}: Mean={k.get('mean', 'N/A'):.2f}, Median={k.get('median', 'N/A'):.2f}, Std={k.get('std', 'N/A'):.2f}."
+                    )
 
         if pattern_analysis.get("pattern_type"):
             key_insights.append(f"A {pattern_analysis.get('pattern_type')} pattern was detected with a confidence of {pattern_analysis.get('confidence_score', 0):.2f}.")

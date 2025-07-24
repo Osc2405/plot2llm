@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
+from scipy.stats import shapiro
 
 from plot2llm.domain_knowledge import DOMAIN_KEYWORDS
 
@@ -579,10 +580,25 @@ class BaseAnalyzer(ABC):
         skewness = np.mean(((data - np.mean(data)) / np.std(data)) ** 3) if np.std(data) > 0 else 0
         kurtosis = np.mean(((data - np.mean(data)) / np.std(data)) ** 4) - 3 if np.std(data) > 0 else 0
         
+        # Normality test (Shapiro-Wilk)
+        normality_test = None
+        if len(data) >= 3:
+            try:
+                stat, p_value = shapiro(data)
+                normality_test = {
+                    "test": "shapiro-wilk",
+                    "statistic": stat,
+                    "p_value": p_value
+                }
+            except ImportError:
+                logger.warning("Scipy is not installed, skipping normality test.")
+            except Exception as e:
+                logger.warning(f"Could not perform Shapiro-Wilk test: {e}")
+
         return {
             "skewness": skewness,
             "kurtosis": kurtosis,
-            "normality_test": None  # Placeholder for Shapiro-Wilk etc.
+            "normality_test": normality_test
         }
 
     def _detect_outliers(self, data: np.ndarray) -> List[float]:
