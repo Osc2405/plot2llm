@@ -449,42 +449,54 @@ class BaseAnalyzer(ABC):
     def _analyze_shape_characteristics(self, y: np.ndarray) -> Dict[str, str]:
         """
         Analyzes the shape characteristics of the data.
+        
+        Args:
+            y: Array of y-values to analyze
+            
+        Returns:
+            Dictionary with shape characteristics:
+            - monotonicity: "increasing", "decreasing", or "mixed"
+            - smoothness: "smooth" or "rough"
+            - symmetry: "symmetric" or "asymmetric"
+            - continuity: "continuous" or "discontinuous"
         """
         if len(y) < 3:
             return {}
 
-        diffs = np.diff(y)
-        
         # Monotonicity
-        if np.all(diffs >= 0):
+        diffs = np.diff(y)
+        if np.all(diffs >= -1e-10):  # Pequeña tolerancia para ruido numérico
             monotonicity = "increasing"
-        elif np.all(diffs <= 0):
+        elif np.all(diffs <= 1e-10):
             monotonicity = "decreasing"
         else:
-            monotonicity = "mixed"
+            # Contar cambios de dirección significativos
+            direction_changes = np.sum(np.diff(np.sign(diffs)) != 0)
+            monotonicity = "mixed" if direction_changes > 1 else ("increasing" if np.mean(diffs) > 0 else "decreasing")
 
         # Smoothness
+        # Calcular la variación de la segunda derivada
         second_deriv = np.diff(y, 2)
-        if np.all(np.abs(second_deriv) < 1e-5):
-            smoothness = "smooth"
-        elif np.mean(np.abs(second_deriv)) < 0.1 * np.mean(np.abs(diffs)):
-            smoothness = "piecewise"
-        else:
-            smoothness = "discrete"
+        smoothness_metric = np.std(second_deriv) if len(second_deriv) > 0 else 0
+        # Si la variación es pequeña relativa a la escala de los datos, es smooth
+        smoothness = "smooth" if smoothness_metric < 0.1 * np.std(y) else "rough"
 
         # Symmetry
+        # Usar skewness para determinar simetría, con un umbral más realista
         mean = np.mean(y)
-        skewness = np.mean(((y - mean) / np.std(y)) ** 3) if np.std(y) > 0 else 0
-        if abs(skewness) < 0.5:
-            symmetry = "symmetric"
+        std = np.std(y)
+        if std > 0:
+            skewness = np.mean(((y - mean) / std) ** 3)
+            # Un umbral más realista para datos de negocio
+            symmetry = "symmetric" if abs(skewness) < 0.1 else "asymmetric"
         else:
-            symmetry = "asymmetric"
+            symmetry = "symmetric"  # Si no hay variación, es simétrico por definición
 
         # Continuity
-        if np.max(np.abs(diffs)) > 5 * np.median(np.abs(diffs)):
-            continuity = "discontinuous"
-        else:
-            continuity = "continuous"
+        # Detectar saltos grandes relativos a la variación local
+        diffs = np.abs(np.diff(y))
+        median_diff = np.median(diffs)
+        continuity = "continuous" if np.all(diffs < 5 * median_diff) else "discontinuous"
 
         return {
             "monotonicity": monotonicity,

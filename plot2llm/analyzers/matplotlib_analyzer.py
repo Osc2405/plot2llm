@@ -193,14 +193,38 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                         "trend": trend,
                         "distribution": distribution,
                         "outliers": outliers,
-                        "correlations": correlations,
                         "key_statistics": key_statistics
-                    },
-                    "axis_semantics": self._infer_axis_semantics(
-                        [pt for cp in curve_points for pt in cp.get("x", [])],
-                        [pt for cp in curve_points for pt in cp.get("y", [])]
-                    )
+                    }
                 }
+
+                # --- Data Summary ---
+                x_vals = [pt for cp in curve_points for pt in cp.get("x", [])]
+                y_vals = [pt for cp in curve_points for pt in cp.get("y", [])]
+                total_data_points = sum(len(cp.get("y", [])) for cp in curve_points)
+
+                data_summary = {
+                    "total_data_points": total_data_points,
+                    "data_ranges": {
+                        "x": {
+                            "min": float(np.min(x_vals)) if x_vals else None,
+                            "max": float(np.max(x_vals)) if x_vals else None,
+                            "type": x_type
+                        },
+                        "y": {
+                            "min": float(np.min(y_vals)) if y_vals else None,
+                            "max": float(np.max(y_vals)) if y_vals else None,
+                            "type": y_type
+                        }
+                    },
+                    "missing_values": {
+                        "x": sum(1 for x in x_vals if x is None or (isinstance(x, float) and np.isnan(x))),
+                        "y": sum(1 for y in y_vals if y is None or (isinstance(y, float) and np.isnan(y)))
+                    },
+                    "x_type": x_type,
+                    "y_type": y_type
+                }
+
+                current_axis["data_summary"] = data_summary
                 axes.append(current_axis)
 
             # This part is tricky as there's one analysis per figure, but we are in a loop per axis.
@@ -212,7 +236,6 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             title = figure_info.get("title", "")
             if not title and axes and axes[0].get("title"):
                 title = axes[0]["title"]
-            
             result = {
                 "figure_type": "matplotlib",
                 "title": title,
@@ -227,12 +250,10 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 "statistics": statistics,
             }
             if 'figure_analysis' in locals():
-                # Merge the analysis of the last axis into the top-level result
                 result.update(figure_analysis)
 
             if detail_level == "high":
                 result["detailed_info"] = self._extract_detailed_info(figure)
-
             return result
         except Exception as e:
             logger.error(f"Error analyzing matplotlib figure: {str(e)}")
