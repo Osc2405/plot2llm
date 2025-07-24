@@ -159,6 +159,23 @@ class SeabornAnalyzer(BaseAnalyzer):
                                 curve_points.append({"x": x_serial, "y": y_serial, "label": getattr(patch, "get_label", lambda: None)()})
                         plot_types.append({"type": "bar"})
 
+                # Consolidar todos los datos de X e Y de los curve_points
+                x_data_list = []
+                y_data_list = []
+                for cp in curve_points:
+                    xs = cp.get("x", [])
+                    ys = cp.get("y", [])
+                    if isinstance(xs, (list, np.ndarray)):
+                        x_data_list.extend(xs)
+                    else:
+                        x_data_list.append(xs)
+                    if isinstance(ys, (list, np.ndarray)):
+                        y_data_list.extend(ys)
+                    else:
+                        y_data_list.append(ys)
+                x_data = np.array(x_data_list)
+                y_data = np.array(y_data_list)
+
                 # --- Pattern and Shape Analysis ---
                 pattern_results = self._analyze_patterns(x_data, y_data) if x_data.size > 0 and y_data.size > 0 else {}
                 shape_results = self._analyze_shape_characteristics(y_data) if y_data.size > 0 else {}
