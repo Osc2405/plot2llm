@@ -14,6 +14,8 @@ from matplotlib.markers import MarkerStyle
 from plot2llm.utils import serialize_axis_values
 from plot2llm.analyzers.line_analyzer import analyze as analyze_line
 from plot2llm.analyzers.scatter_analyzer import analyze as analyze_scatter
+from plot2llm.analyzers.bar_analyzer import analyze as analyze_bar
+from plot2llm.analyzers.histogram_analyzer import analyze as analyze_histogram
 
 from .base_analyzer import BaseAnalyzer
 
@@ -69,6 +71,70 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 elif plot_type == "scatter_plot" or (hasattr(ax, "collections") and ax.collections and 
                      any(hasattr(c, "get_offsets") for c in ax.collections)):
                     axes_section = analyze_scatter(ax)
+                elif plot_type == "histogram" or (hasattr(ax, "patches") and ax.patches):
+                    # Lógica mejorada para distinguir histogramas de bar plots
+                    try:
+                        # Estrategia 1: Verificar si fue creado con ax.hist() mediante propiedades específicas
+                        is_histogram = False
+                        
+                        # Verificar propiedades específicas de histogramas
+                        num_patches = len(ax.patches)
+                        
+                        # Los histogramas típicamente tienen muchos bins (>= 10)
+                        if num_patches >= 10:
+                            is_histogram = True
+                        else:
+                            # Para pocos patches, usar análisis más detallado
+                            tick_labels = [label.get_text() for label in ax.get_xticklabels()]
+                            
+                            # Verificar si las etiquetas son claramente categóricas (texto no numérico)
+                            categorical_labels = []
+                            for label in tick_labels:
+                                label_text = label.strip()
+                                if label_text and not (label_text.replace('.', '').replace('-', '').replace('+', '').replace('e', '').replace('E', '').isdigit()):
+                                    categorical_labels.append(label_text)
+                            
+                            # Si hay etiquetas claramente categóricas, es un bar plot
+                            if len(categorical_labels) > 0 and len(categorical_labels) == num_patches:
+                                is_histogram = False
+                            else:
+                                # Verificar continuidad de los patches (histogramas son continuos)
+                                if num_patches > 1:
+                                    patch_positions = []
+                                    patch_widths = []
+                                    for patch in ax.patches:
+                                        if hasattr(patch, "get_x") and hasattr(patch, "get_width"):
+                                            patch_positions.append(patch.get_x())
+                                            patch_widths.append(patch.get_width())
+                                    
+                                    if patch_positions and patch_widths:
+                                        # Verificar si son continuos (sin gaps significativos)
+                                        sorted_positions = sorted(patch_positions)
+                                        avg_width = sum(patch_widths) / len(patch_widths)
+                                        gaps = []
+                                        for i in range(1, len(sorted_positions)):
+                                            gap = sorted_positions[i] - (sorted_positions[i-1] + avg_width)
+                                            gaps.append(abs(gap))
+                                        
+                                        max_gap = max(gaps) if gaps else 0
+                                        # Si el gap máximo es menor que 10% del ancho promedio, es continuo (histograma)
+                                        if max_gap < 0.1 * avg_width:
+                                            is_histogram = True
+                                        else:
+                                            is_histogram = False
+                                    else:
+                                        is_histogram = True  # Default para casos ambiguos
+                                else:
+                                    is_histogram = True  # Un solo patch, probablemente histograma
+                        
+                        if is_histogram:
+                            axes_section = analyze_histogram(ax)
+                        else:
+                            axes_section = analyze_bar(ax)
+                            
+                    except Exception as e:
+                        # Si falla la detección, usar histograma por defecto
+                        axes_section = analyze_histogram(ax)
                 else:
                     axes_section = {
                         "plot_type": plot_type or "unknown",
@@ -475,6 +541,15 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             plot_types = self._get_data_types(ax)
             plot_type = plot_types[0] if plot_types else None
 
+            # Usar 'statistics' del analyzer si existe (para todos los tipos)
+            if isinstance(ax, dict) and "statistics" in ax:
+                axis_stats = dict(ax["statistics"])
+                axis_stats["axis_index"] = axis_index
+                axis_stats["title"] = str(self._get_axis_title(ax))
+                axis_stats["data_types"] = [plot_type]
+                statistics["per_axis"].append(axis_stats)
+                continue
+
             # Solo generar estadísticas para tipos soportados
             if plot_type in ["line_plot", "scatter_plot"]:
                 # Los analizadores específicos ya incluyen estadísticas
@@ -526,6 +601,17 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                             "data_points": len(all_y)
                         })
                 
+                statistics["per_axis"].append(axis_stats)
+            elif plot_type in ["bar", "histogram"]:
+                # Si no hay 'statistics', poner mensaje mínimo
+                axis_stats = {
+                    "axis_index": axis_index,
+                    "title": str(self._get_axis_title(ax)),
+                    "data_types": [plot_type],
+                    "data_points": 0,
+                    "matrix_data": None,
+                    "message": f"Estadísticas no disponibles para tipo '{plot_type}'"
+                }
                 statistics["per_axis"].append(axis_stats)
             else:
                 # Para tipos no soportados, estadísticas mínimas
@@ -1201,6 +1287,30 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                     # Usar las shape_characteristics calculadas en el analyzer específico
                     pattern_info["shape_characteristics"] = current_pattern.get("shape_characteristics", {})
                     return pattern_info
+                
+                # Para bar plots
+                elif ax.get("plot_type") == "bar":
+                    pattern_info.update({
+                        "pattern_type": current_pattern.get("pattern_type"),
+                        "confidence_score": current_pattern.get("confidence_score"),
+                        "equation_estimate": current_pattern.get("equation_estimate")
+                    })
+                    
+                    # Usar las shape_characteristics calculadas en el analyzer específico
+                    pattern_info["shape_characteristics"] = current_pattern.get("shape_characteristics", {})
+                    return pattern_info
+                
+                # Para histogramas
+                elif ax.get("plot_type") == "histogram":
+                    pattern_info.update({
+                        "pattern_type": current_pattern.get("pattern_type"),
+                        "confidence_score": current_pattern.get("confidence_score"),
+                        "equation_estimate": current_pattern.get("equation_estimate")
+                    })
+                    
+                    # Usar las shape_characteristics calculadas en el analyzer específico
+                    pattern_info["shape_characteristics"] = current_pattern.get("shape_characteristics", {})
+                    return pattern_info
         
         # Si no se encontró información de patterns, usar valores por defecto basados en el tipo
         for ax in axes_list:
@@ -1212,6 +1322,14 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 pattern_info["pattern_type"] = "distribution"
                 pattern_info["confidence_score"] = 0.5
                 return pattern_info
+            elif ax.get("plot_type") == "bar":
+                pattern_info["pattern_type"] = "categorical_distribution"
+                pattern_info["confidence_score"] = 0.7
+                return pattern_info
+            elif ax.get("plot_type") == "histogram":
+                pattern_info["pattern_type"] = "frequency_distribution"
+                pattern_info["confidence_score"] = 0.6
+                return pattern_info
                 
         return pattern_info
 
@@ -1221,7 +1339,7 @@ class MatplotlibAnalyzer(BaseAnalyzer):
         # Crear el formato compatible para axes
         legacy_axes = []
         for ax in axes_list:
-            if ax.get("plot_type") in ["line", "scatter"]:
+            if ax.get("plot_type") in ["line", "scatter", "bar", "histogram"]:
                 # Usar los datos ricos de los analizadores específicos
                 legacy_ax = {
                     "title": ax.get("title", ""),
@@ -1259,6 +1377,31 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                             "label": collection.get("label", "")
                         })
                     legacy_ax["curve_points"] = curve_points
+                    
+                elif ax.get("plot_type") == "bar" and "bars" in ax:
+                    curve_points = []
+                    categories = ax.get("categories", [])
+                    bars = ax.get("bars", [])
+                    for i, bar in enumerate(bars):
+                        label = categories[i] if i < len(categories) else f"Bar_{i}"
+                        curve_points.append({
+                            "x": [bar.get("x_center", i)],
+                            "y": [bar.get("height", 0)],
+                            "label": label
+                        })
+                    legacy_ax["curve_points"] = curve_points
+                    
+                elif ax.get("plot_type") == "histogram" and "bins" in ax:
+                    curve_points = []
+                    bins = ax.get("bins", [])
+                    for bin_data in bins:
+                        curve_points.append({
+                            "x": [bin_data.get("bin_center", 0)],
+                            "y": [bin_data.get("frequency", 0)],
+                            "label": f"Bin_{bin_data.get('bin_index', 0)}"
+                        })
+                    legacy_ax["curve_points"] = curve_points
+                    
                 else:
                     legacy_ax["curve_points"] = []
                     
