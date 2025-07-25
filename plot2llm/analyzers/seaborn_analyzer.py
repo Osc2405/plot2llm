@@ -14,6 +14,8 @@ from matplotlib.colors import to_hex
 from plot2llm.utils import serialize_axis_values
 from plot2llm.analyzers.line_analyzer import analyze as analyze_line
 from plot2llm.analyzers.scatter_analyzer import analyze as analyze_scatter
+from plot2llm.analyzers.bar_analyzer import analyze as analyze_bar
+from plot2llm.analyzers.histogram_analyzer import analyze as analyze_histogram
 
 from .base_analyzer import BaseAnalyzer
 
@@ -77,7 +79,13 @@ class SeabornAnalyzer(BaseAnalyzer):
                 plot_types = self._get_data_types(ax)
                 plot_type = plot_types[0] if plot_types else None
 
-                if plot_type == "line_plot" or (hasattr(ax, "lines") and ax.lines):
+                # Lógica de detección migrada desde matplotlib_analyzer.py
+                # Priorizar histogramas sobre bar plots (misma lógica que Matplotlib)
+                if self._is_histogram(ax):
+                    axes_section = analyze_histogram(ax)
+                elif self._is_bar_plot(ax):
+                    axes_section = analyze_bar(ax)
+                elif plot_type == "line_plot" or (hasattr(ax, "lines") and ax.lines):
                     axes_section = analyze_line(ax)
                 elif plot_type == "scatter_plot" or (hasattr(ax, "collections") and ax.collections and 
                      any(hasattr(c, "get_offsets") for c in ax.collections)):
@@ -1347,7 +1355,8 @@ class SeabornAnalyzer(BaseAnalyzer):
     def _adapt_to_legacy_format(self, modern_output, axes_list):
         legacy_axes = []
         for ax in axes_list:
-            if ax.get("plot_type") in ["line", "scatter"]:
+            plot_type = ax.get("plot_type", "unknown")
+            if plot_type in ["line", "scatter", "bar", "histogram"]:
                 legacy_ax = {
                     "title": ax.get("title", ""),
                     "xlabel": ax.get("x_label", ""),
@@ -1358,12 +1367,13 @@ class SeabornAnalyzer(BaseAnalyzer):
                     "has_legend": ax.get("has_legend", False),
                     "x_range": ax.get("x_lim", [0, 1]),
                     "y_range": ax.get("y_lim", [0, 1]),
-                    "plot_types": [{"type": ax.get("plot_type", "unknown")}],
+                    "plot_types": [{"type": plot_type}],
                     "pattern": ax.get("pattern", {}),
                     "domain_context": ax.get("domain_context", {}),
                     "stats": ax.get("statistics", {})
                 }
-                if ax.get("plot_type") == "line" and "lines" in ax:
+                # Agregar curve_points basado en el tipo
+                if plot_type == "line" and "lines" in ax:
                     curve_points = []
                     for line in ax["lines"]:
                         curve_points.append({
@@ -1372,13 +1382,35 @@ class SeabornAnalyzer(BaseAnalyzer):
                             "label": line.get("label", "")
                         })
                     legacy_ax["curve_points"] = curve_points
-                elif ax.get("plot_type") == "scatter" and "collections" in ax:
+                elif plot_type == "scatter" and "collections" in ax:
                     curve_points = []
                     for collection in ax["collections"]:
                         curve_points.append({
                             "x": collection.get("x_data", []),
                             "y": collection.get("y_data", []),
                             "label": collection.get("label", "")
+                        })
+                    legacy_ax["curve_points"] = curve_points
+                elif plot_type == "bar" and "bars" in ax:
+                    curve_points = []
+                    categories = ax.get("categories", [])
+                    bars = ax.get("bars", [])
+                    for i, bar in enumerate(bars):
+                        label = categories[i] if i < len(categories) else f"Bar_{i}"
+                        curve_points.append({
+                            "x": [bar.get("x_center", i)],
+                            "y": [bar.get("height", 0)],
+                            "label": label
+                        })
+                    legacy_ax["curve_points"] = curve_points
+                elif plot_type == "histogram" and "bins" in ax:
+                    curve_points = []
+                    bins = ax.get("bins", [])
+                    for bin_data in bins:
+                        curve_points.append({
+                            "x": [bin_data.get("bin_center", 0)],
+                            "y": [bin_data.get("frequency", 0)],
+                            "label": f"Bin_{bin_data.get('bin_index', 0)}"
                         })
                     legacy_ax["curve_points"] = curve_points
                 else:
@@ -1422,3 +1454,106 @@ class SeabornAnalyzer(BaseAnalyzer):
             "statistical_insights": modern_output["statistical_insights"],
             "pattern_analysis": modern_output["pattern_analysis"]
         }
+
+    def _is_histogram(self, ax):
+        """
+        Lógica migrada desde matplotlib_analyzer.py para detectar histogramas.
+        Esta función usa la misma heurística robusta que funciona bien en Matplotlib.
+        """
+        if not (hasattr(ax, "patches") and ax.patches):
+            return False
+            
+        try:
+            # Verificar propiedades específicas de histogramas
+            num_patches = len(ax.patches)
+            
+            # Los histogramas típicamente tienen muchos bins (>= 10)
+            if num_patches >= 10:
+                return True
+            else:
+                # Para pocos patches, usar análisis más detallado
+                tick_labels = [label.get_text() for label in ax.get_xticklabels()]
+                
+                # Verificar si las etiquetas son claramente categóricas (texto no numérico)
+                categorical_labels = []
+                for label in tick_labels:
+                    label_text = label.strip()
+                    if label_text and not (label_text.replace('.', '').replace('-', '').replace('+', '').replace('e', '').replace('E', '').isdigit()):
+                        categorical_labels.append(label_text)
+                
+                # Si hay etiquetas claramente categóricas, es un bar plot
+                if len(categorical_labels) > 0 and len(categorical_labels) == num_patches:
+                    return False
+                else:
+                    # Verificar continuidad de los patches (histogramas son continuos)
+                    if num_patches > 1:
+                        patch_positions = []
+                        patch_widths = []
+                        for patch in ax.patches:
+                            if hasattr(patch, "get_x") and hasattr(patch, "get_width"):
+                                patch_positions.append(patch.get_x())
+                                patch_widths.append(patch.get_width())
+                        
+                        if patch_positions and patch_widths:
+                            # Verificar si son continuos (sin gaps significativos)
+                            sorted_positions = sorted(patch_positions)
+                            avg_width = sum(patch_widths) / len(patch_widths)
+                            gaps = []
+                            for i in range(1, len(sorted_positions)):
+                                gap = sorted_positions[i] - (sorted_positions[i-1] + avg_width)
+                                gaps.append(abs(gap))
+                            
+                            max_gap = max(gaps) if gaps else 0
+                            # Si el gap máximo es menor que 10% del ancho promedio, es continuo (histograma)
+                            if max_gap < 0.1 * avg_width:
+                                return True
+                            else:
+                                return False
+                        else:
+                            return True  # Default para casos ambiguos
+                    else:
+                        return True  # Un solo patch, probablemente histograma
+        except Exception as e:
+            # Si falla la detección, usar histograma por defecto
+            logger.warning(f"Error en detección de histograma: {e}")
+            return True
+
+    def _is_bar_plot(self, ax):
+        """
+        Lógica migrada desde matplotlib_analyzer.py para detectar bar plots.
+        Esta función complementa _is_histogram y usa la misma heurística robusta.
+        """
+        if not (hasattr(ax, "patches") and ax.patches):
+            return False
+            
+        try:
+            # Si ya se determinó que es histograma, no es bar plot
+            if self._is_histogram(ax):
+                return False
+                
+            # Verificar si hay patches con altura > 0
+            heights = [patch.get_height() for patch in ax.patches if hasattr(patch, "get_height")]
+            if not any(h > 0 for h in heights):
+                return False
+                
+            # Verificar etiquetas categóricas
+            tick_labels = [label.get_text() for label in ax.get_xticklabels()]
+            has_categorical_labels = any(
+                label.strip() and not label.replace('.', '').replace('-', '').replace('+', '').replace('e', '').replace('E', '').isdigit() 
+                for label in tick_labels
+            )
+            
+            # Si tiene etiquetas categóricas claras, es bar plot
+            if has_categorical_labels:
+                return True
+                
+            # Para casos ambiguos, si tiene pocos patches y no es histograma, probablemente es bar plot
+            num_patches = len(ax.patches)
+            if num_patches <= 20:
+                return True
+                
+            return False
+        except Exception as e:
+            # Si falla la detección, no es bar plot
+            logger.warning(f"Error en detección de bar plot: {e}")
+            return False
