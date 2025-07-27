@@ -2,6 +2,11 @@ def build_data_summary_section(semantic_analysis: dict) -> dict:
     """
     Construye la sección data_summary para el output semántico.
     """
+    # Use the already calculated data_summary if available
+    if "data_summary" in semantic_analysis:
+        return semantic_analysis["data_summary"]
+    
+    # Fallback to legacy method if data_summary is not available
     data_info = semantic_analysis.get("data_info", {})
     axes = semantic_analysis.get("axes", [])
     x_type = axes[0].get("x_type") if axes else None

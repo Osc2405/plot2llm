@@ -144,7 +144,7 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             
             # Get additional information
             colors = self._get_colors(figure) if include_colors else []
-            statistics = self._get_statistics(figure) if include_statistics else {"per_curve": [], "per_axis": []}
+            statistics = self._get_statistics(figure, axes_list) if include_statistics else {"per_curve": [], "per_axis": []}
             
             # Layout information
             layout_info = {
@@ -520,7 +520,7 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             logging.getLogger(__name__).warning(f"Error detecting axis type: {str(e)}")
             return "numeric", []
 
-    def _get_statistics(self, figure: Any) -> Dict[str, Any]:
+    def _get_statistics(self, figure: Any, axes_list: List[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Get statistical information about the data in the figure."""
         def to_native_type(value):
             """Convierte valores NumPy a tipos Python nativos."""
@@ -535,6 +535,32 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             return value
 
         statistics = {"per_curve": [], "per_axis": []}
+        
+        # Si se proporciona axes_list, usar las estadísticas ya calculadas
+        if axes_list:
+            for axis_index, ax_info in enumerate(axes_list):
+                if "statistics" in ax_info:
+                    # Usar las estadísticas del line_analyzer
+                    stats = ax_info["statistics"]
+                    axis_stats = {
+                        "axis_index": axis_index,
+                        "title": ax_info.get("title", ""),
+                        "data_types": [ax_info.get("plot_type", "unknown")],
+                        "mean": stats.get("mean"),
+                        "std": stats.get("std"),
+                        "min": stats.get("min"),
+                        "max": stats.get("max"),
+                        "median": stats.get("median"),
+                        "data_points": stats.get("data_points"),
+                        "range": stats.get("range"),
+                        "matrix_data": None,
+                        "x_type": "numeric",
+                        "y_type": "numeric"
+                    }
+                    statistics["per_axis"].append(axis_stats)
+                    continue
+        
+        # Fallback: usar el método original si no hay axes_list
         axes = self._get_axes(figure)
 
         for axis_index, ax in enumerate(axes):
@@ -566,6 +592,8 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 
                 # Extraer datos básicos para estadísticas
                 if plot_type == "line_plot" and ax.lines:
+                    # Buscar las estadísticas en el análisis ya realizado
+                    # Si no están disponibles, calcular manualmente
                     all_y = []
                     for line in ax.lines:
                         all_y.extend([float(y) for y in line.get_ydata()])
@@ -1188,16 +1216,29 @@ class MatplotlibAnalyzer(BaseAnalyzer):
         y_type = None
         
         for ax in axes_list:
+            # Para line plots - usar la estructura de line_analyzer
             if ax.get("plot_type") == "line" and "lines" in ax:
+                # Usar estadísticas del line_analyzer si están disponibles
+                if "statistics" in ax:
+                    stats = ax["statistics"]
+                    total_data_points += stats.get("data_points", 0)
+                else:
+                    # Fallback: contar puntos de datos de las líneas
+                    for line in ax["lines"]:
+                        ydata = line.get("ydata", [])
+                        total_data_points += len(ydata)
+                
+                # Siempre extraer x_data y y_data de las líneas para data_ranges y missing_values
                 for line in ax["lines"]:
                     xdata = line.get("xdata", [])
                     ydata = line.get("ydata", [])
-                    total_data_points += len(ydata)
                     x_data.extend(xdata)
                     y_data.extend(ydata)
+                
                 x_type = "numeric"
                 y_type = "numeric"
-                
+            
+            # Para scatter plots - usar la estructura de scatter_analyzer
             elif ax.get("plot_type") == "scatter" and "collections" in ax:
                 for collection in ax["collections"]:
                     x_points = collection.get("x_data", [])
@@ -1206,6 +1247,22 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                     x_data.extend(x_points)
                     y_data.extend(y_points)
                 x_type = "numeric"
+                y_type = "numeric"
+            
+            # Para histogramas - usar la estructura de histogram_analyzer
+            elif ax.get("plot_type") == "histogram" and "statistics" in ax:
+                stats = ax.get("statistics", {})
+                if "total_observations" in stats:
+                    total_data_points += stats["total_observations"]
+                x_type = "numeric"
+                y_type = "numeric"
+            
+            # Para bar plots - usar la estructura de bar_analyzer
+            elif ax.get("plot_type") == "bar" and "statistics" in ax:
+                stats = ax.get("statistics", {})
+                if "data_points" in stats:
+                    total_data_points += stats["data_points"]
+                x_type = "categorical"
                 y_type = "numeric"
         
         return {

@@ -1277,6 +1277,7 @@ class SeabornAnalyzer(BaseAnalyzer):
         x_type = None
         y_type = None
         for ax in axes_list:
+            # Para line plots - usar la estructura de line_analyzer
             if ax.get("plot_type") == "line" and "lines" in ax:
                 for line in ax["lines"]:
                     xdata = line.get("xdata", [])
@@ -1286,6 +1287,8 @@ class SeabornAnalyzer(BaseAnalyzer):
                     y_data.extend(ydata)
                 x_type = "numeric"
                 y_type = "numeric"
+            
+            # Para scatter plots - usar la estructura de scatter_analyzer
             elif ax.get("plot_type") == "scatter" and "collections" in ax:
                 for collection in ax["collections"]:
                     x_points = collection.get("x_data", [])
@@ -1295,6 +1298,23 @@ class SeabornAnalyzer(BaseAnalyzer):
                     y_data.extend(y_points)
                 x_type = "numeric"
                 y_type = "numeric"
+            
+            # Para histogramas - usar la estructura de histogram_analyzer
+            elif ax.get("plot_type") == "histogram" and "statistics" in ax:
+                stats = ax.get("statistics", {})
+                if "total_observations" in stats:
+                    total_data_points += stats["total_observations"]
+                x_type = "numeric"
+                y_type = "numeric"
+            
+            # Para bar plots - usar la estructura de bar_analyzer
+            elif ax.get("plot_type") == "bar" and "statistics" in ax:
+                stats = ax.get("statistics", {})
+                if "data_points" in stats:
+                    total_data_points += stats["data_points"]
+                x_type = "categorical"
+                y_type = "numeric"
+        
         return {
             "total_data_points": total_data_points,
             "data_ranges": {

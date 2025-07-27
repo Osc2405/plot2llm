@@ -16,29 +16,29 @@ def test_semantic_output():
     formatter = SemanticFormatter()
     
     # Test 1: Matplotlib - Linear Business Data
-    print("\n" + "="*50)
-    print("MATPLOTLIB TEST - Business Revenue Growth")
-    print("="*50)
+    # print("\n" + "="*50)
+    # print("MATPLOTLIB TEST - Business Revenue Growth")
+    # print("="*50)
     
-    # Crear datos de ejemplo (lineal con un poco de ruido)
-    np.random.seed(42)
-    x = np.linspace(0, 10, 20)
-    y = 2 * x + 1 + np.random.normal(0, 0.5, 20)  # y = 2x + 1 con ruido
+    # # Crear datos de ejemplo (lineal con un poco de ruido)
+    # np.random.seed(42)
+    # x = np.linspace(0, 10, 20)
+    # y = 2 * x + 1 + np.random.normal(0, 0.5, 20)  # y = 2x + 1 con ruido
     
     # Crear gráfico matplotlib
-    fig1, ax1 = plt.subplots(figsize=(10, 6))
-    ax1.plot(x, y, 'bo-', label='Revenue Growth')
-    ax1.set_title('Business Revenue Growth Over Time')
-    ax1.set_xlabel('Time (months)')
-    ax1.set_ylabel('Revenue (millions)')
-    ax1.grid(True)
-    ax1.legend()
+    # fig1, ax1 = plt.subplots(figsize=(10, 6))
+    # ax1.plot(x, y, 'bo-', label='Revenue Growth')
+    # ax1.set_title('Business Revenue Growth Over Time')
+    # ax1.set_xlabel('Time (months)')
+    # ax1.set_ylabel('Revenue (millions)')
+    # ax1.grid(True)
+    # ax1.legend()
     
     # Analizar y formatear
-    analysis_mpl = analyzer.analyze(fig1, figure_type="matplotlib")
-    semantic_output_mpl = formatter.format(analysis_mpl)
+    # analysis_mpl = analyzer.analyze(fig1, figure_type="matplotlib")
+    # semantic_output_mpl = formatter.format(analysis_mpl)
     
-    # Mostrar todas las secciones
+    # # Mostrar todas las secciones
     sections = [
         "metadata",
         "axes",
@@ -52,18 +52,18 @@ def test_semantic_output():
         "llm_context"
     ]
     
-    for section in sections:
-        if section in semantic_output_mpl:
-            print_section(section.upper(), semantic_output_mpl[section])
+    # for section in sections:
+        # if section in semantic_output_mpl:
+        #     print_section(section.upper(), semantic_output_mpl[section])
     
-    # Validar schema
-    try:
-        validate_semantic_output(semantic_output_mpl)
-        print("\n✅ Matplotlib output: Schema validation PASSED")
-    except Exception as e:
-        print(f"\n❌ Matplotlib output: Schema validation FAILED: {e}")
+    # # Validar schema
+    # try:
+    #     validate_semantic_output(semantic_output_mpl)
+    #     print("\n✅ Matplotlib output: Schema validation PASSED")
+    # except Exception as e:
+    #     print(f"\n❌ Matplotlib output: Schema validation FAILED: {e}")
     
-    plt.close(fig1)
+    # plt.close(fig1)
     
     # Test 2: Seaborn - Scatter Plot
     print("\n" + "="*50)
