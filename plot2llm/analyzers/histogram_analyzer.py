@@ -87,25 +87,95 @@ def analyze(ax) -> Dict[str, Any]:
         
         # Características de la distribución
         if len(heights_array) > 2:
-            # Detectar tipo de distribución
-            max_idx = np.argmax(heights_array)
-            is_unimodal = np.sum(heights_array > 0.5 * np.max(heights_array)) <= 3
+            # Nueva lógica mejorada para detección de distribución
+            max_height = np.max(heights_array)
             
-            # Skewness aproximado basado en posición del máximo
-            skewness_approx = (max_idx - len(heights_array)/2) / (len(heights_array)/2)
+            # Función para encontrar picos locales
+            def find_peaks(heights, min_height_ratio=0.3):
+                """Encuentra picos locales en el histograma"""
+                peaks = []
+                for i in range(1, len(heights) - 1):
+                    # Un pico es un punto que es mayor que sus vecinos
+                    if (heights[i] > heights[i-1] and 
+                        heights[i] > heights[i+1] and 
+                        heights[i] > min_height_ratio * max_height):
+                        peaks.append(i)
+                return peaks
             
-            # Determinar el tipo de patrón de distribución
-            if is_unimodal:
+            # Función para calcular la separación entre picos
+            def calculate_peak_separation(peaks, bin_centers):
+                """Calcula la separación promedio entre picos"""
+                if len(peaks) < 2:
+                    return 0
+                
+                separations = []
+                for i in range(len(peaks) - 1):
+                    sep = abs(bin_centers[peaks[i+1]] - bin_centers[peaks[i]])
+                    separations.append(sep)
+                return np.mean(separations)
+            
+            # Encontrar picos significativos
+            peaks = find_peaks(heights_array, min_height_ratio=0.25)
+            
+            # Calcular separación entre picos
+            peak_separation = calculate_peak_separation(peaks, centers)
+            
+            # Calcular el rango total de los datos
+            data_range = max(centers) - min(centers)
+            
+            # Determinar el tipo de distribución
+            if len(peaks) <= 1:
+                # Unimodal - determinar si es normal, sesgada, etc.
+                max_idx = np.argmax(heights_array)
+                skewness_approx = (max_idx - len(heights_array)/2) / (len(heights_array)/2)
+                
                 if abs(skewness_approx) < 0.3:
                     pattern_type = "normal_distribution"
                 elif skewness_approx > 0.3:
                     pattern_type = "right_skewed_distribution"
                 else:
                     pattern_type = "left_skewed_distribution"
-            else:
-                pattern_type = "multimodal_distribution"
+                    
+            elif len(peaks) == 2:
+                # Bimodal - verificar si los picos están suficientemente separados
+                if peak_separation > 0.3 * data_range:  # Los picos están bien separados
+                    pattern_type = "multimodal_distribution"
+                else:
+                    # Picos muy cercanos - podría ser normal con ruido
+                    # Verificar si hay un valle significativo entre los picos
+                    peak_indices = sorted(peaks)
+                    valley_height = np.min(heights_array[peak_indices[0]:peak_indices[1]+1])
+                    peak_heights = [heights_array[p] for p in peaks]
+                    avg_peak_height = np.mean(peak_heights)
+                    
+                    if valley_height < 0.5 * avg_peak_height:  # Valle significativo
+                        pattern_type = "multimodal_distribution"
+                    else:
+                        pattern_type = "normal_distribution"
+                        
+            else:  # 3 o más picos
+                # Multimodal - verificar separación promedio
+                if peak_separation > 0.2 * data_range:
+                    pattern_type = "multimodal_distribution"
+                else:
+                    # Verificar si hay valles significativos
+                    significant_valleys = 0
+                    for i in range(len(peaks) - 1):
+                        valley_height = np.min(heights_array[peaks[i]:peaks[i+1]+1])
+                        peak_heights = [heights_array[peaks[i]], heights_array[peaks[i+1]]]
+                        avg_peak_height = np.mean(peak_heights)
+                        
+                        if valley_height < 0.6 * avg_peak_height:
+                            significant_valleys += 1
+                    
+                    if significant_valleys >= len(peaks) - 1:
+                        pattern_type = "multimodal_distribution"
+                    else:
+                        pattern_type = "normal_distribution"
             
-            pattern_info["pattern_type"] = pattern_type
+            # Calcular características adicionales
+            is_unimodal = len(peaks) <= 1
+            skewness_approx = (np.argmax(heights_array) - len(heights_array)/2) / (len(heights_array)/2)
             
             # Calcular tendencia central aproximada
             if total_count > 0:
@@ -115,6 +185,7 @@ def analyze(ax) -> Dict[str, Any]:
                 central_tendency = float(np.mean(centers)) if len(centers) > 0 else 0
                 spread = float(np.std(centers)) if len(centers) > 0 else 0
             
+            pattern_info["pattern_type"] = pattern_type
             pattern_info["distribution_characteristics"] = {
                 "shape": pattern_type.replace("_distribution", ""),
                 "is_unimodal": is_unimodal,
@@ -122,10 +193,13 @@ def analyze(ax) -> Dict[str, Any]:
                 "spread": spread,
                 "is_symmetric": abs(skewness_approx) < 0.2,
                 "tail_behavior": "heavy_tailed" if abs(skewness_approx) > 0.5 else "normal",
-                "peak_bin": int(max_idx),
-                "peak_frequency": float(heights_array[max_idx]),
+                "peak_bin": int(np.argmax(heights_array)),
+                "peak_frequency": float(max_height),
                 "skewness_estimate": float(skewness_approx),
-                "outlier_bins": int(np.sum(heights_array < 0.1 * np.mean(heights_array)))
+                "outlier_bins": int(np.sum(heights_array < 0.1 * np.mean(heights_array))),
+                "number_of_peaks": len(peaks),
+                "peak_separation": float(peak_separation),
+                "data_range": float(data_range)
             }
         
         # Análisis de características de forma

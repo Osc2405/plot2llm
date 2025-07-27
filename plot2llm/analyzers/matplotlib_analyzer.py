@@ -201,11 +201,8 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 "pattern_analysis": pattern_analysis
             }
             
-            # Adaptador para compatibilidad con el formatter semántico
-            # Convertir el output moderno al formato compatible
-            compatible_output = self._adapt_to_legacy_format(modern_output, axes_list)
-            
-            return compatible_output
+            # Return modern format directly for consistency
+            return modern_output
 
         except Exception as e:
             logger.error(f"Error analyzing figure: {str(e)}")
@@ -1252,8 +1249,20 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             # Para histogramas - usar la estructura de histogram_analyzer
             elif ax.get("plot_type") == "histogram" and "statistics" in ax:
                 stats = ax.get("statistics", {})
-                if "total_observations" in stats:
+                # Para histogramas, usar number_of_bins en lugar de total_observations
+                if "number_of_bins" in stats:
+                    total_data_points += stats["number_of_bins"]
+                elif "total_observations" in stats:
+                    # Fallback: usar total_observations si number_of_bins no está disponible
                     total_data_points += stats["total_observations"]
+                
+                # Extraer rangos de datos para histogramas
+                if "bins" in ax:
+                    bin_centers = [bin_data.get("bin_center", 0) for bin_data in ax["bins"]]
+                    frequencies = [bin_data.get("frequency", 0) for bin_data in ax["bins"]]
+                    x_data.extend(bin_centers)
+                    y_data.extend(frequencies)
+                
                 x_type = "numeric"
                 y_type = "numeric"
             
@@ -1262,6 +1271,15 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 stats = ax.get("statistics", {})
                 if "data_points" in stats:
                     total_data_points += stats["data_points"]
+                
+                # Extraer rangos de datos para bar plots
+                if "bars" in ax:
+                    categories = [bar_data.get("category", "") for bar_data in ax["bars"]]
+                    heights = [bar_data.get("height", 0) for bar_data in ax["bars"]]
+                    # Para bar plots, usar índices como x_data y heights como y_data
+                    x_data.extend(range(len(categories)))
+                    y_data.extend(heights)
+                
                 x_type = "categorical"
                 y_type = "numeric"
         

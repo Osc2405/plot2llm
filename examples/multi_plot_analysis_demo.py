@@ -3,6 +3,7 @@ import numpy as np
 from plot2llm.analyzers.matplotlib_analyzer import MatplotlibAnalyzer
 import json
 
+
 def to_native_type(value):
     import numpy as np
     if isinstance(value, (np.integer, np.floating)):

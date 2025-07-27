@@ -137,8 +137,8 @@ class SeabornAnalyzer(BaseAnalyzer):
                 "statistical_insights": statistical_insights,
                 "pattern_analysis": pattern_analysis
             }
-            compatible_output = self._adapt_to_legacy_format(modern_output, axes_list)
-            return compatible_output
+            # Return modern format directly for consistency
+            return modern_output
         except Exception as e:
             import logging
             logging.getLogger(__name__).error(f"Error analyzing seaborn figure: {str(e)}")
@@ -572,6 +572,14 @@ class SeabornAnalyzer(BaseAnalyzer):
                     and len(y_data) > 0
                     and np.issubdtype(y_data.dtype, np.number)
                 ):
+                    # Calculate local variance with better handling of small datasets
+                    local_var = None
+                    if len(y_data) >= 2:
+                        # Use at least 2 points, but no more than 10% of data
+                        sample_size = max(2, min(len(y_data) // 10, len(y_data)))
+                        if sample_size > 1:
+                            local_var = float(np.nanvar(y_data[:sample_size]))
+                    
                     axis_stats.update(
                         {
                             "mean": float(np.nanmean(y_data)),
@@ -580,9 +588,7 @@ class SeabornAnalyzer(BaseAnalyzer):
                             "max": float(np.nanmax(y_data)),
                             "median": float(np.nanmedian(y_data)),
                             "outliers": [],
-                            "local_var": float(
-                                np.nanvar(y_data[: max(1, len(y_data) // 10)])
-                            ),
+                            "local_var": local_var,
                             "trend": None,
                             "skewness": None,
                             "kurtosis": None,
@@ -1302,8 +1308,20 @@ class SeabornAnalyzer(BaseAnalyzer):
             # Para histogramas - usar la estructura de histogram_analyzer
             elif ax.get("plot_type") == "histogram" and "statistics" in ax:
                 stats = ax.get("statistics", {})
-                if "total_observations" in stats:
+                # Para histogramas, usar number_of_bins en lugar de total_observations
+                if "number_of_bins" in stats:
+                    total_data_points += stats["number_of_bins"]
+                elif "total_observations" in stats:
+                    # Fallback: usar total_observations si number_of_bins no está disponible
                     total_data_points += stats["total_observations"]
+                
+                # Extraer rangos de datos para histogramas
+                if "bins" in ax:
+                    bin_centers = [bin_data.get("bin_center", 0) for bin_data in ax["bins"]]
+                    frequencies = [bin_data.get("frequency", 0) for bin_data in ax["bins"]]
+                    x_data.extend(bin_centers)
+                    y_data.extend(frequencies)
+                
                 x_type = "numeric"
                 y_type = "numeric"
             
@@ -1312,6 +1330,15 @@ class SeabornAnalyzer(BaseAnalyzer):
                 stats = ax.get("statistics", {})
                 if "data_points" in stats:
                     total_data_points += stats["data_points"]
+                
+                # Extraer rangos de datos para bar plots
+                if "bars" in ax:
+                    categories = [bar_data.get("category", "") for bar_data in ax["bars"]]
+                    heights = [bar_data.get("height", 0) for bar_data in ax["bars"]]
+                    # Para bar plots, usar índices como x_data y heights como y_data
+                    x_data.extend(range(len(categories)))
+                    y_data.extend(heights)
+                
                 x_type = "categorical"
                 y_type = "numeric"
         

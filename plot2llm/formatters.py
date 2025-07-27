@@ -311,14 +311,12 @@ class SemanticFormatter:
                 else:
                     semantic_output[section] = builder(semantic_analysis)
 
-        # Optionally add other sections if present
-        for key in ["data_info", "visual_info", "plot_description"]:
-            if key in semantic_analysis:
-                if key == "data_info" and "statistics" in semantic_analysis[key]:
-                    semantic_analysis[key].pop("statistics", None)
-                semantic_output[key] = _remove_nulls(semantic_analysis[key])
-        if "statistics" in semantic_output:
-            del semantic_output["statistics"]
+        # Remove any duplicate sections that might be present in the original analysis
+        # since they're now handled by the section builders
+        for key in ["data_info", "visual_info", "plot_description", "statistics"]:
+            if key in semantic_output:
+                del semantic_output[key]
+                
         return semantic_output
 
     def _generate_llm_description(self, analysis_result: Dict) -> Dict:
