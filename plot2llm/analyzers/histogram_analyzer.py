@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Dict, Any, List
 
-def analyze(ax) -> Dict[str, Any]:
+def analyze(ax, x_type=None, y_type=None) -> Dict[str, Any]:
     """
     Analiza un histograma y devuelve información semántica completa.
     """
@@ -14,8 +14,14 @@ def analyze(ax) -> Dict[str, Any]:
         "x_lim": [float(x) for x in ax.get_xlim()],
         "y_lim": [float(y) for y in ax.get_ylim()],
         "has_grid": bool(any(line.get_visible() for line in ax.get_xgridlines() + ax.get_ygridlines())),
-        "has_legend": bool(ax.get_legend() is not None)
+        "has_legend": bool(ax.get_legend() is not None),
     }
+    
+    # Añadir tipos de eje si se proporcionan
+    if x_type:
+        section["x_type"] = x_type
+    if y_type:
+        section["y_type"] = y_type
     
     # Extraer datos de los patches (bins del histograma)
     bins_data = []
@@ -91,15 +97,51 @@ def analyze(ax) -> Dict[str, Any]:
             max_height = np.max(heights_array)
             
             # Función para encontrar picos locales
-            def find_peaks(heights, min_height_ratio=0.3):
+            def find_peaks(heights, min_height_ratio=0.25):
                 """Encuentra picos locales en el histograma"""
                 peaks = []
+                max_height = np.max(heights)
+                mean_height = np.mean(heights)
+                
+                # Calcular la varianza para determinar qué tan "ruidoso" es el histograma
+                variance = np.var(heights)
+                cv = np.sqrt(variance) / mean_height if mean_height > 0 else 0  # Coeficiente de variación
+                
+                # Ajustar umbrales basados en las características del histograma
+                if cv > 0.8:  # Histograma muy variable (posiblemente multimodal)
+                    height_threshold = 0.15  # Umbral más bajo
+                    mean_multiplier = 1.2    # Multiplicador más bajo
+                elif cv > 0.5:  # Histograma moderadamente variable
+                    height_threshold = 0.2   # Umbral medio
+                    mean_multiplier = 1.3    # Multiplicador medio
+                else:  # Histograma suave (posiblemente normal)
+                    height_threshold = 0.25  # Umbral más alto
+                    mean_multiplier = 1.5    # Multiplicador más alto
+                
                 for i in range(1, len(heights) - 1):
                     # Un pico es un punto que es mayor que sus vecinos
                     if (heights[i] > heights[i-1] and 
                         heights[i] > heights[i+1] and 
-                        heights[i] > min_height_ratio * max_height):
+                        heights[i] > height_threshold * max_height and
+                        heights[i] > mean_multiplier * mean_height):
                         peaks.append(i)
+                
+                # Si no encontramos suficientes picos, intentar con umbrales más bajos
+                if len(peaks) <= 1 and len(heights) > 10:
+                    # Verificar si hay evidencia de multimodalidad
+                    sorted_heights = np.sort(heights)[::-1]  # Ordenar de mayor a menor
+                    if len(sorted_heights) >= 3:
+                        # Si hay al menos 3 picos significativos, podría ser multimodal
+                        significant_peaks = sorted_heights[:3]
+                        if all(h > 0.7 * max_height for h in significant_peaks):
+                            peaks = []
+                            for i in range(1, len(heights) - 1):
+                                if (heights[i] > heights[i-1] and 
+                                    heights[i] > heights[i+1] and 
+                                    heights[i] > 0.1 * max_height and
+                                    heights[i] > mean_height):
+                                    peaks.append(i)
+                
                 return peaks
             
             # Función para calcular la separación entre picos
@@ -123,7 +165,7 @@ def analyze(ax) -> Dict[str, Any]:
             # Calcular el rango total de los datos
             data_range = max(centers) - min(centers)
             
-            # Determinar el tipo de distribución
+            # Determinar el tipo de distribución con lógica más robusta
             if len(peaks) <= 1:
                 # Unimodal - determinar si es normal, sesgada, etc.
                 max_idx = np.argmax(heights_array)
@@ -137,41 +179,80 @@ def analyze(ax) -> Dict[str, Any]:
                     pattern_type = "left_skewed_distribution"
                     
             elif len(peaks) == 2:
-                # Bimodal - verificar si los picos están suficientemente separados
-                if peak_separation > 0.3 * data_range:  # Los picos están bien separados
+                # Bimodal - lógica más robusta
+                peak_indices = sorted(peaks)
+                valley_height = np.min(heights_array[peak_indices[0]:peak_indices[1]+1])
+                peak_heights = [heights_array[p] for p in peaks]
+                avg_peak_height = np.mean(peak_heights)
+                mean_height = np.mean(heights_array)
+                
+                # Criterios múltiples para bimodal
+                criteria_met = 0
+                
+                # Criterio 1: Separación de picos
+                if peak_separation > 0.15 * data_range:
+                    criteria_met += 1
+                
+                # Criterio 2: Valle significativo
+                if valley_height < 0.75 * avg_peak_height:
+                    criteria_met += 1
+                
+                # Criterio 3: Picos suficientemente altos
+                if all(h > 1.3 * mean_height for h in peak_heights):
+                    criteria_met += 1
+                
+                # Criterio 4: Picos bien definidos (altura mínima)
+                if all(h > 0.2 * max_height for h in peak_heights):
+                    criteria_met += 1
+                
+                # Necesitamos al menos 3 criterios para clasificar como multimodal
+                if criteria_met >= 3:
                     pattern_type = "multimodal_distribution"
                 else:
-                    # Picos muy cercanos - podría ser normal con ruido
-                    # Verificar si hay un valle significativo entre los picos
-                    peak_indices = sorted(peaks)
-                    valley_height = np.min(heights_array[peak_indices[0]:peak_indices[1]+1])
-                    peak_heights = [heights_array[p] for p in peaks]
-                    avg_peak_height = np.mean(peak_heights)
-                    
-                    if valley_height < 0.5 * avg_peak_height:  # Valle significativo
-                        pattern_type = "multimodal_distribution"
-                    else:
-                        pattern_type = "normal_distribution"
+                    pattern_type = "normal_distribution"
                         
             else:  # 3 o más picos
-                # Multimodal - verificar separación promedio
-                if peak_separation > 0.2 * data_range:
+                # Multimodal - lógica más robusta para 3+ picos
+                mean_height = np.mean(heights_array)
+                peak_heights = [heights_array[p] for p in peaks]
+                
+                # Criterios múltiples para multimodal (3+ picos)
+                criteria_met = 0
+                
+                # Criterio 1: Separación de picos (más estricto para evitar falsos positivos)
+                if peak_separation > 0.12 * data_range:  # Umbral más alto para ser más conservador
+                    criteria_met += 1
+                
+                # Criterio 2: Picos suficientemente altos (más estricto)
+                if all(h > 1.2 * mean_height for h in peak_heights):  # Umbral más alto
+                    criteria_met += 1
+                
+                # Criterio 3: Picos bien definidos (más estricto)
+                if all(h > 0.15 * max_height for h in peak_heights):  # Umbral más alto
+                    criteria_met += 1
+                
+                # Criterio 4: Valles significativos (más estricto)
+                significant_valleys = 0
+                for i in range(len(peaks) - 1):
+                    valley_height = np.min(heights_array[peaks[i]:peaks[i+1]+1])
+                    peak_heights_pair = [heights_array[peaks[i]], heights_array[peaks[i+1]]]
+                    avg_peak_height_pair = np.mean(peak_heights_pair)
+                    
+                    if valley_height < 0.75 * avg_peak_height_pair:  # Umbral más bajo (más estricto)
+                        significant_valleys += 1
+                
+                if significant_valleys >= len(peaks) - 1:
+                    criteria_met += 1
+                
+                # Criterio 5: Número de picos (más estricto)
+                if len(peaks) >= 4:  # Requerir al menos 4 picos para ser más conservador
+                    criteria_met += 1
+                
+                # Para 3+ picos, necesitamos al menos 3 criterios (más estricto)
+                if criteria_met >= 3:
                     pattern_type = "multimodal_distribution"
                 else:
-                    # Verificar si hay valles significativos
-                    significant_valleys = 0
-                    for i in range(len(peaks) - 1):
-                        valley_height = np.min(heights_array[peaks[i]:peaks[i+1]+1])
-                        peak_heights = [heights_array[peaks[i]], heights_array[peaks[i+1]]]
-                        avg_peak_height = np.mean(peak_heights)
-                        
-                        if valley_height < 0.6 * avg_peak_height:
-                            significant_valleys += 1
-                    
-                    if significant_valleys >= len(peaks) - 1:
-                        pattern_type = "multimodal_distribution"
-                    else:
-                        pattern_type = "normal_distribution"
+                    pattern_type = "normal_distribution"
             
             # Calcular características adicionales
             is_unimodal = len(peaks) <= 1

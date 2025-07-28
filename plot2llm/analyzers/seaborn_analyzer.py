@@ -79,22 +79,30 @@ class SeabornAnalyzer(BaseAnalyzer):
                 plot_types = self._get_data_types(ax)
                 plot_type = plot_types[0] if plot_types else None
 
+                # Detectar tipos de eje
+                x_type, y_type, x_labels, y_labels = self._detect_axis_type_and_labels(ax)
+
                 # Lógica de detección migrada desde matplotlib_analyzer.py
                 # Priorizar histogramas sobre bar plots (misma lógica que Matplotlib)
                 if self._is_histogram(ax):
-                    axes_section = analyze_histogram(ax)
+                    axes_section = analyze_histogram(ax, x_type, y_type)
                 elif self._is_bar_plot(ax):
-                    axes_section = analyze_bar(ax)
+                    axes_section = analyze_bar(ax, x_type, y_type)
                 elif plot_type == "line_plot" or (hasattr(ax, "lines") and ax.lines):
-                    axes_section = analyze_line(ax)
+                    axes_section = analyze_line(ax, x_type, y_type)
                 elif plot_type == "scatter_plot" or (hasattr(ax, "collections") and ax.collections and 
                      any(hasattr(c, "get_offsets") for c in ax.collections)):
-                    axes_section = analyze_scatter(ax)
+                    axes_section = analyze_scatter(ax, x_type, y_type)
                 else:
                     axes_section = {
                         "plot_type": plot_type or "unknown",
                         "message": f"El tipo de gráfico '{plot_type or 'unknown'}' está pendiente de implementación profesional."
                     }
+                
+                # Añadir los tipos de ejes detectados al resultado del analizador específico
+                axes_section["x_type"] = x_type
+                axes_section["y_type"] = y_type
+                
                 axes_list.append(axes_section)
 
             colors = self._get_colors(figure) if include_colors else []
@@ -1132,6 +1140,28 @@ class SeabornAnalyzer(BaseAnalyzer):
                 ):
                     x_type = self.CATEGORY
                     x_labels = non_empty_x_labels
+                # If all labels are numeric, check if they represent continuous data
+                elif all(self._is_numeric_string(label) for label in non_empty_x_labels):
+                    # Convert to numbers and check if they represent a continuous range
+                    try:
+                        # Normalizar las etiquetas antes de convertir a float
+                        normalized_labels = [label.replace('−', '-') for label in non_empty_x_labels]
+                        
+                        numeric_labels = [float(label) for label in normalized_labels]
+                        if len(numeric_labels) > 1:
+                            # Check if the range is continuous (not just a few discrete values)
+                            min_val = min(numeric_labels)
+                            max_val = max(numeric_labels)
+                            range_size = max_val - min_val
+                            # If the range is significant compared to the number of labels, it's likely numeric
+                            if range_size > len(numeric_labels) * 0.5:
+                                x_type = self.NUMERIC
+                            else:
+                                x_type = self.CATEGORY
+                        else:
+                            x_type = self.NUMERIC
+                    except (ValueError, TypeError):
+                        x_type = self.CATEGORY
                 # If all labels are numeric but we have explicit labels, might be categorical
                 elif len(non_empty_x_labels) <= 10 and len(x_ticks) == len(
                     non_empty_x_labels
@@ -1158,6 +1188,28 @@ class SeabornAnalyzer(BaseAnalyzer):
                 ):
                     y_type = self.CATEGORY
                     y_labels = non_empty_y_labels
+                # If all labels are numeric, check if they represent continuous data
+                elif all(self._is_numeric_string(label) for label in non_empty_y_labels):
+                    # Convert to numbers and check if they represent a continuous range
+                    try:
+                        # Normalizar las etiquetas antes de convertir a float
+                        normalized_labels = [label.replace('−', '-') for label in non_empty_y_labels]
+                        
+                        numeric_labels = [float(label) for label in normalized_labels]
+                        if len(numeric_labels) > 1:
+                            # Check if the range is continuous (not just a few discrete values)
+                            min_val = min(numeric_labels)
+                            max_val = max(numeric_labels)
+                            range_size = max_val - min_val
+                            # If the range is significant compared to the number of labels, it's likely numeric
+                            if range_size > len(numeric_labels) * 0.5:
+                                y_type = self.NUMERIC
+                            else:
+                                y_type = self.CATEGORY
+                        else:
+                            y_type = self.NUMERIC
+                    except (ValueError, TypeError):
+                        y_type = self.CATEGORY
                 # Small number of explicit labels suggests categorical
                 elif len(non_empty_y_labels) <= 10 and len(y_ticks) == len(
                     non_empty_y_labels
@@ -1174,7 +1226,9 @@ class SeabornAnalyzer(BaseAnalyzer):
     def _is_numeric_string(self, s):
         """Check if a string represents a number."""
         try:
-            float(s)
+            # Normalizar el signo negativo Unicode a ASCII
+            normalized_s = s.replace('−', '-')  # Unicode minus sign to ASCII hyphen
+            float(normalized_s)
             return True
         except (ValueError, TypeError):
             return False

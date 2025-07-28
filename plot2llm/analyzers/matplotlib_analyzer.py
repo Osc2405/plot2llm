@@ -65,12 +65,16 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 plot_types = self._get_data_types(ax)
                 plot_type = plot_types[0] if plot_types else None
 
+                # Detectar tipos de ejes antes de llamar a los analizadores específicos
+                x_type, x_labels = self._detect_axis_type_and_labels(ax, "x")
+                y_type, y_labels = self._detect_axis_type_and_labels(ax, "y")
+
                 # Mapear correctamente los tipos detectados a los esperados por los analizadores
                 if plot_type == "line_plot" or (hasattr(ax, "lines") and ax.lines):
-                    axes_section = analyze_line(ax)
+                    axes_section = analyze_line(ax, x_type, y_type)
                 elif plot_type == "scatter_plot" or (hasattr(ax, "collections") and ax.collections and 
                      any(hasattr(c, "get_offsets") for c in ax.collections)):
-                    axes_section = analyze_scatter(ax)
+                    axes_section = analyze_scatter(ax, x_type, y_type)
                 elif plot_type == "histogram" or (hasattr(ax, "patches") and ax.patches):
                     # Lógica mejorada para distinguir histogramas de bar plots
                     try:
@@ -128,18 +132,24 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                                     is_histogram = True  # Un solo patch, probablemente histograma
                         
                         if is_histogram:
-                            axes_section = analyze_histogram(ax)
+                            axes_section = analyze_histogram(ax, x_type, y_type)
                         else:
-                            axes_section = analyze_bar(ax)
+                            axes_section = analyze_bar(ax, x_type, y_type)
                             
                     except Exception as e:
                         # Si falla la detección, usar histograma por defecto
-                        axes_section = analyze_histogram(ax)
+                        axes_section = analyze_histogram(ax, x_type, y_type)
                 else:
                     axes_section = {
                         "plot_type": plot_type or "unknown",
                         "message": f"El tipo de gráfico '{plot_type or 'unknown'}' está pendiente de implementación profesional."
                     }
+                
+                # Añadir los tipos de ejes detectados al resultado del analizador específico
+                axes_section["x_type"] = x_type
+                axes_section["y_type"] = y_type
+                
+               
                 axes_list.append(axes_section)
             
             # Get additional information

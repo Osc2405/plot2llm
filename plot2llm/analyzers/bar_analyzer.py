@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Dict, Any, List
 
-def analyze(ax) -> Dict[str, Any]:
+def analyze(ax, x_type=None, y_type=None) -> Dict[str, Any]:
     """
     Analiza un gráfico de barras y devuelve información semántica completa.
     """
@@ -14,8 +14,14 @@ def analyze(ax) -> Dict[str, Any]:
         "x_lim": [float(x) for x in ax.get_xlim()],
         "y_lim": [float(y) for y in ax.get_ylim()],
         "has_grid": bool(any(line.get_visible() for line in ax.get_xgridlines() + ax.get_ygridlines())),
-        "has_legend": bool(ax.get_legend() is not None)
+        "has_legend": bool(ax.get_legend() is not None),
     }
+    
+    # Añadir tipos de eje si se proporcionan
+    if x_type:
+        section["x_type"] = x_type
+    if y_type:
+        section["y_type"] = y_type
     
     # Extraer datos de los patches (barras)
     bars_data = []

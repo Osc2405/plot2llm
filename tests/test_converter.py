@@ -79,7 +79,7 @@ class TestCustomFormatterRegistration:
 
         class CustomFormatter:
             def format(self, analysis, **kwargs):
-                return f"Custom: {analysis.get('title', 'No Title')}"
+                return f"Custom: {analysis.get('figure', {}).get('title', 'No Title')}"
 
         custom_formatter = CustomFormatter()
         self.converter.register_formatter("custom", custom_formatter)
@@ -463,11 +463,15 @@ class TestGlobalConvertFunction:
         ax.plot([1, 2, 3], [1, 2, 3])
 
         result = convert(fig, "json")
-        assert result["figure_type"] in ["matplotlib", "seaborn"]
+        # Check new structure
+        assert "figure" in result
+        assert result["figure"]["figure_type"] == "matplotlib.Figure"
 
         # Test with axes object
         result = convert(ax, "json")
-        assert result["figure_type"] in ["matplotlib", "seaborn"]
+        assert "figure" in result
+        # When passing an Axes object, it should be detected as matplotlib.Axes
+        assert result["figure"]["figure_type"] == "matplotlib.Axes"
 
     @pytest.mark.unit
     def test_global_convert_error_handling(self):
@@ -513,7 +517,9 @@ class TestConverterPerformance:
         assert len(results) == 5
         for i, result in enumerate(results):
             assert isinstance(result, dict)
-            assert result["title"] == f"Figure {i}"
+            # Check new structure
+            assert "figure" in result
+            assert result["figure"]["title"] == f"Figure {i}"
 
     @pytest.mark.unit
     def test_converter_memory_usage(self):
@@ -554,7 +560,9 @@ class TestConverterEdgeCases:
 
         result = self.converter.convert(fig, "json")
         assert isinstance(result, dict)
-        assert result["figure_type"] == "matplotlib"
+        # Check new structure
+        assert "figure" in result
+        assert result["figure"]["figure_type"] == "matplotlib.Figure"
 
     @pytest.mark.unit
     def test_convert_figure_with_no_axes(self):

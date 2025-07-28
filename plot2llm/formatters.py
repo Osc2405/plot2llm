@@ -67,7 +67,16 @@ class TextFormatter:
         all_text_fields.append(basic.get("figure_type", ""))
 
         for ax in axes:
-            for pt in ax.get("plot_types", []):
+            # Handle both modern (plot_type) and legacy (plot_types) formats
+            plot_type = ax.get("plot_type")
+            plot_types = ax.get("plot_types", [])
+            
+            # If we have the new format (plot_type), add it to the set
+            if plot_type:
+                plot_types_found.add(plot_type.lower())
+            
+            # Also check the legacy format
+            for pt in plot_types:
                 if pt.get("type"):
                     plot_types_found.add(pt.get("type").lower())
 

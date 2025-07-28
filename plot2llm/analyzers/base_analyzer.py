@@ -245,9 +245,25 @@ class BaseAnalyzer(ABC):
         """
         if len(x) < 2 or len(y) < 2 or len(x) != len(y):
             return None
+        
+        # Filtrar NaN values
+        valid_mask = ~(np.isnan(x) | np.isnan(y))
+        x_clean = x[valid_mask]
+        y_clean = y[valid_mask]
+        
+        if len(x_clean) < 2 or len(y_clean) < 2:
+            return None
+        
+        # Verificar si hay suficiente variación en los datos para evitar RankWarning
+        x_std = np.std(x_clean)
+        y_std = np.std(y_clean)
+        
+        if x_std < 1e-10 or y_std < 1e-10:  # Datos constantes o muy similares
+            return None
+            
         try:
             # Fit a first-degree polynomial (a line)
-            coeffs = np.polyfit(x, y, 1)
+            coeffs = np.polyfit(x_clean, y_clean, 1)
             if len(coeffs) == 2:
                 return float(coeffs[0]), float(coeffs[1])
         except (np.linalg.LinAlgError, ValueError) as e:
@@ -269,13 +285,29 @@ class BaseAnalyzer(ABC):
         """
         if len(x) < max_degree + 1 or len(y) < max_degree + 1 or len(x) != len(y):
             return None
+        
+        # Filtrar NaN values
+        valid_mask = ~(np.isnan(x) | np.isnan(y))
+        x_clean = x[valid_mask]
+        y_clean = y[valid_mask]
+        
+        if len(x_clean) < max_degree + 1 or len(y_clean) < max_degree + 1:
+            return None
+        
+        # Verificar si hay suficiente variación en los datos para evitar RankWarning
+        x_std = np.std(x_clean)
+        y_std = np.std(y_clean)
+        
+        if x_std < 1e-10 or y_std < 1e-10:  # Datos constantes o muy similares
+            return None
+            
         try:
             best_coeffs = None
             best_error = np.inf
             for degree in range(2, max_degree + 1):
-                coeffs = np.polyfit(x, y, degree)
+                coeffs = np.polyfit(x_clean, y_clean, degree)
                 model = np.poly1d(coeffs)
-                error = np.sum((model(x) - y) ** 2)
+                error = np.sum((model(x_clean) - y_clean) ** 2)
                 if error < best_error:
                     best_error = error
                     best_coeffs = coeffs
@@ -291,10 +323,26 @@ class BaseAnalyzer(ABC):
         """
         if len(x) < 2 or len(y) < 2 or len(x) != len(y) or np.any(y <= 0):
             return None
+        
+        # Filtrar NaN values
+        valid_mask = ~(np.isnan(x) | np.isnan(y))
+        x_clean = x[valid_mask]
+        y_clean = y[valid_mask]
+        
+        if len(x_clean) < 2 or len(y_clean) < 2 or np.any(y_clean <= 0):
+            return None
+        
+        # Verificar si hay suficiente variación en los datos para evitar RankWarning
+        x_std = np.std(x_clean)
+        y_std = np.std(y_clean)
+        
+        if x_std < 1e-10 or y_std < 1e-10:  # Datos constantes o muy similares
+            return None
+            
         try:
             # y = a * exp(b*x) => log(y) = log(a) + b*x
-            log_y = np.log(y)
-            coeffs = np.polyfit(x, log_y, 1)
+            log_y = np.log(y_clean)
+            coeffs = np.polyfit(x_clean, log_y, 1)
             b = coeffs[0]
             log_a = coeffs[1]
             a = np.exp(log_a)
@@ -310,10 +358,26 @@ class BaseAnalyzer(ABC):
         """
         if len(x) < 2 or len(y) < 2 or len(x) != len(y) or np.any(x <= 0):
             return None
+        
+        # Filtrar NaN values
+        valid_mask = ~(np.isnan(x) | np.isnan(y))
+        x_clean = x[valid_mask]
+        y_clean = y[valid_mask]
+        
+        if len(x_clean) < 2 or len(y_clean) < 2 or np.any(x_clean <= 0):
+            return None
+        
+        # Verificar si hay suficiente variación en los datos para evitar RankWarning
+        x_std = np.std(x_clean)
+        y_std = np.std(y_clean)
+        
+        if x_std < 1e-10 or y_std < 1e-10:  # Datos constantes o muy similares
+            return None
+            
         try:
             # y = a * log(x) + b is a linear relationship between y and log(x)
-            log_x = np.log(x)
-            coeffs = np.polyfit(log_x, y, 1)
+            log_x = np.log(x_clean)
+            coeffs = np.polyfit(log_x, y_clean, 1)
             return float(coeffs[0]), float(coeffs[1])
         except (np.linalg.LinAlgError, ValueError) as e:
             logger.warning(f"Could not fit logarithmic pattern: {e}")
@@ -569,18 +633,48 @@ class BaseAnalyzer(ABC):
         if len(y) < 3:
             return None
         
-        if x is None:
-            x = np.arange(len(y))
+        # Filtrar NaN values
+        valid_mask = ~np.isnan(y)
+        y_clean = y[valid_mask]
         
-        coeffs = np.polyfit(x, y, 1)
-        slope = coeffs[0]
-
-        if abs(slope) < 1e-1:
-            return "stable"
-        elif slope > 0:
-            return "increasing"
+        if len(y_clean) < 3:
+            return None
+        
+        if x is None:
+            x_clean = np.arange(len(y_clean))
         else:
-            return "decreasing"
+            # Filtrar x también si se proporciona
+            x_clean = x[valid_mask]
+        
+        # Verificar si hay suficiente variación en los datos para evitar RankWarning
+        x_std = np.std(x_clean)
+        y_std = np.std(y_clean)
+        
+        if x_std < 1e-10 or y_std < 1e-10:  # Datos constantes o muy similares
+            return "stable"
+        
+        try:
+            coeffs = np.polyfit(x_clean, y_clean, 1)
+            slope = coeffs[0]
+
+            if abs(slope) < 1e-1:
+                return "stable"
+            elif slope > 0:
+                return "increasing"
+            else:
+                return "decreasing"
+        except (np.linalg.LinAlgError, ValueError):
+            # Si falla el polyfit, usar análisis simple
+            if len(y_clean) > 1:
+                first_val = y_clean[0]
+                last_val = y_clean[-1]
+                if abs(last_val - first_val) < 1e-1:
+                    return "stable"
+                elif last_val > first_val:
+                    return "increasing"
+                else:
+                    return "decreasing"
+            return "stable"
 
     def _analyze_distribution(self, data: np.ndarray) -> Dict[str, Any]:
         """

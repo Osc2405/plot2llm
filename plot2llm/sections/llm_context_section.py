@@ -3,15 +3,28 @@ def build_llm_context_section(semantic_analysis: dict) -> dict:
     Construye la sección llm_context para el output semántico.
     """
     axes = semantic_analysis.get("axes", [])
+    
+    # Buscar contexto LLM específico en los ejes (generado por los analizadores)
+    for ax in axes:
+        if "llm_context" in ax and ax["llm_context"]:
+            return ax["llm_context"]
+    
+    # Si no hay contexto específico, buscar en el análisis principal
+    if "llm_context" in semantic_analysis and semantic_analysis["llm_context"]:
+        return semantic_analysis["llm_context"]
+    
+    # Fallback: construir contexto basado en tipos de gráfico
     plot_types = set()
     for ax in axes:
         for pt in ax.get("plot_types", []):
             if pt.get("type"):
                 plot_types.add(pt["type"])
+    
     hints = []
     suggestions = []
     questions = []
     concepts = []
+    
     if plot_types:
         if "line" in plot_types:
             hints.append("Look for trends, slopes, and inflection points.")
@@ -33,6 +46,8 @@ def build_llm_context_section(semantic_analysis: dict) -> dict:
             suggestions.append("Look for the largest and smallest categories.")
             questions.append("Which category has the highest/lowest value?")
             concepts.extend(["categorical comparison", "ranking"])
+    
+    # Si no se encontraron hints específicos, usar genéricos
     if not hints:
         hints.append("Interpret the axes, labels, and data points to understand the visualization.")
     if not suggestions:
@@ -41,6 +56,7 @@ def build_llm_context_section(semantic_analysis: dict) -> dict:
         questions.append("What does this plot reveal about the data?")
     if not concepts:
         concepts.append("data visualization")
+    
     return {
         "interpretation_hints": hints,
         "analysis_suggestions": suggestions,

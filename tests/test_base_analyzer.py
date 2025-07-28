@@ -27,9 +27,11 @@ class ConcreteAnalyzer(BaseAnalyzer):
     ):
         """Simple analyze implementation."""
         return {
-            "figure_type": self._get_figure_type(figure),
-            "dimensions": self._get_dimensions(figure),
-            "title": self._get_title(figure),
+            "figure": {
+                "figure_type": self._get_figure_type(figure),
+                "dimensions": self._get_dimensions(figure),
+                "title": self._get_title(figure),
+            },
             "axes_count": self._get_axes_count(figure),
         }
 
@@ -203,8 +205,10 @@ class TestBaseAnalyzerWithRealFigures:
         result = self.analyzer.analyze(fig)
 
         assert isinstance(result, dict)
-        assert result["figure_type"] == "test_figure"
-        assert result["dimensions"] == (8, 6)
+        # Check new structure
+        assert "figure" in result
+        assert result["figure"]["figure_type"] == "test_figure"
+        assert result["figure"]["dimensions"] == (8, 6)
         assert result["axes_count"] == 1
 
     @pytest.mark.unit
@@ -216,7 +220,7 @@ class TestBaseAnalyzerWithRealFigures:
 
         result = self.analyzer.analyze(fig)
 
-        assert result["title"] == "Main Title"
+        assert result["figure"]["title"] == "Main Title"
 
     @pytest.mark.unit
     def test_analyze_subplot_figure(self):
@@ -246,7 +250,9 @@ class TestBaseAnalyzerWithRealFigures:
         # All should return valid results
         for result in [result1, result2, result3, result4]:
             assert isinstance(result, dict)
-            assert "figure_type" in result
+            # Check new structure
+            assert "figure" in result
+            assert "figure_type" in result["figure"]
 
 
 class TestBaseAnalyzerErrorConditions:
@@ -262,7 +268,9 @@ class TestBaseAnalyzerErrorConditions:
         result = self.analyzer.analyze(None)
 
         assert isinstance(result, dict)
-        assert result["figure_type"] == "test_figure"
+        # Check new structure
+        assert "figure" in result
+        assert result["figure"]["figure_type"] == "test_figure"
         assert result["axes_count"] == 0
 
     @pytest.mark.unit
@@ -271,7 +279,9 @@ class TestBaseAnalyzerErrorConditions:
         result = self.analyzer.analyze("not a figure")
 
         assert isinstance(result, dict)
-        assert result["figure_type"] == "test_figure"
+        # Check new structure
+        assert "figure" in result
+        assert result["figure"]["figure_type"] == "test_figure"
 
     @pytest.mark.unit
     def test_extract_basic_info_with_errors(self):
