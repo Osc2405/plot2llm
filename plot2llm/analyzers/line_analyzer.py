@@ -1,5 +1,6 @@
 import numpy as np
 from typing import Dict, Any, List
+from plot2llm.utils import generate_unified_key_insights, generate_unified_interpretation_hints
 
 def analyze(ax, x_type=None, y_type=None) -> Dict[str, Any]:
     """
@@ -8,13 +9,15 @@ def analyze(ax, x_type=None, y_type=None) -> Dict[str, Any]:
     # Información básica del eje
     section = {
         "plot_type": "line",
-        "x_label": str(ax.get_xlabel()),
-        "y_label": str(ax.get_ylabel()),
+        "xlabel": str(ax.get_xlabel()),
+        "ylabel": str(ax.get_ylabel()),
         "title": str(ax.get_title()),
         "x_lim": [float(x) for x in ax.get_xlim()],
         "y_lim": [float(y) for y in ax.get_ylim()],
+        "x_range": [float(x) for x in ax.get_xlim()],  # Agregar x_range
+        "y_range": [float(y) for y in ax.get_ylim()],  # Agregar y_range
         "has_grid": bool(any(line.get_visible() for line in ax.get_xgridlines() + ax.get_ygridlines())),
-        "has_legend": bool(ax.get_legend() is not None),
+        "has_legend": bool(ax.get_legend() is not None)
     }
     
     # Añadir tipos de eje si se proporcionan
@@ -27,6 +30,7 @@ def analyze(ax, x_type=None, y_type=None) -> Dict[str, Any]:
     lines_data = []
     all_x_data = []
     all_y_data = []
+    curve_points = []
     
     for line in ax.lines:
         xdata = [float(x) for x in line.get_xdata()]
@@ -41,22 +45,44 @@ def analyze(ax, x_type=None, y_type=None) -> Dict[str, Any]:
             "marker": str(line.get_marker())
         })
         
+        # Agregar curve_points para esta línea
+        curve_points.append({
+            "x": xdata,
+            "y": ydata,
+            "type": "line",
+            "color": str(line.get_color()),
+            "style": str(line.get_linestyle()),
+            "marker": str(line.get_marker()),
+            "label": str(line.get_label())
+        })
+        
         all_x_data.extend(xdata)
         all_y_data.extend(ydata)
     
     section["lines"] = lines_data
+    section["curve_points"] = curve_points
     
     # Análisis estadístico
     if all_y_data:
         y_array = np.array(all_y_data)
         x_array = np.array(all_x_data)
+        y_clean = y_array[~np.isnan(y_array)]
+        x_clean = x_array[~np.isnan(x_array)]
         
-        # Filtrar NaN values antes del análisis
-        valid_mask = ~(np.isnan(x_array) | np.isnan(y_array))
-        x_clean = x_array[valid_mask]
-        y_clean = y_array[valid_mask]
+        # Detectar outliers usando IQR
+        def detect_outliers(data):
+            if len(data) < 4:
+                return 0
+            q1, q3 = np.percentile(data, [25, 75])
+            iqr = q3 - q1
+            if iqr == 0:
+                return 0
+            lower_bound = q1 - 1.5 * iqr
+            upper_bound = q3 + 1.5 * iqr
+            return int(np.sum((data < lower_bound) | (data > upper_bound)))
         
-        # Estadísticas básicas
+        y_outliers = detect_outliers(y_clean)
+        
         stats = {
             "central_tendency": {
                 "mean": float(np.nanmean(y_array)),
@@ -74,6 +100,10 @@ def analyze(ax, x_type=None, y_type=None) -> Dict[str, Any]:
             "data_quality": {
                 "total_points": int(len(all_y_data)),
                 "missing_values": int(np.sum(np.isnan(y_array)))
+            },
+            "outliers": {
+                "detected": bool(y_outliers > 0),
+                "count": y_outliers
             }
         }
         
@@ -96,11 +126,8 @@ def analyze(ax, x_type=None, y_type=None) -> Dict[str, Any]:
                         last_val = y_clean[-1]
                         slope = (last_val - first_val) / (len(y_clean) - 1) if len(y_clean) > 1 else 0
                         trend = "increasing" if slope > 0.1 else "decreasing" if slope < -0.1 else "stable"
-                    else:
-                        trend = "unknown"
             else:
-                # Datos constantes o muy similares
-                trend = "stable"
+                trend = "unknown"
         else:
             trend = "unknown"
         
@@ -119,5 +146,45 @@ def analyze(ax, x_type=None, y_type=None) -> Dict[str, Any]:
         
         section["stats"] = stats
         section["pattern"] = pattern_info
+    
+    # Generate LLM description and context
+    section["llm_description"] = {
+        "one_sentence_summary": f"This line plot shows {'an ' + trend + ' trend' if 'trend' in locals() else 'data relationships'} over the x-axis range.",
+        "structured_analysis": {
+            "what": "Line plot visualization",
+            "when": "Time-series analysis" if x_type == "date" else "Sequential data analysis",
+            "why": "Trend analysis and pattern recognition",
+            "how": "Through continuous line representation of data points"
+        },
+        "key_insights": generate_unified_key_insights({
+            "trend": trend if 'trend' in locals() and trend != "unknown" else None,
+            "slope": slope if 'slope' in locals() else None,
+            "pattern_confidence": pattern_info.get("confidence_score", 0.9) if 'pattern_info' in locals() else None
+        })
+    }
+    
+    section["llm_context"] = {
+        "interpretation_hints": generate_unified_interpretation_hints({
+            "trend_analysis": "Look for trends, slopes, and inflection points.",
+            "direction_analysis": "Consider the overall direction and rate of change.",
+            "pattern_recognition": "Identify any patterns or cycles in the data."
+        }),
+        "analysis_suggestions": [
+            "Consider fitting a regression line for trend analysis.",
+            "Look for seasonal patterns or periodic behavior.",
+            "Analyze the rate of change at different points."
+        ],
+        "common_questions": [
+            "Is there a clear trend in the data?",
+            "Are there any significant changes in slope?",
+            "What does the overall pattern suggest about the relationship?"
+        ],
+        "related_concepts": [
+            "trend analysis",
+            "regression",
+            "time series",
+            "slope calculation"
+        ]
+    }
     
     return section 

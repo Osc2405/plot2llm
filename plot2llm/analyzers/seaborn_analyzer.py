@@ -16,6 +16,8 @@ from plot2llm.analyzers.line_analyzer import analyze as analyze_line
 from plot2llm.analyzers.scatter_analyzer import analyze as analyze_scatter
 from plot2llm.analyzers.bar_analyzer import analyze as analyze_bar
 from plot2llm.analyzers.histogram_analyzer import analyze as analyze_histogram
+from plot2llm.utils import generate_unified_interpretation_hints
+from plot2llm.sections.data_summary_section import build_data_summary_section
 
 from .base_analyzer import BaseAnalyzer
 
@@ -36,7 +38,7 @@ class SeabornAnalyzer(BaseAnalyzer):
 
     # Constants for axis types
     NUMERIC = "numeric"
-    CATEGORY = "category"
+    CATEGORY = "categorical"
     DATE = "date"
     PERIOD = "period"
 
@@ -103,6 +105,31 @@ class SeabornAnalyzer(BaseAnalyzer):
                 axes_section["x_type"] = x_type
                 axes_section["y_type"] = y_type
                 
+                # Añadir información adicional del eje que no está en los analizadores específicos
+                # Solo añadir campos que no existan ya en el resultado del analizador específico
+                if "title" not in axes_section:
+                    axes_section["title"] = str(ax.get_title())
+                if "xlabel" not in axes_section:
+                    axes_section["xlabel"] = str(ax.get_xlabel())
+                if "ylabel" not in axes_section:
+                    axes_section["ylabel"] = str(ax.get_ylabel())
+                if "x_range" not in axes_section:
+                    axes_section["x_range"] = [float(x) for x in ax.get_xlim()]
+                if "y_range" not in axes_section:
+                    axes_section["y_range"] = [float(y) for y in ax.get_ylim()]
+                if "has_grid" not in axes_section:
+                    axes_section["has_grid"] = bool(any(line.get_visible() for line in ax.get_xgridlines() + ax.get_ygridlines()))
+                if "has_legend" not in axes_section:
+                    axes_section["has_legend"] = bool(ax.get_legend() is not None)
+                if "spine_visibility" not in axes_section:
+                    axes_section["spine_visibility"] = {side: bool(spine.get_visible()) for side, spine in ax.spines.items()}
+                if "tick_density" not in axes_section:
+                    axes_section["tick_density"] = int(len(ax.get_xticks()))
+                
+                # Convertir plot_type a plot_types para compatibilidad
+                if "plot_type" in axes_section:
+                    axes_section["plot_types"] = [{"type": axes_section["plot_type"]}]
+
                 axes_list.append(axes_section)
 
             colors = self._get_colors(figure) if include_colors else []
@@ -127,7 +154,6 @@ class SeabornAnalyzer(BaseAnalyzer):
             domain_context = self._infer_domain_context(axes_list)
             llm_description = self._generate_llm_description(axes_list, statistics)
             llm_context = self._generate_llm_context(axes_list, statistics)
-            data_summary = self._generate_data_summary(axes_list)
             statistical_insights = self._generate_statistical_insights(statistics)
             pattern_analysis = self._generate_pattern_analysis(axes_list)
 
@@ -141,10 +167,13 @@ class SeabornAnalyzer(BaseAnalyzer):
                 "domain_context": domain_context,
                 "llm_description": llm_description,
                 "llm_context": llm_context,
-                "data_summary": data_summary,
                 "statistical_insights": statistical_insights,
                 "pattern_analysis": pattern_analysis
             }
+            
+            # Data summary - construir después de tener el resultado completo
+            modern_output["data_summary"] = build_data_summary_section(modern_output)
+            
             # Return modern format directly for consistency
             return modern_output
         except Exception as e:
@@ -517,7 +546,7 @@ class SeabornAnalyzer(BaseAnalyzer):
                             ):
                                 x_type = "period"
                             elif all(isinstance(val, str) for val in x_serial):
-                                x_type = "category"
+                                x_type = "categorical"
                             else:
                                 x_type = "numeric"
                         curve_points.append(
@@ -537,7 +566,7 @@ class SeabornAnalyzer(BaseAnalyzer):
                                     if np.issubdtype(np.array(x).dtype, np.datetime64):
                                         x_type = "date"
                                     elif all(isinstance(val, str) for val in x_serial):
-                                        x_type = "category"
+                                        x_type = "categorical"
                                     else:
                                         x_type = "numeric"
                                 curve_points.append(
@@ -1153,8 +1182,10 @@ class SeabornAnalyzer(BaseAnalyzer):
                             min_val = min(numeric_labels)
                             max_val = max(numeric_labels)
                             range_size = max_val - min_val
-                            # If the range is significant compared to the number of labels, it's likely numeric
-                            if range_size > len(numeric_labels) * 0.5:
+                            # For seaborn plots, be more lenient - if we have numeric labels, assume numeric
+                            # unless there are very few unique values
+                            unique_values = len(set(numeric_labels))
+                            if unique_values > 5 or range_size > len(numeric_labels) * 0.3:
                                 x_type = self.NUMERIC
                             else:
                                 x_type = self.CATEGORY
@@ -1166,9 +1197,12 @@ class SeabornAnalyzer(BaseAnalyzer):
                 elif len(non_empty_x_labels) <= 10 and len(x_ticks) == len(
                     non_empty_x_labels
                 ):
-                    # Small number of explicit labels suggests categorical
-                    x_type = self.CATEGORY
-                    x_labels = non_empty_x_labels
+                    # But for seaborn, if they're numeric, prefer numeric type
+                    if all(self._is_numeric_string(label) for label in non_empty_x_labels):
+                        x_type = self.NUMERIC
+                    else:
+                        x_type = self.CATEGORY
+                        x_labels = non_empty_x_labels
 
             # Check Y axis
             y_ticks = ax.get_yticks()
@@ -1201,8 +1235,10 @@ class SeabornAnalyzer(BaseAnalyzer):
                             min_val = min(numeric_labels)
                             max_val = max(numeric_labels)
                             range_size = max_val - min_val
-                            # If the range is significant compared to the number of labels, it's likely numeric
-                            if range_size > len(numeric_labels) * 0.5:
+                            # For seaborn plots, be more lenient - if we have numeric labels, assume numeric
+                            # unless there are very few unique values
+                            unique_values = len(set(numeric_labels))
+                            if unique_values > 5 or range_size > len(numeric_labels) * 0.3:
                                 y_type = self.NUMERIC
                             else:
                                 y_type = self.CATEGORY
@@ -1214,8 +1250,12 @@ class SeabornAnalyzer(BaseAnalyzer):
                 elif len(non_empty_y_labels) <= 10 and len(y_ticks) == len(
                     non_empty_y_labels
                 ):
-                    y_type = self.CATEGORY
-                    y_labels = non_empty_y_labels
+                    # But for seaborn, if they're numeric, prefer numeric type
+                    if all(self._is_numeric_string(label) for label in non_empty_y_labels):
+                        y_type = self.NUMERIC
+                    else:
+                        y_type = self.CATEGORY
+                        y_labels = non_empty_y_labels
 
         except Exception:
             # Default to numeric if detection fails
@@ -1300,7 +1340,7 @@ class SeabornAnalyzer(BaseAnalyzer):
                 "why": "Data analysis and pattern recognition",
                 "how": "Through visual representation of data points"
             },
-            "key_insights": []
+            "key_insights": []  # Los insights vendrán de los analizadores específicos
         }
 
     def _generate_llm_context(self, axes_list, statistics):
@@ -1308,11 +1348,11 @@ class SeabornAnalyzer(BaseAnalyzer):
             if "llm_context" in ax:
                 return ax["llm_context"]
         return {
-            "interpretation_hints": [
-                "Analyze the data patterns and relationships",
-                "Look for trends, outliers, and significant features",
-                "Consider the scale and context of the variables"
-            ],
+            "interpretation_hints": generate_unified_interpretation_hints({
+                "general_analysis": "Analyze the data patterns and relationships",
+                "pattern_recognition": "Look for trends, outliers, and significant features",
+                "statistical_analysis": "Consider the scale and context of the variables"
+            }),
             "analysis_suggestions": [
                 "Examine statistical properties of the data",
                 "Identify key patterns and anomalies",

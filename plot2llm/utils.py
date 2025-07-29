@@ -145,3 +145,252 @@ def validate_semantic_output(output: dict, schema_path: str = None) -> bool:
         schema = json.load(f)
     validate(instance=output, schema=schema)
     return True
+
+
+def generate_unified_key_insights(insights_data: dict) -> list:
+    """
+    Genera insights unificados en formato estructurado.
+    
+    Args:
+        insights_data: Diccionario con datos para generar insights
+        
+    Returns:
+        Lista de insights en formato unificado
+    """
+    unified_insights = []
+    
+    # Line plot insights
+    if "trend" in insights_data and insights_data["trend"] is not None:
+        unified_insights.append({
+            "type": "trend",
+            "description": f"Data shows {insights_data['trend']} trend",
+            "value": insights_data["trend"],
+            "confidence": insights_data.get("trend_confidence", 0.8)
+        })
+    
+    if "slope" in insights_data and insights_data["slope"] is not None:
+        unified_insights.append({
+            "type": "slope",
+            "description": f"Slope: {insights_data['slope']:.3f}",
+            "value": insights_data["slope"],
+            "unit": "units/step"
+        })
+    
+    # Scatter plot insights
+    if "correlation_strength" in insights_data:
+        unified_insights.append({
+            "type": "correlation",
+            "description": f"{insights_data['correlation_strength'].title()} {insights_data.get('correlation_direction', '')} correlation",
+            "value": insights_data.get("correlation_value", 0.0),
+            "strength": insights_data["correlation_strength"],
+            "direction": insights_data.get("correlation_direction", "none")
+        })
+    
+    if "data_points" in insights_data:
+        unified_insights.append({
+            "type": "statistics",
+            "description": f"Total data points: {insights_data['data_points']}",
+            "value": insights_data["data_points"],
+            "unit": "points"
+        })
+    
+    # Bar chart insights
+    if "highest_category" in insights_data:
+        unified_insights.append({
+            "type": "ranking",
+            "description": f"Highest category: {insights_data['highest_category']}",
+            "value": insights_data["highest_category"],
+            "category": "highest"
+        })
+    
+    if "lowest_category" in insights_data:
+        unified_insights.append({
+            "type": "ranking",
+            "description": f"Lowest category: {insights_data['lowest_category']}",
+            "value": insights_data["lowest_category"],
+            "category": "lowest"
+        })
+    
+    if "total_categories" in insights_data:
+        unified_insights.append({
+            "type": "statistics",
+            "description": f"Total categories: {insights_data['total_categories']}",
+            "value": insights_data["total_categories"],
+            "unit": "categories"
+        })
+    
+    # Histogram insights
+    if "distribution_type" in insights_data:
+        unified_insights.append({
+            "type": "distribution",
+            "description": f"Distribution type: {insights_data['distribution_type']}",
+            "value": insights_data["distribution_type"]
+        })
+    
+    if "skewness" in insights_data:
+        unified_insights.append({
+            "type": "distribution",
+            "description": f"Skewness: {insights_data['skewness']}",
+            "value": insights_data["skewness"],
+            "category": "skewness"
+        })
+    
+    if "kurtosis" in insights_data:
+        unified_insights.append({
+            "type": "distribution",
+            "description": f"Kurtosis: {insights_data['kurtosis']}",
+            "value": insights_data["kurtosis"],
+            "category": "kurtosis"
+        })
+    
+    if "bin_count" in insights_data:
+        unified_insights.append({
+            "type": "statistics",
+            "description": f"Number of bins: {insights_data['bin_count']}",
+            "value": insights_data["bin_count"],
+            "unit": "bins"
+        })
+    
+    # Pattern insights
+    if "pattern_confidence" in insights_data and insights_data["pattern_confidence"] is not None:
+        unified_insights.append({
+            "type": "pattern",
+            "description": f"Pattern confidence: {insights_data['pattern_confidence']:.2f}",
+            "value": insights_data["pattern_confidence"],
+            "unit": "confidence"
+        })
+    
+    # Outlier insights
+    if "outliers_count" in insights_data:
+        unified_insights.append({
+            "type": "outliers",
+            "description": f"Found {insights_data['outliers_count']} potential outliers",
+            "value": insights_data["outliers_count"],
+            "unit": "outliers"
+        })
+    
+    return unified_insights
+
+
+def generate_unified_interpretation_hints(hints_data: dict) -> list:
+    """
+    Genera hints de interpretación unificados en formato estructurado.
+    
+    Args:
+        hints_data: Diccionario con datos para generar hints
+        
+    Returns:
+        Lista de hints en formato unificado
+    """
+    unified_hints = []
+    
+    # Line plot hints
+    if "trend_analysis" in hints_data:
+        unified_hints.append({
+            "type": "trend_analysis",
+            "description": hints_data["trend_analysis"],
+            "priority": "high",
+            "category": "line_plot"
+        })
+    
+    if "direction_analysis" in hints_data:
+        unified_hints.append({
+            "type": "direction_analysis",
+            "description": hints_data["direction_analysis"],
+            "priority": "medium",
+            "category": "line_plot"
+        })
+    
+    if "pattern_recognition" in hints_data:
+        unified_hints.append({
+            "type": "pattern_recognition",
+            "description": hints_data["pattern_recognition"],
+            "priority": "medium",
+            "category": "line_plot"
+        })
+    
+    # Scatter plot hints
+    if "cluster_analysis" in hints_data:
+        unified_hints.append({
+            "type": "cluster_analysis",
+            "description": hints_data["cluster_analysis"],
+            "priority": "high",
+            "category": "scatter_plot"
+        })
+    
+    if "outlier_detection" in hints_data:
+        unified_hints.append({
+            "type": "outlier_detection",
+            "description": hints_data["outlier_detection"],
+            "priority": "medium",
+            "category": "scatter_plot"
+        })
+    
+    if "correlation_analysis" in hints_data:
+        unified_hints.append({
+            "type": "correlation_analysis",
+            "description": hints_data["correlation_analysis"],
+            "priority": "high",
+            "category": "scatter_plot"
+        })
+    
+    # Bar chart hints
+    if "categorical_comparison" in hints_data:
+        unified_hints.append({
+            "type": "categorical_comparison",
+            "description": hints_data["categorical_comparison"],
+            "priority": "high",
+            "category": "bar_chart"
+        })
+    
+    if "ranking_analysis" in hints_data:
+        unified_hints.append({
+            "type": "ranking_analysis",
+            "description": hints_data["ranking_analysis"],
+            "priority": "medium",
+            "category": "bar_chart"
+        })
+    
+    if "distribution_analysis" in hints_data:
+        unified_hints.append({
+            "type": "distribution_analysis",
+            "description": hints_data["distribution_analysis"],
+            "priority": "medium",
+            "category": "bar_chart"
+        })
+    
+    # Histogram hints
+    if "shape_analysis" in hints_data:
+        unified_hints.append({
+            "type": "shape_analysis",
+            "description": hints_data["shape_analysis"],
+            "priority": "high",
+            "category": "histogram"
+        })
+    
+    if "peak_analysis" in hints_data:
+        unified_hints.append({
+            "type": "peak_analysis",
+            "description": hints_data["peak_analysis"],
+            "priority": "medium",
+            "category": "histogram"
+        })
+    
+    if "statistical_analysis" in hints_data:
+        unified_hints.append({
+            "type": "statistical_analysis",
+            "description": hints_data["statistical_analysis"],
+            "priority": "medium",
+            "category": "histogram"
+        })
+    
+    # Generic hints
+    if "general_analysis" in hints_data:
+        unified_hints.append({
+            "type": "general_analysis",
+            "description": hints_data["general_analysis"],
+            "priority": "low",
+            "category": "generic"
+        })
+    
+    return unified_hints

@@ -38,6 +38,20 @@ def build_statistical_insights_section(semantic_analysis: dict) -> dict:
                 
                 if "distribution_analysis" in stats:
                     converted_stats["distribution_analysis"] = stats["distribution_analysis"]
+                    # Extraer skewness y kurtosis específicamente para la sección distribution
+                    dist_analysis = stats["distribution_analysis"]
+                    converted_stats["skewness"] = dist_analysis.get("skewness")
+                    converted_stats["kurtosis"] = dist_analysis.get("kurtosis")
+                    converted_stats["skewness_interpretation"] = dist_analysis.get("skewness_interpretation")
+                    converted_stats["kurtosis_interpretation"] = dist_analysis.get("kurtosis_interpretation")
+                
+                # Extraer outliers si están disponibles
+                if "outliers" in stats:
+                    converted_stats["outliers"] = stats["outliers"]
+                
+                # Extraer correlaciones si están disponibles
+                if "correlations" in stats:
+                    converted_stats["correlations"] = stats["correlations"]
                 
                 axis_stats.append(converted_stats)
             else:

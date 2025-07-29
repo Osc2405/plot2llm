@@ -1,5 +1,6 @@
 import numpy as np
 from typing import Dict, Any, List
+from plot2llm.utils import generate_unified_key_insights, generate_unified_interpretation_hints
 
 def analyze(ax, x_type=None, y_type=None) -> Dict[str, Any]:
     """
@@ -8,13 +9,15 @@ def analyze(ax, x_type=None, y_type=None) -> Dict[str, Any]:
     # Información básica del eje
     section = {
         "plot_type": "scatter",
-        "x_label": str(ax.get_xlabel()),
-        "y_label": str(ax.get_ylabel()),
+        "xlabel": str(ax.get_xlabel()),
+        "ylabel": str(ax.get_ylabel()),
         "title": str(ax.get_title()),
         "x_lim": [float(x) for x in ax.get_xlim()],
         "y_lim": [float(y) for y in ax.get_ylim()],
+        "x_range": [float(x) for x in ax.get_xlim()],  # Agregar x_range
+        "y_range": [float(y) for y in ax.get_ylim()],  # Agregar y_range
         "has_grid": bool(any(line.get_visible() for line in ax.get_xgridlines() + ax.get_ygridlines())),
-        "has_legend": bool(ax.get_legend() is not None),
+        "has_legend": bool(ax.get_legend() is not None)
     }
     
     # Añadir tipos de eje si se proporcionan
@@ -27,6 +30,7 @@ def analyze(ax, x_type=None, y_type=None) -> Dict[str, Any]:
     collections_data = []
     all_x_data = []
     all_y_data = []
+    curve_points = []
     
     for collection in ax.collections:
         if hasattr(collection, "get_offsets"):
@@ -42,10 +46,20 @@ def analyze(ax, x_type=None, y_type=None) -> Dict[str, Any]:
                     "n_points": int(len(x_points))
                 })
                 
+                # Agregar curve_points para esta colección
+                curve_points.append({
+                    "x": x_points,
+                    "y": y_points,
+                    "type": "scatter",
+                    "n_points": int(len(x_points)),
+                    "label": str(getattr(collection, "get_label", lambda: "scatter_data")())
+                })
+                
                 all_x_data.extend(x_points)
                 all_y_data.extend(y_points)
     
     section["collections"] = collections_data
+    section["curve_points"] = curve_points
     
     # Análisis estadístico
     if all_x_data and all_y_data:
@@ -100,6 +114,30 @@ def analyze(ax, x_type=None, y_type=None) -> Dict[str, Any]:
         x_outliers = detect_outliers(x_array) if len(x_array) > 4 else 0
         y_outliers = detect_outliers(y_array) if len(y_array) > 4 else 0
         
+        # Agregar outliers a los stats
+        stats["outliers"] = {
+            "detected": bool(x_outliers > 0 or y_outliers > 0),
+            "count": x_outliers + y_outliers,
+            "x_outliers": x_outliers,
+            "y_outliers": y_outliers
+        }
+        
+        # Agregar correlaciones a los stats
+        stats["correlations"] = [{
+            "type": "pearson",
+            "value": correlation,
+            "strength": (
+                "strong" if abs(correlation) > 0.7 else
+                "moderate" if abs(correlation) > 0.3 else
+                "weak"
+            ),
+            "direction": (
+                "positive" if correlation > 0 else
+                "negative" if correlation < 0 else
+                "none"
+            )
+        }]
+        
         # Análisis de patrones
         pattern_info = {
             "pattern_type": "correlation_analysis",
@@ -126,5 +164,49 @@ def analyze(ax, x_type=None, y_type=None) -> Dict[str, Any]:
         
         section["stats"] = stats
         section["pattern"] = pattern_info
+    
+    # Generate LLM description and context
+    correlation_strength = pattern_info.get("correlation_strength", "unknown") if 'pattern_info' in locals() else "unknown"
+    correlation_direction = pattern_info.get("correlation_direction", "unknown") if 'pattern_info' in locals() else "unknown"
+    
+    section["llm_description"] = {
+        "one_sentence_summary": f"This scatter plot shows {correlation_strength} {correlation_direction} correlation between variables.",
+        "structured_analysis": {
+            "what": "Scatter plot visualization",
+            "when": "Point-in-time analysis",
+            "why": "Correlation analysis and relationship exploration",
+            "how": "Through discrete point representation of data pairs"
+        },
+        "key_insights": generate_unified_key_insights({
+            "correlation_strength": correlation_strength,
+            "correlation_direction": correlation_direction,
+            "correlation_value": pattern_info.get("correlation", 0.0) if 'pattern_info' in locals() else 0.0,
+            "data_points": len(all_x_data) if 'all_x_data' in locals() else 0
+        })
+    }
+    
+    section["llm_context"] = {
+        "interpretation_hints": generate_unified_interpretation_hints({
+            "cluster_analysis": "Check for clusters, outliers, and correlation between variables.",
+            "pattern_recognition": "Look for patterns in the distribution of points.",
+            "correlation_analysis": "Consider the strength and direction of any relationship."
+        }),
+        "analysis_suggestions": [
+            "Try calculating the correlation coefficient for quantitative analysis.",
+            "Consider clustering analysis to identify groups.",
+            "Look for outliers that might influence the relationship."
+        ],
+        "common_questions": [
+            "Are the variables correlated?",
+            "Are there any outliers or unusual points?",
+            "What does the pattern suggest about the relationship?"
+        ],
+        "related_concepts": [
+            "correlation",
+            "outlier detection",
+            "clustering",
+            "regression analysis"
+        ]
+    }
     
     return section 

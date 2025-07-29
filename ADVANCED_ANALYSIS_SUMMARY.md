@@ -1,22 +1,31 @@
-# 🧠 Plot2LLM: Resumen de Capacidades Avanzadas de Análisis
+# 🧠 Plot2LLM v0.2.0: Advanced Analysis Capabilities Summary
 
-## 📋 Resumen Ejecutivo
+## 📋 Executive Summary
 
-Hemos expandido exitosamente las capacidades de `plot2llm` para proporcionar información rica y detallada que permite a los LLMs (Large Language Models) entender y analizar visualizaciones de datos de manera efectiva.
+We have successfully expanded the capabilities of `plot2llm` v0.2.0 to provide rich and detailed information that allows LLMs (Large Language Models) to understand and analyze data visualizations effectively. The new version includes complete statistical analysis, improved plot type detection, and an expanded test suite.
 
-## 🎯 Capacidades Implementadas
+## 🎯 Implemented Capabilities v0.2.0
 
-### 1. **Análisis de Tendencias** 📈
-- **Detección de patrones lineales y exponenciales**
-- **Análisis de estacionalidad**
-- **Identificación de puntos de inflexión**
-- **Cálculo de tasas de crecimiento**
+### 1. **Complete Statistical Analysis** 📊
+- **Central Tendency**: mean, median, mode
+- **Variability Analysis**: std, variance, range
+- **Distribution Analysis**: skewness, kurtosis with interpretations
+- **Correlation Analysis**: Pearson with strength and direction
+- **Outlier Detection**: IQR method for all plot types
+- **Data Quality Assessment**: total points, missing values
 
-**Ejemplo de uso:**
+### 2. **Trend Analysis** 📈
+- **Detection of linear and exponential patterns**
+- **Seasonality analysis**
+- **Inflection point identification**
+- **Growth rate calculation**
+- **Monotonicity detection (increasing, decreasing, stable)**
+
+**Usage example:**
 ```python
 from plot2llm import FigureConverter
 
-# Crear gráfico con tendencias
+# Create chart with trends
 fig, ax = plt.subplots()
 x = np.linspace(0, 20, 100)
 y_linear = 2 * x + 10 + np.random.normal(0, 2, 100)
@@ -26,65 +35,71 @@ ax.plot(x, y_linear, 'b-', label='Linear Trend')
 ax.plot(x, y_exponential, 'r--', label='Exponential Trend')
 ax.set_title('Trend Analysis')
 
-# Analizar para LLM
+# Analyze for LLM with complete statistical analysis
 converter = FigureConverter()
-result = converter.convert(fig, output_format='semantic')
+result = converter.convert(fig, format='semantic', include_statistics=True)
 
-# El LLM puede extraer:
-# - Tipo de tendencia (lineal vs exponencial)
-# - Estadísticas descriptivas
-# - Patrones de crecimiento
+# The LLM can extract:
+# - Trend type (linear vs exponential)
+# - Complete descriptive statistics
+# - Growth patterns
+# - Outlier analysis
+# - Correlations and distributions
 ```
 
-### 2. **Análisis de Correlaciones** 🔗
-- **Detección de correlaciones positivas y negativas**
-- **Análisis de la fuerza de las relaciones**
-- **Identificación de patrones de dispersión**
-- **Evaluación de significancia estadística**
+### 3. **Correlation Analysis** 🔗
+- **Detection of positive and negative correlations**
+- **Analysis of relationship strength (weak, moderate, strong)**
+- **Identification of dispersion patterns**
+- **Statistical significance evaluation**
+- **Correlation direction (positive, negative, none)**
 
-**Características:**
-- Análisis de múltiples subplots simultáneamente
-- Comparación de diferentes tipos de correlación
-- Extracción de metadatos de correlación
+**Features:**
+- Analysis of multiple subplots simultaneously
+- Comparison of different correlation types
+- Extraction of correlation metadata
+- Integration with statistical_insights
 
-### 3. **Análisis de Distribuciones** 📊
-- **Identificación de distribuciones normales, sesgadas, bimodales**
-- **Detección de outliers y valores atípicos**
-- **Análisis de la forma de los datos**
-- **Estadísticas descriptivas completas**
+### 4. **Distribution Analysis** 📊
+- **Identification of normal, skewed, bimodal, multimodal distributions**
+- **Detection of outliers and atypical values**
+- **Analysis of data shape and characteristics**
+- **Bin analysis for histograms**
 
-**Tipos de distribución soportados:**
-- Normal (Gaussiana)
-- Exponencial (sesgada)
-- Bimodal
-- Uniforme
-- Personalizadas
+**Supported distribution types:**
+- Normal (Gaussian)
+- Exponential (skewed)
+- Bimodal and Multimodal
+- Uniform
+- Custom
 
-### 4. **Análisis Estadístico Avanzado** 📈
-- **Estadísticas descriptivas completas**
-  - Media, mediana, moda
-  - Desviación estándar
-  - Rango (mínimo, máximo)
+### 5. **Advanced Statistical Analysis** 📈
+- **Complete descriptive statistics**
+  - Mean, median, mode
+  - Standard deviation and variance
+  - Range (minimum, maximum)
   - Percentiles
-- **Análisis de variabilidad**
-- **Detección de anomalías**
+- **Variability analysis**
+- **Anomaly detection**
+- **Shape analysis (skewness, kurtosis)**
 
-### 5. **Insights de Negocio** 💼
-- **Extracción de contexto empresarial**
-- **Identificación de métricas clave**
-- **Análisis de rendimiento**
-- **Comparaciones temporales**
+### 6. **Business Insights** 💼
+- **Business context extraction**
+- **Key metrics identification**
+- **Performance analysis**
+- **Temporal comparisons**
+- **Unified LLM Description and Context**
 
-## 📊 Formatos de Salida para LLMs
+## 📊 Output Formats for LLMs v0.2.0
 
-### 1. **Formato de Texto** (`text`)
+### 1. **Text Format** (`text`)
 ```
 Figure type: matplotlib.figure
 Dimensions (inches): [10. 6.]
 Title: Company Sales Growth (2018-2023)
 Number of axes: 1
 
-Axis 0: type=linear, x_label=Year, y_label=Sales, 
+Axis 0: type=linear, xlabel=Year, ylabel=Sales, 
 x_range=(2018, 2023), y_range=(100, 300), grid=True, legend=True
 
 Data points: 6
@@ -97,234 +112,303 @@ Line styles: ['-']
 Background color: #ffffff
 ```
 
-### 2. **Formato Semántico** (`semantic`)
+### 2. **Semantic Format** (`semantic`) - Enhanced
 ```json
 {
-  "basic_info": {
+  "metadata": {
     "figure_type": "matplotlib.figure",
     "dimensions": "[10. 6.]",
     "title": "Company Sales Growth (2018-2023)",
     "axes_count": 1
   },
-  "axes_info": [
+  "axes": [
     {
-      "index": 0,
-      "type": "linear",
-      "x_label": "Year",
-      "y_label": "Sales",
+      "plot_type": "line",
+      "xlabel": "Year",
+      "ylabel": "Sales",
       "x_range": [2018, 2023],
       "y_range": [100, 300],
       "has_grid": true,
-      "has_legend": true
+      "has_legend": true,
+      "stats": {
+        "central_tendency": {
+          "mean": 200.0,
+          "median": 175.0,
+          "mode": null
+        },
+        "variability": {
+          "standard_deviation": 71.4,
+          "variance": 5097.96,
+          "range": {"min": 100, "max": 300}
+        }
+      }
     }
   ],
-  "data_info": {
-    "data_points": 6,
-    "data_types": ["line_plot"],
-    "statistics": {
+  "statistical_insights": {
+    "central_tendency": {
       "mean": 200.0,
-      "std": 71.4,
-      "min": 100,
-      "max": 300,
-      "median": 175.0
-    }
+      "median": 175.0,
+      "mode": null
+    },
+    "variability": {
+      "standard_deviation": 71.4,
+      "variance": 5097.96,
+      "range": {"min": 100, "max": 300}
+    },
+    "distribution": {
+      "skewness": 0.5,
+      "kurtosis": -0.8,
+      "skewness_interpretation": "right_skewed",
+      "kurtosis_interpretation": "platykurtic"
+    },
+    "outliers": {
+      "detected": true,
+      "count": 2,
+      "x_outliers": 0,
+      "y_outliers": 2
+    },
+    "correlations": [
+      {
+        "type": "pearson",
+        "value": 0.95,
+        "strength": "strong",
+        "direction": "positive"
+      }
+    ]
   },
-  "visual_info": {
-    "colors": ["#1f77b4"],
-    "markers": [],
-    "line_styles": ["-"],
-    "background_color": "#ffffff"
+  "llm_description": {
+    "one_sentence_summary": "This visualization shows a linear_trend relationship.",
+    "structured_analysis": ["what", "when", "why", "how"],
+    "key_insights": [
+      {
+        "type": "pattern",
+        "description": "Strong positive linear trend",
+        "confidence": 0.90
+      }
+    ]
+  },
+  "llm_context": {
+    "interpretation_hints": [
+      {
+        "type": "trend_analysis",
+        "description": "Look for trends, slopes, and inflection points.",
+        "priority": "high",
+        "category": "line_plot"
+      }
+    ],
+    "analysis_suggestions": ["Consider seasonality", "Check for outliers"],
+    "common_questions": ["What is the growth rate?", "Are there any anomalies?"],
+    "related_concepts": ["time_series", "trend_analysis", "growth_metrics"]
   }
 }
 ```
 
-### 3. **Formato JSON** (`json`)
-- Estructura completa en formato JSON
-- Fácil parseo para APIs y sistemas
-- Compatible con herramientas de análisis
+### 3. **JSON Format** (`json`)
+- Complete structure in JSON format
+- Easy parsing for APIs and systems
+- Compatible with analysis tools
+- Includes complete statistical analysis
 
-## 🧪 Pruebas Implementadas
+## 🧪 Implemented Tests v0.2.0
 
-### Archivo: `tests/test_data_analysis.py`
-- **12 pruebas completas** que cubren todos los aspectos del análisis
-- **Casos de uso reales** con datos simulados
-- **Validación de estructura** de salida
-- **Verificación de funcionalidad** para LLMs
+### Expanded Test Suite:
+- **172/174 tests passing (98.9% success rate)**
+- **Execution time**: 24s (improved from 57s)
+- **Coverage**: 68% (close to 70%+ target)
 
-### Tipos de Pruebas:
-1. **Análisis de Tendencias**
-   - Patrones lineales vs exponenciales
-   - Detección de estacionalidad
-   - Cálculo de estadísticas
+### Main Test Files:
+1. **`tests/test_matplotlib_analyzer.py`** - Basic matplotlib tests
+2. **`tests/test_seaborn_analyzer.py`** - Seaborn tests
+3. **`tests/test_advanced_integration.py`** - Integration tests
+4. **`tests/test_converter.py`** - Main converter tests
+5. **`tests/test_fixes_verification.py`** - Fix verification tests
+6. **`tests/test_plot_types_unit.py`** - Plot type unit tests
 
-2. **Análisis de Correlaciones**
-   - Correlaciones fuertes y débiles
-   - Múltiples subplots
-   - Extracción de metadatos
+### Test Types:
+1. **Trend Analysis**
+   - Linear vs exponential patterns
+   - Seasonality detection
+   - Statistics calculation
 
-3. **Análisis de Distribuciones**
-   - Distribuciones normales y sesgadas
-   - Histogramas y análisis de frecuencia
-   - Detección de outliers
+2. **Correlation Analysis**
+   - Strong and weak correlations
+   - Multiple subplots
+   - Metadata extraction
 
-4. **Análisis Comparativo**
-   - Gráficos de barras simples y agrupados
-   - Comparaciones entre grupos
-   - Análisis de categorías
+3. **Distribution Analysis**
+   - Normal and skewed distributions
+   - Histograms and frequency analysis
+   - Outlier detection
 
-5. **Detección de Outliers**
-   - Identificación de valores atípicos
-   - Análisis de dispersión
-   - Estadísticas robustas
+4. **Comparative Analysis**
+   - Simple and grouped bar charts
+   - Inter-group comparisons
+   - Category analysis
 
-6. **Análisis de Series Temporales**
-   - Patrones estacionales
-   - Tendencias temporales
-   - Análisis de crecimiento
+5. **Outlier Detection**
+   - Atypical value identification
+   - Dispersion analysis
+   - Robust statistics
 
-7. **Resumen Estadístico**
-   - Box plots y comparaciones
-   - Estadísticas descriptivas
-   - Análisis de grupos
+6. **Time Series Analysis**
+   - Seasonal patterns
+   - Temporal trends
+   - Growth analysis
 
-8. **Indicadores de Calidad de Datos**
-   - Datos limpios vs con valores faltantes
-   - Análisis de integridad
-   - Validación de datos
+7. **Statistical Summary**
+   - Box plots and comparisons
+   - Descriptive statistics
+   - Group analysis
 
-9. **Análisis Semántico**
-   - Extracción de contexto empresarial
-   - Insights de negocio
-   - Metadatos semánticos
+8. **Data Quality Indicators**
+   - Clean vs missing data
+   - Integrity analysis
+   - Data validation
 
-## 📈 Ejemplos Avanzados
+9. **Semantic Analysis**
+   - Business context extraction
+   - Business insights
+   - Semantic metadata
 
-### Archivo: `example_advanced_analysis.py`
-- **4 ejemplos completos** que demuestran capacidades avanzadas
-- **Análisis de tendencias** con patrones complejos
-- **Análisis de correlaciones** múltiples
-- **Análisis de distribuciones** variadas
-- **Insights de negocio** reales
+## 📈 Advanced Examples v0.2.0
 
-### Características de los Ejemplos:
-1. **Análisis de Tendencias**
-   - Tendencias lineales con estacionalidad
-   - Crecimiento exponencial
-   - Comparación de patrones
+### Example Files:
+1. **`examples/semantic_output_matplotlib_example.py`** - Complete matplotlib examples
+2. **`examples/semantic_output_seaborn_example.py`** - Complete seaborn examples
+3. **`examples/README.md`** - Example documentation
 
-2. **Análisis de Correlaciones**
-   - Correlaciones fuertes positivas y negativas
-   - Correlaciones débiles
-   - Ausencia de correlación
+### Example Features:
+1. **Trend Analysis**
+   - Linear trends with seasonality
+   - Exponential growth
+   - Pattern comparison
 
-3. **Análisis de Distribuciones**
-   - Distribución normal
-   - Distribución sesgada (exponencial)
-   - Distribución bimodal
-   - Distribución uniforme
+2. **Correlation Analysis**
+   - Strong positive and negative correlations
+   - Weak correlations
+   - Absence of correlation
 
-4. **Insights de Negocio**
-   - Datos de ventas temporales
-   - Análisis de rendimiento
-   - Cuota de mercado por producto
+3. **Distribution Analysis**
+   - Normal distribution
+   - Skewed distribution (exponential)
+   - Bimodal distribution
+   - Uniform distribution
 
-## 📚 Documentación
+4. **Business Insights**
+   - Temporal sales data
+   - Performance analysis
+   - Market share by product
 
-### Archivo: `LLM_ANALYSIS_GUIDE.md`
-- **Guía completa** para usar plot2llm con LLMs
-- **Casos de uso** específicos
-- **Mejores prácticas** de integración
-- **Ejemplos de prompts** para LLMs
-- **Métricas de calidad** del análisis
+## 📚 Documentation v0.2.0
 
-### Contenido de la Guía:
-1. **Introducción** y conceptos básicos
-2. **Capacidades de Análisis** detalladas
-3. **Formatos de Salida** y sus ventajas
-4. **Casos de Uso** para LLMs
-5. **Ejemplos Prácticos** con código
-6. **Mejores Prácticas** de implementación
-7. **Integración con LLMs** (APIs, prompts)
-8. **Métricas de Calidad** y evaluación
+### Documentation Files:
+1. **`README.md`** - Updated main documentation
+2. **`CHANGELOG.md`** - Complete v0.2.0 change history
+3. **`docs/API_REFERENCE.md`** - Complete API reference
+4. **`docs/EXAMPLES.md`** - Examples guide with statistical analysis
+5. **`TESTING_SUMMARY.md`** - Complete test summary
 
-## 🎯 Beneficios para LLMs
+### Documentation Content:
+1. **Introduction** and basic concepts
+2. **Detailed Analysis Capabilities**
+3. **Output Formats** and their advantages
+4. **LLM Use Cases**
+5. **Practical Examples** with code
+6. **Implementation Best Practices**
+7. **LLM Integration** (APIs, prompts)
+8. **Quality Metrics** and evaluation
+9. **Complete Statistical Analysis**
 
-### 1. **Información Rica y Estructurada**
-- Datos estadísticos completos
-- Metadatos contextuales
-- Información visual detallada
+## 🎯 Benefits for LLMs v0.2.0
 
-### 2. **Análisis Automático**
-- Detección automática de patrones
-- Identificación de tendencias
-- Análisis de correlaciones
+### 1. **Rich and Structured Information**
+- Complete statistical data
+- Contextual metadata
+- Detailed visual information
+- Distribution and outlier analysis
 
-### 3. **Contexto Empresarial**
-- Extracción de insights de negocio
-- Análisis de rendimiento
-- Comparaciones temporales
+### 2. **Automatic Analysis**
+- Automatic pattern detection
+- Trend identification
+- Correlation analysis
+- Outlier detection
 
-### 4. **Flexibilidad de Formato**
-- Texto para procesamiento natural
-- JSON para integración técnica
-- Semántico para análisis profundo
+### 3. **Business Context**
+- Business insight extraction
+- Performance analysis
+- Temporal comparisons
+- Unified LLM Description and Context
 
-### 5. **Escalabilidad**
-- Procesamiento de múltiples gráficos
-- Análisis en lotes
-- Integración con pipelines
+### 4. **Format Flexibility**
+- Text for natural processing
+- JSON for technical integration
+- Semantic for deep analysis
+- Optional curve_points inclusion
 
-## 🚀 Próximos Pasos
+### 5. **Scalability**
+- Multiple chart processing
+- Batch analysis
+- Pipeline integration
+- Optimized performance (24s vs 57s)
 
-### 1. **Expansión de Librerías**
-- Soporte para Seaborn
-- Integración con Plotly
-- Análisis de Bokeh y Altair
+## 🚀 Next Steps v0.2.0
 
-### 2. **Capacidades Avanzadas**
-- Análisis de patrones más complejos
-- Machine Learning para detección automática
-- Análisis de imágenes y gráficos complejos
+### 1. **Library Expansion**
+- Plotly support
+- Bokeh and Altair integration
+- Interactive chart analysis
 
-### 3. **Integración con LLMs**
-- APIs específicas para LLMs populares
-- Templates de prompts optimizados
-- Métricas de evaluación automática
+### 2. **Advanced Capabilities**
+- More complex pattern analysis
+- Machine Learning for automatic detection
+- Complex chart and image analysis
 
-### 4. **Optimizaciones**
-- Caché de análisis
-- Procesamiento paralelo
-- Compresión de datos
+### 3. **LLM Integration**
+- Specific APIs for popular LLMs
+- Optimized prompt templates
+- Automatic evaluation metrics
 
-## ✅ Estado Actual
+### 4. **Optimizations**
+- Analysis caching
+- Parallel processing
+- Data compression
 
-### ✅ **Completado:**
-- Análisis avanzado de matplotlib
-- Múltiples formatos de salida
-- Pruebas exhaustivas
-- Documentación completa
-- Ejemplos prácticos
+## ✅ Current Status v0.2.0
 
-### 🔄 **En Desarrollo:**
-- Soporte para más librerías
-- Optimizaciones de rendimiento
-- Integraciones específicas
+### ✅ **Completed:**
+- Complete statistical analysis for all plot types
+- Multiple output formats (text, json, semantic)
+- Expanded test suite (172/174 tests passing)
+- Complete and updated documentation
+- Practical examples with statistical analysis
+- Improved plot type detection
+- Unified LLM Description and Context
+- Standardized naming conventions
 
-### 📋 **Planificado:**
-- Análisis de patrones complejos
-- Machine Learning integrado
-- APIs para LLMs específicos
+### 🔄 **In Development:**
+- Support for more libraries (Plotly, Bokeh)
+- Additional performance optimizations
+- Specific LLM integrations
+
+### 📋 **Planned:**
+- Complex pattern analysis
+- Integrated Machine Learning
+- Specific LLM APIs
+- Visual regression tests
 
 ---
 
-## 🎉 Conclusión
+## 🎉 Conclusion v0.2.0
 
-`plot2llm` ahora proporciona capacidades avanzadas de análisis de datos que permiten a los LLMs:
+`plot2llm` v0.2.0 now provides advanced data analysis capabilities that allow LLMs to:
 
-1. **Entender visualizaciones** de manera profunda y contextual
-2. **Extraer insights** estadísticos y de negocio automáticamente
-3. **Analizar patrones** complejos en los datos
-4. **Generar reportes** basados en evidencia visual
-5. **Responder preguntas** específicas sobre gráficos y datos
+1. **Understand visualizations** deeply and contextually
+2. **Extract insights** statistically and business-wise automatically
+3. **Analyze complex patterns** in data
+4. **Generate reports** based on visual evidence
+5. **Answer specific questions** about charts and data
+6. **Detect outliers** and anomalies automatically
+7. **Analyze distributions** with skewness and kurtosis
+8. **Calculate correlations** with strength and direction
 
-La biblioteca está lista para integración con LLMs y proporciona una base sólida para análisis automatizado de visualizaciones de datos. 
+The library is ready for LLM integration and provides a solid foundation for automated visualization analysis with complete statistical analysis. 

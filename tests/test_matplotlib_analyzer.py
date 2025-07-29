@@ -79,8 +79,8 @@ class TestMatplotlibBasicPlots:
         assert "figure" in analysis
         assert analysis["figure"]["title"] == "Test Plot"
         axes_data = analysis["axes"][0]
-        assert axes_data["x_label"] == "X Axis"
-        assert axes_data["y_label"] == "Y Axis"
+        assert axes_data["xlabel"] == "X Axis"
+        assert axes_data["ylabel"] == "Y Axis"
 
     @pytest.mark.unit
     def test_scatter_plot_basic(self):
@@ -354,8 +354,8 @@ class TestMatplotlibEdgeCases:
         assert "figure" in analysis
         assert "αβγ" in analysis["figure"]["title"]
         axes_data = analysis["axes"][0]
-        assert "αξις" in axes_data["x_label"]
-        assert "βξις" in axes_data["y_label"]
+        assert "αξις" in axes_data["xlabel"]
+        assert "βξις" in axes_data["ylabel"]
 
     @pytest.mark.unit
     def test_very_long_labels(self):
@@ -377,8 +377,8 @@ class TestMatplotlibEdgeCases:
         assert "figure" in analysis
         assert len(analysis["figure"]["title"]) == 1000
         axes_data = analysis["axes"][0]
-        assert len(axes_data["x_label"]) == 500
-        assert len(axes_data["y_label"]) == 500
+        assert len(axes_data["xlabel"]) == 500
+        assert len(axes_data["ylabel"]) == 500
 
     @pytest.mark.unit
     def test_single_point_plot(self):

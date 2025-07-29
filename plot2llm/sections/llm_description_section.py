@@ -1,3 +1,5 @@
+from plot2llm.utils import generate_unified_key_insights
+
 def build_llm_description_section(semantic_analysis: dict) -> dict:
     """
     Construye la sección llm_description para el output semántico.
@@ -36,29 +38,39 @@ def build_llm_description_section(semantic_analysis: dict) -> dict:
     if pattern_type != "unknown" and confidence > 0.8:
         why_parts.append(f"showing clear {pattern_type} behavior")
     why = " ".join(why_parts) if why_parts else "Data analysis"
-    key_insights = []
+    # Generate unified key insights
+    insights_data = {}
+    
+    # Pattern insights
     if pattern_type != "unknown" and confidence > 0.7:
         equation = pattern.get("equation_estimate", "")
         if equation:
-            key_insights.append(f"Pattern follows {equation}")
-        key_insights.append(f"Pattern confidence: {confidence:.2f}")
+            insights_data["equation"] = equation
+        insights_data["pattern_confidence"] = confidence
+    
+    # Correlation insights
     correlations = stats.get("correlations", [])
     if correlations:
         for corr in correlations:
             if isinstance(corr, dict) and abs(corr.get("value", 0)) > 0.7:
-                key_insights.append(
-                    f"Strong {'positive' if corr['value'] > 0 else 'negative'} "
-                    f"correlation (r={corr['value']:.2f})"
-                )
+                insights_data["correlation_value"] = corr.get("value", 0)
+                insights_data["correlation_strength"] = "strong" if abs(corr.get("value", 0)) > 0.7 else "moderate"
+                insights_data["correlation_direction"] = "positive" if corr.get("value", 0) > 0 else "negative"
+                break
+    
+    # Shape insights
     monotonicity = shape.get("monotonicity")
     if monotonicity:
-        key_insights.append(f"Data shows {monotonicity} trend")
+        insights_data["trend"] = monotonicity
+    
+    # Outlier insights
     outliers = stats.get("outliers", {})
     if isinstance(outliers, list):
         outliers = outliers[0] if outliers and isinstance(outliers[0], dict) else {}
     if outliers.get("detected", False):
-        count = outliers.get("count", 0)
-        key_insights.append(f"Found {count} potential outliers")
+        insights_data["outliers_count"] = outliers.get("count", 0)
+    
+    key_insights = generate_unified_key_insights(insights_data)
     return {
         "one_sentence_summary": one_sentence_summary,
         "structured_analysis": {

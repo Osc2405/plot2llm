@@ -80,15 +80,16 @@ class TextFormatter:
                 if pt.get("type"):
                     plot_types_found.add(pt.get("type").lower())
 
-            # Search in all axis fields
-            x_label = ax.get("xlabel") or ax.get("x_label") or ""
-            y_label = ax.get("ylabel") or ax.get("y_label") or ""
-            title = ax.get("title", "")
+            # Extract text fields for analysis
+            xlabel = ax.get("xlabel") or ax.get("x_label") or ""
+            ylabel = ax.get("ylabel") or ax.get("y_label") or ""
+            title = ax.get("title") or ""
+            
+            # Combine all text fields for analysis
+            all_text_fields.extend([xlabel, ylabel, title])
 
-            all_text_fields.extend([x_label, y_label, title])
-
-            # Search for 'category' in any variation
-            if any("category" in field.lower() for field in [x_label, y_label, title]):
+            # Check for category indicators in labels
+            if any("category" in field.lower() for field in [xlabel, ylabel, title]):
                 category_found = True
 
         # Search in data_info as well
@@ -172,8 +173,9 @@ class TextFormatter:
 
             lines.append(
                 f"Axis {i}: {title_info}, plot types: [{plot_types_str}]\n"
-                f"  X-axis: {x_label} (type: {x_type})\n"
-                f"  Y-axis: {y_label} (type: {y_type})\n"
+                f"  X-axis: {x_label} (type: {x_type})")
+            lines.append(f"  Y-axis: {y_label} (type: {y_type})")
+            lines.append(
                 f"  Ranges: x={ax_info.get('x_range')}, y={ax_info.get('y_range')}\n"
                 f"  Properties: grid={ax_info.get('has_grid')}, legend={ax_info.get('has_legend')}"
             )

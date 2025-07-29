@@ -1,77 +1,87 @@
-# 🧠 Plot2LLM: Guía de Análisis para LLMs
+# 🧠 Plot2LLM v0.2.0: LLM Analysis Guide
 
-Esta guía explica cómo usar `plot2llm` para extraer información rica que permite a los LLMs (Large Language Models) entender y analizar visualizaciones de datos de manera efectiva.
+This guide explains how to use `plot2llm` v0.2.0 to extract rich information that allows LLMs (Large Language Models) to understand and analyze data visualizations effectively. The new version includes complete statistical analysis, improved plot type detection, and advanced analysis capabilities.
 
-## 📋 Índice
+## 📋 Index
 
-1. [Introducción](#introducción)
-2. [Capacidades de Análisis](#capacidades-de-análisis)
-3. [Formatos de Salida](#formatos-de-salida)
-4. [Casos de Uso para LLMs](#casos-de-uso-para-llms)
-5. [Ejemplos Prácticos](#ejemplos-prácticos)
-6. [Mejores Prácticas](#mejores-prácticas)
-7. [Integración con LLMs](#integración-con-llms)
+1. [Introduction](#introduction)
+2. [Analysis Capabilities v0.2.0](#analysis-capabilities-v020)
+3. [Output Formats](#output-formats)
+4. [Use Cases for LLMs](#use-cases-for-llms)
+5. [Practical Examples](#practical-examples)
+6. [Best Practices](#best-practices)
+7. [LLM Integration](#llm-integration)
+8. [Advanced Statistical Analysis](#advanced-statistical-analysis)
 
-## 🎯 Introducción
+## 🎯 Introduction
 
-`plot2llm` es una biblioteca Python que convierte figuras y visualizaciones en formatos que los LLMs pueden entender y procesar fácilmente. Esto permite a los LLMs:
+`plot2llm` v0.2.0 is a Python library that converts figures and visualizations into formats that LLMs can easily understand and process. This version includes complete statistical analysis and improved capabilities that allow LLMs to:
 
-- **Analizar patrones** en los datos visualizados
-- **Extraer insights** estadísticos y de negocio
-- **Generar reportes** basados en visualizaciones
-- **Responder preguntas** sobre gráficos y datos
-- **Comparar múltiples** visualizaciones
+- **Analyze patterns** in visualized data with complete statistical analysis
+- **Extract insights** statistically and business-wise automatically
+- **Generate reports** based on visualizations with statistical evidence
+- **Answer questions** about charts and data with deep analysis
+- **Compare multiple** visualizations with statistical metrics
+- **Detect outliers** and anomalies automatically
+- **Analyze distributions** with skewness and kurtosis
 
-## 🔍 Capacidades de Análisis
+## 🔍 Analysis Capabilities v0.2.0
 
-### 1. **Análisis de Tendencias**
-- Detección de patrones lineales, exponenciales y estacionales
-- Identificación de puntos de inflexión
-- Análisis de crecimiento y decrecimiento
+### 1. **Complete Statistical Analysis**
+- **Central Tendency**: mean, median, mode
+- **Variability Analysis**: std, variance, range
+- **Distribution Analysis**: skewness, kurtosis with interpretations
+- **Correlation Analysis**: Pearson with strength and direction
+- **Outlier Detection**: IQR method for all plot types
+- **Data Quality Assessment**: total points, missing values
 
-### 2. **Análisis de Correlaciones**
-- Detección de correlaciones positivas y negativas
-- Identificación de patrones de dispersión
-- Análisis de la fuerza de las relaciones
+### 2. **Trend Analysis**
+- Detection of linear, exponential, and seasonal patterns
+- Inflection point identification
+- Growth and decline analysis
+- Monotonicity detection (increasing, decreasing, stable)
 
-### 3. **Análisis de Distribuciones**
-- Identificación de distribuciones normales, sesgadas, bimodales
-- Detección de outliers y valores atípicos
-- Análisis de la forma y características de los datos
+### 3. **Correlation Analysis**
+- Detection of positive and negative correlations
+- Identification of dispersion patterns
+- Analysis of relationship strength (weak, moderate, strong)
+- Correlation direction (positive, negative, none)
 
-### 4. **Análisis Estadístico**
-- Estadísticas descriptivas (media, mediana, desviación estándar)
-- Rangos y percentiles
-- Análisis de variabilidad
+### 4. **Distribution Analysis**
+- Identification of normal, skewed, bimodal, multimodal distributions
+- Detection of outliers and atypical values
+- Analysis of data shape and characteristics
+- Bin analysis for histograms
 
-### 5. **Análisis de Negocio**
-- Extracción de contexto empresarial
-- Identificación de métricas clave
-- Análisis de rendimiento y comparaciones
+### 5. **Business Analysis**
+- Business context extraction
+- Key metrics identification
+- Performance analysis and comparisons
+- Unified LLM Description and Context
 
-## 📊 Formatos de Salida
+## 📊 Output Formats
 
-### 1. **Formato de Texto** (`text`)
+### 1. **Text Format** (`text`)
 ```python
 from plot2llm import FigureConverter
 
 converter = FigureConverter()
-text_result = converter.convert(fig, output_format='text')
+text_result = converter.convert(fig, format='text')
 ```
 
-**Ventajas para LLMs:**
-- Fácil de procesar y entender
-- Información estructurada en lenguaje natural
-- Incluye estadísticas y metadatos
+**Advantages for LLMs:**
+- Easy to process and understand
+- Structured information in natural language
+- Includes statistics and metadata
 
-**Ejemplo de salida:**
+**Output example:**
 ```
 Figure type: matplotlib.figure
 Dimensions (inches): [10. 6.]
 Title: Sales Growth Analysis
 Number of axes: 1
 
-Axis 0: type=linear, x_label=Year, y_label=Sales, 
+Axis 0: type=linear, xlabel=Year, ylabel=Sales, 
 x_range=(2018, 2023), y_range=(100, 300), grid=True, legend=True
 
 Data points: 6
@@ -84,73 +94,166 @@ Line styles: ['-']
 Background color: #ffffff
 ```
 
-### 2. **Formato JSON** (`json`)
+### 2. **JSON Format** (`json`)
 ```python
-json_result = converter.convert(fig, output_format='json')
+json_result = converter.convert(fig, format='json')
 ```
 
-**Ventajas para LLMs:**
-- Estructura de datos clara y parseable
-- Fácil extracción de campos específicos
-- Compatible con APIs y sistemas
+**Advantages for LLMs:**
+- Clear and parseable data structure
+- Easy extraction of specific fields
+- Compatible with APIs and systems
 
-### 3. **Formato Semántico** (`semantic`)
+### 3. **Semantic Format** (`semantic`) - Enhanced v0.2.0
 ```python
-semantic_result = converter.convert(fig, output_format='semantic')
+semantic_result = converter.convert(fig, format='semantic', include_statistics=True)
 ```
 
-**Ventajas para LLMs:**
-- Información más rica y contextual
-- Metadatos adicionales
-- Estructura optimizada para análisis
+**Advantages for LLMs:**
+- Richer and more contextual information
+- Additional metadata
+- Analysis-optimized structure
+- Complete statistical analysis included
+- Unified LLM Description and Context
 
-## 🎯 Casos de Uso para LLMs
+**Enhanced output example:**
+```json
+{
+  "metadata": {
+    "figure_type": "matplotlib.figure",
+    "dimensions": "[10. 6.]",
+    "title": "Sales Growth Analysis",
+    "axes_count": 1
+  },
+  "axes": [
+    {
+      "plot_type": "line",
+      "xlabel": "Year",
+      "ylabel": "Sales",
+      "x_range": [2018, 2023],
+      "y_range": [100, 300],
+      "has_grid": true,
+      "has_legend": true,
+      "stats": {
+        "central_tendency": {
+          "mean": 200.0,
+          "median": 175.0,
+          "mode": null
+        },
+        "variability": {
+          "standard_deviation": 71.4,
+          "variance": 5097.96,
+          "range": {"min": 100, "max": 300}
+        }
+      }
+    }
+  ],
+  "statistical_insights": {
+    "central_tendency": {
+      "mean": 200.0,
+      "median": 175.0,
+      "mode": null
+    },
+    "variability": {
+      "standard_deviation": 71.4,
+      "variance": 5097.96,
+      "range": {"min": 100, "max": 300}
+    },
+    "distribution": {
+      "skewness": 0.5,
+      "kurtosis": -0.8,
+      "skewness_interpretation": "right_skewed",
+      "kurtosis_interpretation": "platykurtic"
+    },
+    "outliers": {
+      "detected": true,
+      "count": 2,
+      "x_outliers": 0,
+      "y_outliers": 2
+    },
+    "correlations": [
+      {
+        "type": "pearson",
+        "value": 0.95,
+        "strength": "strong",
+        "direction": "positive"
+      }
+    ]
+  },
+  "llm_description": {
+    "one_sentence_summary": "This visualization shows a linear_trend relationship.",
+    "structured_analysis": ["what", "when", "why", "how"],
+    "key_insights": [
+      {
+        "type": "pattern",
+        "description": "Strong positive linear trend",
+        "confidence": 0.90
+      }
+    ]
+  },
+  "llm_context": {
+    "interpretation_hints": [
+      {
+        "type": "trend_analysis",
+        "description": "Look for trends, slopes, and inflection points.",
+        "priority": "high",
+        "category": "line_plot"
+      }
+    ],
+    "analysis_suggestions": ["Consider seasonality", "Check for outliers"],
+    "common_questions": ["What is the growth rate?", "Are there any anomalies?"],
+    "related_concepts": ["time_series", "trend_analysis", "growth_metrics"]
+  }
+}
+```
 
-### 1. **Análisis Automático de Reportes**
+## 🎯 Use Cases for LLMs
+
+### 1. **Automatic Report Analysis with Statistics**
 ```python
-# El LLM puede analizar automáticamente múltiples gráficos
+# The LLM can automatically analyze multiple charts with statistical analysis
 def analyze_report_charts(charts):
     insights = []
     for chart in charts:
-        result = converter.convert(chart, output_format='semantic')
-        insights.append(extract_insights(result))
-    return generate_report(insights)
+        result = converter.convert(chart, format='semantic', include_statistics=True)
+        insights.append(extract_statistical_insights(result))
+    return generate_statistical_report(insights)
 ```
 
-### 2. **Respuesta a Preguntas sobre Datos**
+### 2. **Answering Questions about Data with Statistical Evidence**
 ```python
-# El LLM puede responder preguntas específicas sobre visualizaciones
+# The LLM can answer specific questions about visualizations with statistical analysis
 def answer_chart_question(chart, question):
-    analysis = converter.convert(chart, output_format='text')
-    return llm.answer(f"Based on this chart analysis: {analysis}\nQuestion: {question}")
+    analysis = converter.convert(chart, format='semantic', include_statistics=True)
+    return llm.answer(f"Based on this chart analysis with statistical evidence: {analysis}\nQuestion: {question}")
 ```
 
-### 3. **Comparación de Visualizaciones**
+### 3. **Comparing Visualizations with Statistical Metrics**
 ```python
-# El LLM puede comparar múltiples gráficos
-def compare_charts(chart1, chart2):
-    analysis1 = converter.convert(chart1, output_format='semantic')
-    analysis2 = converter.convert(chart2, output_format='semantic')
-    return llm.compare(analysis1, analysis2)
+# The LLM can compare multiple charts using statistical analysis
+def compare_charts_statistically(chart1, chart2):
+    analysis1 = converter.convert(chart1, format='semantic', include_statistics=True)
+    analysis2 = converter.convert(chart2, format='semantic', include_statistics=True)
+    return llm.compare_statistical_analysis(analysis1, analysis2)
 ```
 
-### 4. **Generación de Insights de Negocio**
+### 4. **Generating Business Insights with Statistical Analysis**
 ```python
-# El LLM puede extraer insights empresariales
-def extract_business_insights(chart):
-    analysis = converter.convert(chart, output_format='text')
-    return llm.extract_insights(analysis, context="business_analysis")
+# The LLM can extract business insights with statistical evidence
+def extract_business_insights_with_stats(chart):
+    analysis = converter.convert(chart, format='semantic', include_statistics=True)
+    return llm.extract_statistical_insights(analysis, context="business_analysis")
 ```
 
-## 💡 Ejemplos Prácticos
+## 💡 Practical Examples
 
-### Ejemplo 1: Análisis de Tendencias de Ventas
+### Example 1: Sales Trend Analysis with Statistics
 ```python
 import matplotlib.pyplot as plt
 import numpy as np
 from plot2llm import FigureConverter
 
-# Crear gráfico de ventas
+# Create sales chart
 fig, ax = plt.subplots()
 years = [2019, 2020, 2021, 2022, 2023]
 sales = [100, 120, 150, 200, 280]
@@ -159,61 +262,86 @@ ax.set_title('Company Sales Growth')
 ax.set_xlabel('Year')
 ax.set_ylabel('Sales (in thousands)')
 
-# Analizar para LLM
+# Analyze for LLM with complete statistical analysis
 converter = FigureConverter()
-analysis = converter.convert(fig, output_format='text')
+analysis = converter.convert(fig, format='semantic', include_statistics=True)
 
-# El LLM puede ahora analizar:
-# - Tasa de crecimiento anual
-# - Patrones estacionales
-# - Proyecciones futuras
-# - Insights de negocio
+# The LLM can now analyze:
+# - Annual growth rate with statistical evidence
+# - Seasonal patterns with distribution analysis
+# - Future projections based on trends
+# - Business insights with outliers and correlations
+# - Skewness and kurtosis analysis to understand distribution
 ```
 
-### Ejemplo 2: Análisis de Correlaciones
+### Example 2: Correlation Analysis with Statistical Metrics
 ```python
-# Crear gráfico de correlación
+# Create correlation chart
 fig, ax = plt.subplots()
 x = np.random.normal(0, 1, 100)
 y = 2 * x + np.random.normal(0, 0.5, 100)
 ax.scatter(x, y, alpha=0.6)
 ax.set_title('Correlation Analysis')
 
-# Analizar para LLM
-analysis = converter.convert(fig, output_format='semantic')
+# Analyze for LLM with complete statistical analysis
+analysis = converter.convert(fig, format='semantic', include_statistics=True)
 
-# El LLM puede identificar:
-# - Fuerza de la correlación
-# - Dirección de la relación
-# - Significancia estadística
-# - Implicaciones prácticas
+# The LLM can identify:
+# - Correlation strength with numerical value
+# - Relationship direction (positive/negative)
+# - Statistical significance
+# - Practical implications
+# - Outlier detection in correlation
+# - Data distribution analysis
 ```
 
-## 🚀 Mejores Prácticas
-
-### 1. **Configuración Óptima para LLMs**
+### Example 3: Distribution Analysis with Histograms
 ```python
-# Usar nivel de detalle alto para análisis completo
+# Create histogram with distribution analysis
+fig, ax = plt.subplots()
+data = np.random.normal(0, 1, 1000)
+ax.hist(data, bins=30, alpha=0.7, edgecolor='black')
+ax.set_title('Distribution Analysis')
+ax.set_xlabel('Value')
+ax.set_ylabel('Frequency')
+
+# Analyze for LLM with complete statistical analysis
+analysis = converter.convert(fig, format='semantic', include_statistics=True)
+
+# The LLM can analyze:
+# - Distribution type (normal, skewed, bimodal)
+# - Skewness and kurtosis with interpretations
+# - Outlier detection
+# - Bin and frequency analysis
+# - Comparison with theoretical distributions
+```
+
+## 🚀 Best Practices v0.2.0
+
+### 1. **Optimal Configuration for LLMs with Statistical Analysis**
+```python
+# Use high detail level for complete analysis with statistics
 converter = FigureConverter()
 result = converter.convert(
     fig, 
-    output_format='semantic',
+    format='semantic',
     detail_level='high',
     include_statistics=True,
-    include_data=True
+    include_data=True,
+    include_curve_points=True  # For detailed analysis
 )
 ```
 
-### 2. **Procesamiento de Múltiples Gráficos**
+### 2. **Processing Multiple Charts with Statistical Analysis**
 ```python
-def batch_analyze_charts(charts):
-    """Analiza múltiples gráficos de manera eficiente."""
+def batch_analyze_charts_with_stats(charts):
+    """Analyzes multiple charts efficiently with statistical analysis."""
     converter = FigureConverter()
     results = []
     
     for chart in charts:
         try:
-            result = converter.convert(chart, output_format='semantic')
+            result = converter.convert(chart, format='semantic', include_statistics=True)
             results.append(result)
         except Exception as e:
             results.append({'error': str(e)})
@@ -221,124 +349,227 @@ def batch_analyze_charts(charts):
     return results
 ```
 
-### 3. **Extracción de Insights Específicos**
+### 3. **Extracting Specific Statistical Insights**
 ```python
-def extract_trend_insights(analysis):
-    """Extrae insights específicos sobre tendencias."""
-    if 'data_info' in analysis and 'statistics' in analysis['data_info']:
-        stats = analysis['data_info']['statistics']
+def extract_statistical_insights(analysis):
+    """Extracts specific statistical insights."""
+    if 'statistical_insights' in analysis:
+        stats = analysis['statistical_insights']
         
         insights = {
-            'mean': stats.get('mean'),
-            'trend_direction': 'increasing' if stats.get('mean', 0) > 0 else 'decreasing',
-            'variability': stats.get('std'),
-            'range': f"{stats.get('min')} to {stats.get('max')}"
+            'central_tendency': stats.get('central_tendency', {}),
+            'variability': stats.get('variability', {}),
+            'distribution': stats.get('distribution', {}),
+            'outliers': stats.get('outliers', {}),
+            'correlations': stats.get('correlations', [])
         }
         
         return insights
     return None
 ```
 
-## 🔗 Integración con LLMs
+## 🔗 LLM Integration
 
-### 1. **Prompt Engineering para Análisis**
+### 1. **Prompt Engineering for Statistical Analysis**
 ```python
-def create_analysis_prompt(chart_analysis):
+def create_statistical_analysis_prompt(chart_analysis):
     return f"""
-    Analiza la siguiente visualización de datos:
+    Analyze the following data visualization with complete statistical analysis:
     
     {chart_analysis}
     
-    Por favor proporciona:
-    1. Un resumen ejecutivo de los datos
-    2. Los patrones principales identificados
-    3. Insights de negocio relevantes
-    4. Recomendaciones basadas en los datos
-    5. Limitaciones o consideraciones importantes
+    Please provide:
+    1. An executive summary of the data with statistical evidence
+    2. Main patterns identified with metrics
+    3. Relevant business insights with statistical analysis
+    4. Recommendations based on data and statistics
+    5. Important limitations or considerations
+    6. Outlier and anomaly analysis if any
+    7. Interpretation of correlations and distributions
     """
 ```
 
-### 2. **Integración con APIs de LLMs**
+### 2. **Integration with LLM APIs for Statistical Analysis**
 ```python
 import openai
 
-def analyze_with_gpt4(chart):
+def analyze_with_gpt4_statistical(chart):
     converter = FigureConverter()
-    analysis = converter.convert(chart, output_format='text')
+    analysis = converter.convert(chart, format='semantic', include_statistics=True)
     
     response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
-            {"role": "system", "content": "Eres un experto analista de datos."},
-            {"role": "user", "content": create_analysis_prompt(analysis)}
+            {"role": "system", "content": "You are an expert data analyst with advanced statistical knowledge."},
+            {"role": "user", "content": create_statistical_analysis_prompt(analysis)}
         ]
     )
     
     return response.choices[0].message.content
 ```
 
-### 3. **Análisis Comparativo**
+### 3. **Comparative Analysis with Statistical Metrics**
 ```python
-def compare_multiple_charts(charts, comparison_criteria):
+def compare_multiple_charts_statistically(charts, comparison_criteria):
     converter = FigureConverter()
     analyses = []
     
     for chart in charts:
-        analysis = converter.convert(chart, output_format='semantic')
+        analysis = converter.convert(chart, format='semantic', include_statistics=True)
         analyses.append(analysis)
     
-    # El LLM puede comparar múltiples análisis
+    # The LLM can compare multiple statistical analyses
     comparison_prompt = f"""
-    Compara las siguientes visualizaciones basándote en: {comparison_criteria}
+    Compare the following visualizations statistically based on: {comparison_criteria}
     
-    Análisis 1: {analyses[0]}
-    Análisis 2: {analyses[1]}
+    Analysis 1: {analyses[0]}
+    Analysis 2: {analyses[1]}
     ...
     
-    Proporciona una comparación estructurada.
+    Provide a structured comparison with:
+    - Central tendency comparison
+    - Variability analysis
+    - Distribution comparison
+    - Outlier analysis
+    - Correlation comparison
     """
     
     return llm.analyze(comparison_prompt)
 ```
 
-## 📈 Métricas de Calidad
+## 📈 Advanced Statistical Analysis
 
-### Indicadores de Calidad del Análisis:
-- **Completitud**: ¿Se extrajo toda la información relevante?
-- **Precisión**: ¿Los datos extraídos son correctos?
-- **Contexto**: ¿Se capturó el contexto empresarial?
-- **Estructura**: ¿La información está bien organizada?
-
-### Evaluación de Rendimiento:
+### 1. **Central Tendency Analysis**
 ```python
-def evaluate_analysis_quality(original_chart, llm_analysis):
-    """Evalúa la calidad del análisis realizado por el LLM."""
+def analyze_central_tendency(analysis):
+    """Analyzes central tendency measures."""
+    if 'statistical_insights' in analysis:
+        central_tendency = analysis['statistical_insights'].get('central_tendency', {})
+        
+        return {
+            'mean': central_tendency.get('mean'),
+            'median': central_tendency.get('median'),
+            'mode': central_tendency.get('mode'),
+            'interpretation': interpret_central_tendency(central_tendency)
+        }
+    return None
+```
+
+### 2. **Variability Analysis**
+```python
+def analyze_variability(analysis):
+    """Analyzes variability measures."""
+    if 'statistical_insights' in analysis:
+        variability = analysis['statistical_insights'].get('variability', {})
+        
+        return {
+            'standard_deviation': variability.get('standard_deviation'),
+            'variance': variability.get('variance'),
+            'range': variability.get('range', {}),
+            'interpretation': interpret_variability(variability)
+        }
+    return None
+```
+
+### 3. **Distribution Analysis**
+```python
+def analyze_distribution(analysis):
+    """Analyzes data distribution."""
+    if 'statistical_insights' in analysis:
+        distribution = analysis['statistical_insights'].get('distribution', {})
+        
+        return {
+            'skewness': distribution.get('skewness'),
+            'kurtosis': distribution.get('kurtosis'),
+            'skewness_interpretation': distribution.get('skewness_interpretation'),
+            'kurtosis_interpretation': distribution.get('kurtosis_interpretation'),
+            'shape_analysis': interpret_distribution_shape(distribution)
+        }
+    return None
+```
+
+### 4. **Outlier Detection**
+```python
+def analyze_outliers(analysis):
+    """Analyzes detected outliers."""
+    if 'statistical_insights' in analysis:
+        outliers = analysis['statistical_insights'].get('outliers', {})
+        
+        return {
+            'detected': outliers.get('detected', False),
+            'count': outliers.get('count', 0),
+            'x_outliers': outliers.get('x_outliers', 0),
+            'y_outliers': outliers.get('y_outliers', 0),
+            'interpretation': interpret_outliers(outliers)
+        }
+    return None
+```
+
+### 5. **Correlation Analysis**
+```python
+def analyze_correlations(analysis):
+    """Analyzes detected correlations."""
+    if 'statistical_insights' in analysis:
+        correlations = analysis['statistical_insights'].get('correlations', [])
+        
+        return [{
+            'type': corr.get('type'),
+            'value': corr.get('value'),
+            'strength': corr.get('strength'),
+            'direction': corr.get('direction'),
+            'interpretation': interpret_correlation(corr)
+        } for corr in correlations]
+    return []
+```
+
+## 📈 Quality Metrics v0.2.0
+
+### Statistical Analysis Quality Indicators:
+- **Statistical Completeness**: Is all relevant statistical information extracted?
+- **Statistical Accuracy**: Are the extracted statistical data correct?
+- **Statistical Context**: Is the appropriate statistical context captured?
+- **Statistical Structure**: Is the statistical information well organized?
+- **Statistical Interpretation**: Are useful interpretations provided?
+
+### Statistical Performance Evaluation:
+```python
+def evaluate_statistical_analysis_quality(original_chart, llm_analysis):
+    """Evaluates the quality of statistical analysis performed by the LLM."""
     converter = FigureConverter()
-    ground_truth = converter.convert(original_chart, output_format='semantic')
+    ground_truth = converter.convert(original_chart, format='semantic', include_statistics=True)
     
-    # Comparar con el análisis del LLM
-    accuracy = compare_analyses(ground_truth, llm_analysis)
-    completeness = check_completeness(llm_analysis)
-    relevance = assess_relevance(llm_analysis)
+    # Compare with LLM analysis
+    statistical_accuracy = compare_statistical_analyses(ground_truth, llm_analysis)
+    statistical_completeness = check_statistical_completeness(llm_analysis)
+    statistical_relevance = assess_statistical_relevance(llm_analysis)
     
     return {
-        'accuracy': accuracy,
-        'completeness': completeness,
-        'relevance': relevance,
-        'overall_score': (accuracy + completeness + relevance) / 3
+        'statistical_accuracy': statistical_accuracy,
+        'statistical_completeness': statistical_completeness,
+        'statistical_relevance': statistical_relevance,
+        'overall_statistical_score': (statistical_accuracy + statistical_completeness + statistical_relevance) / 3
     }
 ```
 
-## 🎯 Conclusión
+## 🎯 Conclusion v0.2.0
 
-`plot2llm` proporciona una base sólida para que los LLMs analicen visualizaciones de datos de manera efectiva. Al combinar la extracción de información estructurada con las capacidades de procesamiento de lenguaje natural de los LLMs, se pueden obtener insights valiosos y análisis profundos de datos visuales.
+`plot2llm` v0.2.0 provides a solid foundation for LLMs to analyze data visualizations effectively with complete statistical analysis. By combining structured information extraction with advanced statistical analysis and LLM natural language processing capabilities, valuable insights and deep analysis of visual data can be obtained.
 
-### Próximos Pasos:
-1. **Experimentar** con diferentes tipos de visualizaciones
-2. **Refinar prompts** para casos de uso específicos
-3. **Integrar** con sistemas de análisis de datos existentes
-4. **Desarrollar** capacidades adicionales según necesidades específicas
+### New v0.2.0 Capabilities:
+1. **Complete statistical analysis** for all plot types
+2. **Automatic outlier detection**
+3. **Distribution analysis** with skewness and kurtosis
+4. **Correlations** with strength and direction
+5. **Unified LLM Description and Context**
+6. **Expanded test suite** (172/174 tests passing)
+7. **Optimized performance** (24s vs 57s)
+
+### Next Steps:
+1. **Experiment** with different visualization types and statistical analysis
+2. **Refine prompts** for specific use cases with statistical evidence
+3. **Integrate** with existing data analysis systems
+4. **Develop** additional capabilities based on specific needs
 
 ---
 
-*Para más información, consulta la documentación completa de `plot2llm` y los ejemplos incluidos en el repositorio.* 
+*For more information, consult the complete documentation of `plot2llm` v0.2.0 and the examples included in the repository.* 
