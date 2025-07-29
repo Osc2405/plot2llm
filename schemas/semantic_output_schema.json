@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Plot2LLM Semantic Output Schema",
+  "type": "object",
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "figure_type": {"type": "string"},
+        "detail_level": {"type": "string"},
+        "analysis_timestamp": {"type": ["string", "null"]},
+        "analyzer_version": {"type": "string"}
+      },
+      "required": ["figure_type", "detail_level", "analyzer_version"]
+    },
+    "axes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {"type": "string"},
+          "xlabel": {"type": "string"},
+          "ylabel": {"type": "string"},
+          "plot_types": {"type": "array"},
+          "x_type": {"type": "string"},
+          "y_type": {"type": "string"},
+          "has_grid": {"type": "boolean"},
+          "has_legend": {"type": "boolean"},
+          "x_range": {},
+          "y_range": {},
+          "spine_visibility": {},
+          "tick_density": {},
+          "pattern": {"type": ["object", "null"]},
+          "shape": {"type": ["object", "null"]},
+          "domain_context": {"type": ["object", "null"]},
+          "stats": {"type": ["object", "null"]}
+        },
+        "required": ["title", "xlabel", "ylabel", "plot_types", "x_type", "y_type", "has_grid", "has_legend"]
+      }
+    },
+    "layout": {"type": ["object", "null"]},
+    "data_summary": {"type": "object"},
+    "statistical_insights": {"type": "object"},
+    "pattern_analysis": {"type": "object"},
+    "visual_elements": {"type": "object"},
+    "domain_context": {"type": "object"},
+    "llm_description": {"type": "object"},
+    "llm_context": {"type": "object"}
+  },
+  "required": [
+    "metadata",
+    "axes",
+    "data_summary",
+    "statistical_insights",
+    "pattern_analysis",
+    "visual_elements",
+    "domain_context",
+    "llm_description",
+    "llm_context"
+  ]
+} 

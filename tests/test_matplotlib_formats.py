@@ -90,9 +90,9 @@ class TestMatplotlibJSONFormat:
         # Should be dict
         assert isinstance(result, dict)
 
-        # Should have required keys
-        assert "figure_type" in result
-        assert result["figure_type"] == "matplotlib"
+        # Should have required keys - new structure
+        assert "figure" in result
+        assert result["figure"]["figure_type"] == "matplotlib.Figure"
 
         # Should be JSON serializable
         json_str = json.dumps(result)
@@ -125,7 +125,7 @@ class TestMatplotlibJSONFormat:
         for result in results:
             assert isinstance(result, dict)
             # Check that main keys exist (some might be None)
-            assert "figure_type" in result
+            assert "figure" in result
             assert "axes" in result
 
     @pytest.mark.unit
@@ -176,11 +176,10 @@ class TestMatplotlibSemanticFormat:
         # Should be dict
         assert isinstance(result, dict)
 
-        # Should have semantic structure
-        assert "figure_type" in result
-
-        # Should have plot description for LLM
-        assert "plot_description" in result or "description" in str(result).lower()
+        # Should have semantic structure - new structure
+        assert "metadata" in result
+        assert "data_summary" in result
+        assert "pattern_analysis" in result
 
         # Should contain contextual information
         result_str = str(result).lower()
@@ -198,9 +197,10 @@ class TestMatplotlibSemanticFormat:
 
         result = self.converter.convert(fig, "semantic")
 
-        # Should contain the data and metadata
+        # Should contain the data and metadata - new structure
         assert isinstance(result, dict)
-        assert "figure_type" in result
+        assert "metadata" in result
+        assert "data_summary" in result
 
         # Should be structured for LLM consumption
         # (The specific insights depend on implementation)
@@ -235,11 +235,12 @@ class TestMatplotlibFormatConsistency:
 
         # All should reference the same title
         assert "Consistency Test" in text_result
-        assert json_result.get("title") == "Consistency Test"
+        # Check new structure
+        assert json_result["figure"]["title"] == "Consistency Test"
 
         # JSON should have proper structure
-        assert json_result["figure_type"] == "matplotlib"
-        assert semantic_result["figure_type"] == "matplotlib"
+        assert json_result["figure"]["figure_type"] == "matplotlib.Figure"
+        assert "metadata" in semantic_result
 
         # All should be non-empty
         assert len(text_result) > 0
@@ -285,7 +286,7 @@ class TestMatplotlibCustomFormatter:
 
         class CustomFormatter:
             def format(self, analysis, **kwargs):
-                return f"Custom: {analysis.get('title', 'No Title')}"
+                return f"Custom: {analysis.get('figure', {}).get('title', 'No Title')}"
 
         custom_formatter = CustomFormatter()
         self.converter.register_formatter("custom", custom_formatter)

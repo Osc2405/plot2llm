@@ -6,6 +6,11 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 
+import numpy as np
+from scipy.stats import shapiro
+
+from plot2llm.domain_knowledge import DOMAIN_KEYWORDS
+
 logger = logging.getLogger(__name__)
 
 
@@ -80,8 +85,8 @@ class BaseAnalyzer(ABC):
                     "index": i,
                     "title": self._get_axis_title(ax),
                     "type": self._get_axis_type(ax),
-                    "x_label": self._get_x_label(ax),
-                    "y_label": self._get_y_label(ax),
+                    "xlabel": self._get_x_label(ax),
+                    "ylabel": self._get_y_label(ax),
                     "x_range": self._get_x_range(ax),
                     "y_range": self._get_y_range(ax),
                     "has_grid": self._has_grid(ax),
@@ -224,3 +229,584 @@ class BaseAnalyzer(ABC):
     def _get_axis_title(self, ax: Any) -> Optional[str]:
         """Get the title of an individual axis."""
         return None
+
+    # --- Pattern Analysis Methods ---
+    def _detect_linear_pattern(self, x: np.ndarray, y: np.ndarray) -> Optional[Tuple[float, float]]:
+        """
+        Detects a linear pattern (y = mx + b) in the data.
+
+        Args:
+            x: X-coordinates of the data points.
+            y: Y-coordinates of the data points.
+
+        Returns:
+            A tuple (m, b) representing the slope and intercept of the fitted line,
+            or None if a pattern cannot be determined.
+        """
+        if len(x) < 2 or len(y) < 2 or len(x) != len(y):
+            return None
+        
+        # Filtrar NaN values
+        valid_mask = ~(np.isnan(x) | np.isnan(y))
+        x_clean = x[valid_mask]
+        y_clean = y[valid_mask]
+        
+        if len(x_clean) < 2 or len(y_clean) < 2:
+            return None
+        
+        # Verificar si hay suficiente variación en los datos para evitar RankWarning
+        x_std = np.std(x_clean)
+        y_std = np.std(y_clean)
+        
+        if x_std < 1e-10 or y_std < 1e-10:  # Datos constantes o muy similares
+            return None
+            
+        try:
+            # Fit a first-degree polynomial (a line)
+            coeffs = np.polyfit(x_clean, y_clean, 1)
+            if len(coeffs) == 2:
+                return float(coeffs[0]), float(coeffs[1])
+        except (np.linalg.LinAlgError, ValueError) as e:
+            logger.warning(f"Could not fit linear pattern: {e}")
+            return None
+        return None
+
+    def _detect_polynomial_pattern(self, x: np.ndarray, y: np.ndarray, max_degree: int = 4) -> Optional[np.ndarray]:
+        """
+        Detects a polynomial pattern (y = a*x^n + b*x^(n-1) + ... + z) in the data.
+
+        Args:
+            x: X-coordinates of the data points.
+            y: Y-coordinates of the data points.
+            max_degree: The maximum polynomial degree to test.
+
+        Returns:
+            The coefficients of the best-fit polynomial, or None.
+        """
+        if len(x) < max_degree + 1 or len(y) < max_degree + 1 or len(x) != len(y):
+            return None
+        
+        # Filtrar NaN values
+        valid_mask = ~(np.isnan(x) | np.isnan(y))
+        x_clean = x[valid_mask]
+        y_clean = y[valid_mask]
+        
+        if len(x_clean) < max_degree + 1 or len(y_clean) < max_degree + 1:
+            return None
+        
+        # Verificar si hay suficiente variación en los datos para evitar RankWarning
+        x_std = np.std(x_clean)
+        y_std = np.std(y_clean)
+        
+        if x_std < 1e-10 or y_std < 1e-10:  # Datos constantes o muy similares
+            return None
+            
+        try:
+            best_coeffs = None
+            best_error = np.inf
+            for degree in range(2, max_degree + 1):
+                coeffs = np.polyfit(x_clean, y_clean, degree)
+                model = np.poly1d(coeffs)
+                error = np.sum((model(x_clean) - y_clean) ** 2)
+                if error < best_error:
+                    best_error = error
+                    best_coeffs = coeffs
+            return best_coeffs
+        except (np.linalg.LinAlgError, ValueError) as e:
+            logger.warning(f"Could not fit polynomial pattern: {e}")
+            return None
+        return None
+
+    def _detect_exponential_pattern(self, x: np.ndarray, y: np.ndarray) -> Optional[Tuple[float, float]]:
+        """
+        Detects an exponential pattern (y = a * exp(b*x)).
+        """
+        if len(x) < 2 or len(y) < 2 or len(x) != len(y) or np.any(y <= 0):
+            return None
+        
+        # Filtrar NaN values
+        valid_mask = ~(np.isnan(x) | np.isnan(y))
+        x_clean = x[valid_mask]
+        y_clean = y[valid_mask]
+        
+        if len(x_clean) < 2 or len(y_clean) < 2 or np.any(y_clean <= 0):
+            return None
+        
+        # Verificar si hay suficiente variación en los datos para evitar RankWarning
+        x_std = np.std(x_clean)
+        y_std = np.std(y_clean)
+        
+        if x_std < 1e-10 or y_std < 1e-10:  # Datos constantes o muy similares
+            return None
+            
+        try:
+            # y = a * exp(b*x) => log(y) = log(a) + b*x
+            log_y = np.log(y_clean)
+            coeffs = np.polyfit(x_clean, log_y, 1)
+            b = coeffs[0]
+            log_a = coeffs[1]
+            a = np.exp(log_a)
+            return a, b
+        except (np.linalg.LinAlgError, ValueError) as e:
+            logger.warning(f"Could not fit exponential pattern: {e}")
+            return None
+        return None
+
+    def _detect_logarithmic_pattern(self, x: np.ndarray, y: np.ndarray) -> Optional[Tuple[float, float]]:
+        """
+        Detects a logarithmic pattern (y = a * log(x) + b).
+        """
+        if len(x) < 2 or len(y) < 2 or len(x) != len(y) or np.any(x <= 0):
+            return None
+        
+        # Filtrar NaN values
+        valid_mask = ~(np.isnan(x) | np.isnan(y))
+        x_clean = x[valid_mask]
+        y_clean = y[valid_mask]
+        
+        if len(x_clean) < 2 or len(y_clean) < 2 or np.any(x_clean <= 0):
+            return None
+        
+        # Verificar si hay suficiente variación en los datos para evitar RankWarning
+        x_std = np.std(x_clean)
+        y_std = np.std(y_clean)
+        
+        if x_std < 1e-10 or y_std < 1e-10:  # Datos constantes o muy similares
+            return None
+            
+        try:
+            # y = a * log(x) + b is a linear relationship between y and log(x)
+            log_x = np.log(x_clean)
+            coeffs = np.polyfit(log_x, y_clean, 1)
+            return float(coeffs[0]), float(coeffs[1])
+        except (np.linalg.LinAlgError, ValueError) as e:
+            logger.warning(f"Could not fit logarithmic pattern: {e}")
+            return None
+        return None
+
+    def _detect_sinusoidal_pattern(self, x: np.ndarray, y: np.ndarray) -> Optional[Tuple[float, float, float, float]]:
+        """
+        Detects a sinusoidal pattern (y = a*sin(b*x + c) + d).
+        """
+        if len(x) < 5 or len(y) < 5 or len(x) != len(y):
+            return None
+        try:
+            from scipy.optimize import curve_fit
+
+            def sin_func(x, a, b, c, d):
+                return a * np.sin(b * x + c) + d
+
+            # Provide initial guesses for the parameters
+            guess_freq = (2 * np.pi) / (x[np.argmax(np.abs(np.fft.fftfreq(len(x))))] * (x[1] - x[0])) if len(x) > 1 else 1
+            guess_amp = np.std(y) * 2**0.5
+            guess_offset = np.mean(y)
+            guess = [guess_amp, guess_freq, 0, guess_offset]
+
+            params, _ = curve_fit(sin_func, x, y, p0=guess, maxfev=10000)
+            return tuple(params)
+        except ImportError:
+            logger.warning("Scipy not installed, skipping sinusoidal pattern detection.")
+            return None
+        except (RuntimeError, ValueError) as e:
+            logger.warning(f"Could not fit sinusoidal pattern: {e}")
+            return None
+        return None
+
+    def _calculate_confidence_score(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:
+        """
+        Calculates the confidence score (R-squared) for a model's predictions.
+        """
+        if len(y_true) == 0 or len(y_pred) == 0 or len(y_true) != len(y_pred):
+            return 0.0
+        
+        ss_res = np.sum((y_true - y_pred) ** 2)
+        ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
+        
+        if ss_tot == 0:
+            # Handle the case where all y values are the same
+            return 1.0 if ss_res == 0 else 0.0
+            
+        r2 = 1 - (ss_res / ss_tot)
+        return max(0.0, r2)  # R-squared can be negative, clip to 0
+
+    def _calculate_aic(self, n: int, sse: float, k: int) -> float:
+        """
+        Calculates the Akaike Information Criterion (AIC) for a model.
+        """
+        if n <= 0 or sse < 0 or k <= 0:
+            return np.inf
+        
+        aic = n * np.log(sse / n) + 2 * k
+        return aic
+        
+    def _analyze_patterns(self, x: np.ndarray, y: np.ndarray) -> Optional[Dict[str, Any]]:
+        """
+        Analyzes the data for various patterns and returns the best fit based on AIC.
+        """
+        if len(x) < 2 or len(y) < 2:
+            return None
+
+        patterns = []
+
+        # Linear
+        linear_coeffs = self._detect_linear_pattern(x, y)
+        if linear_coeffs:
+            m, b = linear_coeffs
+            y_pred = m * x + b
+            score = self._calculate_confidence_score(y, y_pred)
+            sse = np.sum((y - y_pred) ** 2)
+            aic = self._calculate_aic(len(y), sse, 2)
+            patterns.append({"type": "linear", "coeffs": (m, b), "score": score, "aic": aic, "equation": f"y = {m:.2f}x + {b:.2f}"})
+
+        # Polynomial
+        for degree in range(2, 5):
+            poly_coeffs = np.polyfit(x, y, degree)
+            model = np.poly1d(poly_coeffs)
+            y_pred = model(x)
+            score = self._calculate_confidence_score(y, y_pred)
+            sse = np.sum((y - y_pred) ** 2)
+            aic = self._calculate_aic(len(y), sse, degree + 1)
+            patterns.append({"type": f"polynomial (deg {degree})", "coeffs": poly_coeffs, "score": score, "aic": aic, "equation": str(model)})
+
+        # Exponential
+        exp_coeffs = self._detect_exponential_pattern(x, y)
+        if exp_coeffs:
+            a, b = exp_coeffs
+            y_pred = a * np.exp(b * x)
+            score = self._calculate_confidence_score(y, y_pred)
+            sse = np.sum((y - y_pred) ** 2)
+            aic = self._calculate_aic(len(y), sse, 2)
+            patterns.append({"type": "exponential", "coeffs": (a, b), "score": score, "aic": aic, "equation": f"y = {a:.2f} * exp({b:.2f}x)"})
+
+        # Logarithmic
+        log_coeffs = self._detect_logarithmic_pattern(x, y)
+        if log_coeffs:
+            a, b = log_coeffs
+            y_pred = a * np.log(x) + b
+            score = self._calculate_confidence_score(y, y_pred)
+            sse = np.sum((y - y_pred) ** 2)
+            aic = self._calculate_aic(len(y), sse, 2)
+            patterns.append({"type": "logarithmic", "coeffs": (a, b), "score": score, "aic": aic, "equation": f"y = {a:.2f} * log(x) + {b:.2f}"})
+            
+        # Sinusoidal
+        sin_coeffs = self._detect_sinusoidal_pattern(x, y)
+        if sin_coeffs:
+            a, b, c, d = sin_coeffs
+            y_pred = a * np.sin(b * x + c) + d
+            score = self._calculate_confidence_score(y, y_pred)
+            sse = np.sum((y - y_pred) ** 2)
+            aic = self._calculate_aic(len(y), sse, 4)
+            patterns.append({"type": "sinusoidal", "coeffs": (a, b, c, d), "score": score, "aic": aic, "equation": f"y = {a:.2f}sin({b:.2f}x + {c:.2f}) + {d:.2f}"})
+
+        if not patterns:
+            return None
+
+        # Return the best pattern based on AIC
+        best_pattern = min(patterns, key=lambda p: p["aic"])
+        return {
+            "pattern_type": best_pattern["type"],
+            "equation_estimate": best_pattern["equation"],
+            "coefficients": best_pattern["coeffs"],
+            "confidence_score": best_pattern["score"]
+        }
+
+    def _analyze_shape_characteristics(self, y: np.ndarray) -> Dict[str, str]:
+        """
+        Analyzes the shape characteristics of the data.
+        
+        Args:
+            y: Array of y-values to analyze
+            
+        Returns:
+            Dictionary with shape characteristics:
+            - monotonicity: "increasing", "decreasing", or "mixed"
+            - smoothness: "smooth" or "rough"
+            - symmetry: "symmetric" or "asymmetric"
+            - continuity: "continuous" or "discontinuous"
+        """
+        if len(y) < 3:
+            return {}
+
+        # Monotonicity
+        diffs = np.diff(y)
+        if np.all(diffs >= -1e-10):  # Pequeña tolerancia para ruido numérico
+            monotonicity = "increasing"
+        elif np.all(diffs <= 1e-10):
+            monotonicity = "decreasing"
+        else:
+            # Contar cambios de dirección significativos
+            direction_changes = np.sum(np.diff(np.sign(diffs)) != 0)
+            monotonicity = "mixed" if direction_changes > 1 else ("increasing" if np.mean(diffs) > 0 else "decreasing")
+
+        # Smoothness
+        # Calcular la variación de la segunda derivada
+        second_deriv = np.diff(y, 2)
+        smoothness_metric = np.std(second_deriv) if len(second_deriv) > 0 else 0
+        # Si la variación es pequeña relativa a la escala de los datos, es smooth
+        smoothness = "smooth" if smoothness_metric < 0.1 * np.std(y) else "rough"
+
+        # Symmetry
+        # Usar skewness para determinar simetría, con un umbral más realista
+        mean = np.mean(y)
+        std = np.std(y)
+        if std > 0:
+            skewness = np.mean(((y - mean) / std) ** 3)
+            # Un umbral más realista para datos de negocio
+            symmetry = "symmetric" if abs(skewness) < 0.1 else "asymmetric"
+        else:
+            symmetry = "symmetric"  # Si no hay variación, es simétrico por definición
+
+        # Continuity
+        # Detectar saltos grandes relativos a la variación local
+        diffs = np.abs(np.diff(y))
+        median_diff = np.median(diffs)
+        continuity = "continuous" if np.all(diffs < 5 * median_diff) else "discontinuous"
+
+        return {
+            "monotonicity": monotonicity,
+            "smoothness": smoothness,
+            "symmetry": symmetry,
+            "continuity": continuity
+        }
+
+    def _infer_domain(self, title: str, xlabel: str, ylabel: str, pattern_type: Optional[str]) -> str:
+        """
+        Infers the likely domain of the plot based on keywords and patterns.
+        """
+        text_corpus = (title + " " + xlabel + " " + ylabel).lower()
+        
+        domain_scores = {domain: 0 for domain in DOMAIN_KEYWORDS}
+
+        # Score based on keywords
+        for domain, keywords in DOMAIN_KEYWORDS.items():
+            for keyword in keywords:
+                if keyword in text_corpus:
+                    domain_scores[domain] += 2 # Higher weight for keywords
+        
+        # Boost score based on pattern
+        if pattern_type in ["linear", "polynomial", "exponential", "logarithmic", "sinusoidal"]:
+            domain_scores["mathematics"] += 1 # Lower weight for pattern
+
+        # Determine the best domain
+        if not any(domain_scores.values()):
+            return "general"
+            
+        best_domain = max(domain_scores, key=domain_scores.get)
+        return best_domain
+
+    def _infer_purpose(self, pattern_info: Optional[Dict[str, Any]], num_series: int, x_type: str) -> str:
+        """
+        Infers the likely purpose of the plot.
+        """
+        if pattern_info and pattern_info.get("confidence_score", 0) > 0.99:
+            return "Educational"
+        if num_series > 1:
+            return "Comparison"
+        if x_type == "date" or x_type == "period":
+            return "Monitoring"
+        
+        return "Analysis"
+
+    def _assess_complexity_level(self, pattern_info: Optional[Dict[str, Any]], num_variables: int) -> str:
+        """
+        Assesses the complexity level of the plot.
+        """
+        if pattern_info:
+            pattern_type = pattern_info.get("pattern_type", "")
+            if "polynomial" in pattern_type and "deg 4" in pattern_type:
+                return "Advanced"
+            if "sinusoidal" in pattern_type:
+                return "Advanced"
+            if "polynomial" in pattern_type:
+                return "Intermediate"
+        
+        if num_variables > 2:
+            return "Intermediate"
+
+        return "Basic"
+
+    # --- Statistical Insights Methods ---
+    def _detect_trend(self, y: np.ndarray, x: Optional[np.ndarray] = None) -> Optional[str]:
+        """
+        Detects the overall trend in a series of data.
+        """
+        if len(y) < 3:
+            return None
+        
+        # Filtrar NaN values
+        valid_mask = ~np.isnan(y)
+        y_clean = y[valid_mask]
+        
+        if len(y_clean) < 3:
+            return None
+        
+        if x is None:
+            x_clean = np.arange(len(y_clean))
+        else:
+            # Filtrar x también si se proporciona
+            x_clean = x[valid_mask]
+        
+        # Verificar si hay suficiente variación en los datos para evitar RankWarning
+        x_std = np.std(x_clean)
+        y_std = np.std(y_clean)
+        
+        if x_std < 1e-10 or y_std < 1e-10:  # Datos constantes o muy similares
+            return "stable"
+        
+        try:
+            coeffs = np.polyfit(x_clean, y_clean, 1)
+            slope = coeffs[0]
+
+            if abs(slope) < 1e-1:
+                return "stable"
+            elif slope > 0:
+                return "increasing"
+            else:
+                return "decreasing"
+        except (np.linalg.LinAlgError, ValueError):
+            # Si falla el polyfit, usar análisis simple
+            if len(y_clean) > 1:
+                first_val = y_clean[0]
+                last_val = y_clean[-1]
+                if abs(last_val - first_val) < 1e-1:
+                    return "stable"
+                elif last_val > first_val:
+                    return "increasing"
+                else:
+                    return "decreasing"
+            return "stable"
+
+    def _analyze_distribution(self, data: np.ndarray) -> Dict[str, Any]:
+        """
+        Analyzes the distribution of a dataset.
+        """
+        if len(data) < 5:
+            return {}
+            
+        skewness = np.mean(((data - np.mean(data)) / np.std(data)) ** 3) if np.std(data) > 0 else 0
+        kurtosis = np.mean(((data - np.mean(data)) / np.std(data)) ** 4) - 3 if np.std(data) > 0 else 0
+        
+        # Normality test (Shapiro-Wilk)
+        normality_test = None
+        if len(data) >= 3:
+            try:
+                stat, p_value = shapiro(data)
+                normality_test = {
+                    "test": "shapiro-wilk",
+                    "statistic": stat,
+                    "p_value": p_value
+                }
+            except ImportError:
+                logger.warning("Scipy is not installed, skipping normality test.")
+            except Exception as e:
+                logger.warning(f"Could not perform Shapiro-Wilk test: {e}")
+
+        return {
+            "skewness": skewness,
+            "kurtosis": kurtosis,
+            "normality_test": normality_test
+        }
+
+    def _detect_outliers(self, data: np.ndarray) -> List[float]:
+        """
+        Detects outliers in a dataset using the IQR method.
+        """
+        if len(data) < 5:
+            return []
+            
+        q1, q3 = np.percentile(data, [25, 75])
+        iqr = q3 - q1
+        lower_bound = q1 - (1.5 * iqr)
+        upper_bound = q3 + (1.5 * iqr)
+        
+        outliers = [d for d in data if d < lower_bound or d > upper_bound]
+        return outliers
+
+    def _calculate_correlations(self, x: np.ndarray, y: np.ndarray) -> Optional[Dict[str, float]]:
+        """
+        Calculates the Pearson correlation between two variables.
+        """
+        if len(x) < 2 or len(y) < 2 or len(x) != len(y):
+            return None
+
+        try:
+            pearson_corr = np.corrcoef(x, y)[0, 1]
+            return {"pearson": pearson_corr}
+        except ValueError:
+            return None
+
+    def _detect_numeric_type(self, values):
+        """Detect if values are numeric, even if they are strings representing numbers."""
+        if not values:
+            return None
+        try:
+            # Try to convert all to float
+            floats = [float(v) for v in values]
+            return "numeric"
+        except Exception:
+            # If all are strings but not numbers, treat as category
+            if all(isinstance(v, str) for v in values):
+                return "category"
+            return None
+
+    def _detect_temporal_type(self, values):
+        """Detect if values are dates, timestamps, or temporal sequences."""
+        import re, datetime
+        if not values:
+            return None
+        # Check for datetime strings
+        date_patterns = [
+            r"\d{4}-\d{2}-\d{2}",  # YYYY-MM-DD
+            r"\d{2}/\d{2}/\d{4}",  # DD/MM/YYYY
+            r"\d{4}/\d{2}/\d{2}",  # YYYY/MM/DD
+        ]
+        for v in values:
+            if isinstance(v, str):
+                for pat in date_patterns:
+                    if re.match(pat, v):
+                        return "date"
+            if isinstance(v, (datetime.date, datetime.datetime)):
+                return "date"
+        # Check for timestamps (large ints/floats)
+        if all(isinstance(v, (int, float)) and v > 1e9 for v in values):
+            return "timestamp"
+        # Check for monotonic sequence (temporal index)
+        if all(isinstance(v, (int, float)) for v in values):
+            diffs = [values[i+1] - values[i] for i in range(len(values)-1)]
+            if all(d > 0 for d in diffs):
+                return "temporal_sequence"
+        return None
+
+    def _validate_type_consistency(self, axes):
+        """Check that x_type and y_type are consistent across all axes."""
+        x_types = set(ax.get("x_type") for ax in axes if ax.get("x_type"))
+        y_types = set(ax.get("y_type") for ax in axes if ax.get("y_type"))
+        return {
+            "x_type_consistent": len(x_types) <= 1,
+            "y_type_consistent": len(y_types) <= 1,
+            "x_types": list(x_types),
+            "y_types": list(y_types),
+        }
+
+    def _infer_axis_semantics(self, x_values, y_values):
+        """Infer axis semantics for X and Y."""
+        x_sem = None
+        y_sem = None
+        # X axis
+        if self._detect_temporal_type(x_values) in ["date", "timestamp", "temporal_sequence"]:
+            x_sem = "temporal"
+        elif self._detect_numeric_type(x_values) == "numeric":
+            x_sem = "continuous"
+        else:
+            x_sem = "category"
+        # Y axis
+        if self._detect_numeric_type(y_values) == "numeric":
+            if all(isinstance(v, int) and v >= 0 for v in y_values):
+                y_sem = "count"
+            elif all(isinstance(v, float) and 0 <= v <= 1 for v in y_values):
+                y_sem = "proportion"
+            else:
+                y_sem = "metric"
+        else:
+            y_sem = "category"
+        return {"x_semantics": x_sem, "y_semantics": y_sem}

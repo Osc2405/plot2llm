@@ -1,0 +1,20 @@
+# Domain-specific keywords for context inference
+
+DOMAIN_KEYWORDS = {
+    "mathematics": [
+        "sin", "cos", "tan", "function", "polynomial", "derivative", "integral", 
+        "equation", "variable", "coefficient", "graph", "plot", "axis", "axes"
+    ],
+    "business": [
+        "revenue", "profit", "sales", "growth", "market", "share", "stock", 
+        "price", "cost", "budget", "quarter", "fy", "yoy", "mom"
+    ],
+    "science": [
+        "temperature", "pressure", "voltage", "current", "density", "mass", 
+        "velocity", "acceleration", "experiment", "results", "measurement", "signal"
+    ],
+    "economics": [
+        "price", "demand", "supply", "inflation", "gdp", "unemployment", 
+        "interest rate", "trade", "market", "economy", "capital"
+    ],
+} 

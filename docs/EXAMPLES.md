@@ -7,8 +7,9 @@
 3. [Seaborn Examples](#seaborn-examples)
 4. [Plotly Examples](#plotly-examples)
 5. [Advanced Analysis](#advanced-analysis)
-6. [LLM Integration](#llm-integration)
-7. [Real Use Cases](#real-use-cases)
+6. [Statistical Analysis](#statistical-analysis)
+7. [LLM Integration](#llm-integration)
+8. [Real Use Cases](#real-use-cases)
 
 ---
 
@@ -722,6 +723,278 @@ result = plot2llm.convert(
 print("=== SCIENTIFIC ANALYSIS ===")
 print(f"Detected chart types: {[pt['type'] for ax in result['axes_info'] for pt in ax['plot_types']]}")
 print(f"Global statistics: {result['data_info']['statistics']['global']}")
+
+plt.close()
+```
+
+---
+
+## Statistical Analysis
+
+### Example 1: Correlation Analysis with Scatter Plot
+
+```python
+import matplotlib.pyplot as plt
+import plot2llm
+import numpy as np
+
+# Create correlated data
+np.random.seed(42)
+x = np.random.normal(0, 1, 100)
+y = 0.7 * x + np.random.normal(0, 0.3, 100)
+
+# Create scatter plot
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.scatter(x, y, alpha=0.6, color='blue')
+ax.set_xlabel('Variable X')
+ax.set_ylabel('Variable Y')
+ax.set_title('Correlation Analysis')
+
+# Analyze with statistical insights
+result = plot2llm.convert(fig, format='semantic')
+
+# Extract statistical insights
+statistical_insights = result['statistical_insights']
+
+print("=== CORRELATION ANALYSIS ===")
+print(f"Central tendency: {statistical_insights['central_tendency']}")
+print(f"Variability: {statistical_insights['variability']}")
+
+# Check correlations
+if statistical_insights['correlations']:
+    correlation = statistical_insights['correlations'][0]
+    print(f"Correlation: {correlation['value']:.3f} ({correlation['strength']} {correlation['direction']})")
+
+# Check outliers
+outliers = statistical_insights['outliers']
+if outliers['detected']:
+    print(f"Outliers detected: {outliers['count']} total")
+    print(f"  - X-axis outliers: {outliers['x_outliers']}")
+    print(f"  - Y-axis outliers: {outliers['y_outliers']}")
+
+plt.close()
+```
+
+### Example 2: Distribution Analysis with Histogram
+
+```python
+import matplotlib.pyplot as plt
+import plot2llm
+import numpy as np
+from scipy.stats import norm
+
+# Create normal distribution data
+np.random.seed(42)
+data = np.random.normal(0, 1, 1000)
+
+# Create histogram
+fig, ax = plt.subplots(figsize=(10, 6))
+n, bins, patches = ax.hist(data, bins=30, alpha=0.7, color='green', edgecolor='black')
+ax.set_xlabel('Values')
+ax.set_ylabel('Frequency')
+ax.set_title('Normal Distribution Analysis')
+
+# Add theoretical normal curve
+x = np.linspace(data.min(), data.max(), 100)
+ax.plot(x, norm.pdf(x, data.mean(), data.std()) * len(data) * (bins[1] - bins[0]), 
+        'r-', linewidth=2, label='Theoretical Normal')
+
+ax.legend()
+ax.grid(True, alpha=0.3)
+
+# Analyze with statistical insights
+result = plot2llm.convert(fig, format='semantic')
+
+# Extract distribution analysis
+statistical_insights = result['statistical_insights']
+
+print("=== DISTRIBUTION ANALYSIS ===")
+print(f"Central tendency: {statistical_insights['central_tendency']}")
+print(f"Variability: {statistical_insights['variability']}")
+
+# Check distribution characteristics
+if 'distribution' in statistical_insights:
+    dist = statistical_insights['distribution']
+    if dist['skewness'] is not None:
+        print(f"Skewness: {dist['skewness']:.3f} ({dist['skewness_interpretation']})")
+    if dist['kurtosis'] is not None:
+        print(f"Kurtosis: {dist['kurtosis']:.3f} ({dist['kurtosis_interpretation']})")
+
+plt.close()
+```
+
+### Example 3: Categorical Analysis with Bar Plot
+
+```python
+import matplotlib.pyplot as plt
+import plot2llm
+import numpy as np
+
+# Create categorical data
+categories = ['Category A', 'Category B', 'Category C', 'Category D', 'Category E']
+values = [45, 23, 67, 34, 89]
+
+# Create bar plot
+fig, ax = plt.subplots(figsize=(10, 6))
+bars = ax.bar(categories, values, color=['red', 'blue', 'green', 'orange', 'purple'])
+ax.set_xlabel('Categories')
+ax.set_ylabel('Values')
+ax.set_title('Categorical Analysis')
+
+# Add value labels
+for bar, value in zip(bars, values):
+    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1, 
+            str(value), ha='center', va='bottom')
+
+ax.grid(True, alpha=0.3, axis='y')
+
+# Analyze with statistical insights
+result = plot2llm.convert(fig, format='semantic')
+
+# Extract categorical analysis
+statistical_insights = result['statistical_insights']
+
+print("=== CATEGORICAL ANALYSIS ===")
+print(f"Central tendency: {statistical_insights['central_tendency']}")
+print(f"Variability: {statistical_insights['variability']}")
+
+# Check categorical analysis
+if 'categorical_analysis' in statistical_insights:
+    cat_analysis = statistical_insights['categorical_analysis']
+    print(f"Total sum: {cat_analysis['total_sum']}")
+    print(f"Most frequent category: {cat_analysis['most_frequent_category']}")
+    print(f"Least frequent category: {cat_analysis['least_frequent_category']}")
+
+plt.close()
+```
+
+### Example 4: Trend Analysis with Line Plot
+
+```python
+import matplotlib.pyplot as plt
+import plot2llm
+import numpy as np
+
+# Create trend data with noise
+np.random.seed(42)
+x = np.linspace(0, 10, 50)
+y = 2 * x + 1 + np.random.normal(0, 0.5, 50)
+
+# Create line plot
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.plot(x, y, 'bo-', linewidth=2, markersize=6, label='Linear Trend')
+ax.set_xlabel('Time')
+ax.set_ylabel('Value')
+ax.set_title('Trend Analysis')
+ax.legend()
+ax.grid(True, alpha=0.3)
+
+# Analyze with statistical insights
+result = plot2llm.convert(fig, format='semantic')
+
+# Extract trend analysis
+statistical_insights = result['statistical_insights']
+pattern_analysis = result['pattern_analysis']
+
+print("=== TREND ANALYSIS ===")
+print(f"Central tendency: {statistical_insights['central_tendency']}")
+print(f"Variability: {statistical_insights['variability']}")
+
+# Check pattern analysis
+print(f"Pattern type: {pattern_analysis['pattern_type']}")
+print(f"Confidence score: {pattern_analysis['confidence_score']}")
+
+# Check shape characteristics
+shape_chars = pattern_analysis['shape_characteristics']
+print(f"Monotonicity: {shape_chars['monotonicity']}")
+print(f"Smoothness: {shape_chars['smoothness']}")
+print(f"Symmetry: {shape_chars['symmetry']}")
+print(f"Continuity: {shape_chars['continuity']}")
+
+plt.close()
+```
+
+### Example 5: Comprehensive Statistical Analysis
+
+```python
+import matplotlib.pyplot as plt
+import plot2llm
+import numpy as np
+
+# Create complex dataset with multiple characteristics
+np.random.seed(42)
+x = np.random.normal(0, 1, 200)
+y = 0.6 * x + np.random.normal(0, 0.4, 200)
+
+# Add some outliers
+x = np.append(x, [3, -3, 2.5, -2.5])
+y = np.append(y, [2, -2, 1.8, -1.8])
+
+# Create scatter plot
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.scatter(x, y, alpha=0.6, color='purple', s=50)
+ax.set_xlabel('Variable X')
+ax.set_ylabel('Variable Y')
+ax.set_title('Comprehensive Statistical Analysis')
+
+# Add trend line
+z = np.polyfit(x, y, 1)
+p = np.poly1d(z)
+ax.plot(x, p(x), "r--", alpha=0.8, label=f'Trend: y={z[0]:.2f}x+{z[1]:.2f}')
+ax.legend()
+
+ax.grid(True, alpha=0.3)
+
+# Analyze with comprehensive statistical insights
+result = plot2llm.convert(
+    fig, 
+    format='semantic',
+    detail_level='high',
+    include_statistics=True,
+    include_curve_points=True
+)
+
+# Extract all statistical insights
+statistical_insights = result['statistical_insights']
+pattern_analysis = result['pattern_analysis']
+
+print("=== COMPREHENSIVE STATISTICAL ANALYSIS ===")
+
+# Basic statistics
+print("📊 BASIC STATISTICS:")
+print(f"  - Central tendency: {statistical_insights['central_tendency']}")
+print(f"  - Variability: {statistical_insights['variability']}")
+print(f"  - Data quality: {statistical_insights['data_quality']}")
+
+# Correlation analysis
+if statistical_insights['correlations']:
+    corr = statistical_insights['correlations'][0]
+    print(f"\n🔗 CORRELATION ANALYSIS:")
+    print(f"  - Type: {corr['type']}")
+    print(f"  - Value: {corr['value']:.3f}")
+    print(f"  - Strength: {corr['strength']}")
+    print(f"  - Direction: {corr['direction']}")
+
+# Outlier analysis
+outliers = statistical_insights['outliers']
+print(f"\n⚠️  OUTLIER ANALYSIS:")
+print(f"  - Detected: {outliers['detected']}")
+print(f"  - Count: {outliers['count']}")
+if 'x_outliers' in outliers:
+    print(f"  - X-axis outliers: {outliers['x_outliers']}")
+    print(f"  - Y-axis outliers: {outliers['y_outliers']}")
+
+# Pattern analysis
+print(f"\n📈 PATTERN ANALYSIS:")
+print(f"  - Pattern type: {pattern_analysis['pattern_type']}")
+print(f"  - Confidence: {pattern_analysis['confidence_score']}")
+
+# Shape characteristics
+shape = pattern_analysis['shape_characteristics']
+print(f"  - Monotonicity: {shape['monotonicity']}")
+print(f"  - Smoothness: {shape['smoothness']}")
+print(f"  - Symmetry: {shape['symmetry']}")
+print(f"  - Continuity: {shape['continuity']}")
 
 plt.close()
 ```

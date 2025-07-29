@@ -5,6 +5,7 @@ Formatters for converting analysis results to different output formats.
 from typing import Any, Dict
 
 import numpy as np
+from plot2llm.sections.section_factory import get_section_builder
 
 
 def _convert_to_json_serializable(obj: Any) -> Any:
@@ -66,19 +67,29 @@ class TextFormatter:
         all_text_fields.append(basic.get("figure_type", ""))
 
         for ax in axes:
-            for pt in ax.get("plot_types", []):
+            # Handle both modern (plot_type) and legacy (plot_types) formats
+            plot_type = ax.get("plot_type")
+            plot_types = ax.get("plot_types", [])
+            
+            # If we have the new format (plot_type), add it to the set
+            if plot_type:
+                plot_types_found.add(plot_type.lower())
+            
+            # Also check the legacy format
+            for pt in plot_types:
                 if pt.get("type"):
                     plot_types_found.add(pt.get("type").lower())
 
-            # Search in all axis fields
-            x_label = ax.get("xlabel") or ax.get("x_label") or ""
-            y_label = ax.get("ylabel") or ax.get("y_label") or ""
-            title = ax.get("title", "")
+            # Extract text fields for analysis
+            xlabel = ax.get("xlabel") or ax.get("x_label") or ""
+            ylabel = ax.get("ylabel") or ax.get("y_label") or ""
+            title = ax.get("title") or ""
+            
+            # Combine all text fields for analysis
+            all_text_fields.extend([xlabel, ylabel, title])
 
-            all_text_fields.extend([x_label, y_label, title])
-
-            # Search for 'category' in any variation
-            if any("category" in field.lower() for field in [x_label, y_label, title]):
+            # Check for category indicators in labels
+            if any("category" in field.lower() for field in [xlabel, ylabel, title]):
                 category_found = True
 
         # Search in data_info as well
@@ -162,8 +173,9 @@ class TextFormatter:
 
             lines.append(
                 f"Axis {i}: {title_info}, plot types: [{plot_types_str}]\n"
-                f"  X-axis: {x_label} (type: {x_type})\n"
-                f"  Y-axis: {y_label} (type: {y_type})\n"
+                f"  X-axis: {x_label} (type: {x_type})")
+            lines.append(f"  Y-axis: {y_label} (type: {y_type})")
+            lines.append(
                 f"  Ranges: x={ax_info.get('x_range')}, y={ax_info.get('y_range')}\n"
                 f"  Properties: grid={ax_info.get('has_grid')}, legend={ax_info.get('has_legend')}"
             )
@@ -275,49 +287,141 @@ class JSONFormatter:
         return self.format(analysis, **kwargs)
 
 
+def _remove_nulls(obj):
+    """Recursively remove all keys with value None from dicts and lists."""
+    if isinstance(obj, dict):
+        return {k: _remove_nulls(v) for k, v in obj.items() if v is not None}
+    elif isinstance(obj, list):
+        return [_remove_nulls(v) for v in obj if v is not None]
+    else:
+        return obj
+
 class SemanticFormatter:
     """
     Formats the analysis dictionary into a semantic structure optimized for LLM understanding.
     Returns the analysis dictionary in a standardized format.
     """
 
-    def format(self, analysis: Dict[str, Any], **kwargs) -> Dict[str, Any]:
+    def format(self, analysis: Dict[str, Any], include_curve_points: bool = False, **kwargs) -> Dict[str, Any]:
         if not isinstance(analysis, dict):
             raise ValueError("Invalid plot data: input must be a dict")
 
-        # Ensure we return the complete analysis dict with proper structure
-        # Convert to JSON serializable format
         semantic_analysis = _convert_to_json_serializable(analysis)
 
-        # Ensure standard keys exist
-        if "figure_info" not in semantic_analysis:
-            semantic_analysis["figure_info"] = semantic_analysis.get("basic_info", {})
+        # Modular section builders
+        section_names = [
+            "metadata", "axes", "layout", "data_summary", "statistical_insights",
+            "pattern_analysis", "visual_elements", "domain_context", "llm_description", "llm_context"
+        ]
+        semantic_output = {}
+        for section in section_names:
+            builder = get_section_builder(section)
+            if builder:
+                if section == "axes":
+                    semantic_output[section] = builder(semantic_analysis, include_curve_points=include_curve_points)
+                else:
+                    semantic_output[section] = builder(semantic_analysis)
 
-        if "plot_description" not in semantic_analysis:
-            # Generate a description from the analysis
-            title = semantic_analysis.get("title") or semantic_analysis.get(
-                "figure_info", {}
-            ).get("title", "No Title")
-            figure_type = semantic_analysis.get("figure_type") or semantic_analysis.get(
-                "figure_info", {}
-            ).get("figure_type", "Unknown")
-            axes = (
-                semantic_analysis.get("axes")
-                or semantic_analysis.get("axes_info")
-                or []
-            )
+        # Remove any duplicate sections that might be present in the original analysis
+        # since they're now handled by the section builders
+        for key in ["data_info", "visual_info", "plot_description", "statistics"]:
+            if key in semantic_output:
+                del semantic_output[key]
+                
+        return semantic_output
 
-            desc = f"This is a {figure_type} visualization titled '{title}'."
-            if axes:
-                desc += f" It contains {len(axes)} subplot(s)."
-                for i, ax in enumerate(axes):
-                    plot_types = ax.get("plot_types", [])
-                    if plot_types:
-                        plot_types_str = ", ".join(
-                            [pt.get("type", "unknown") for pt in plot_types]
-                        )
-                        desc += f" Subplot {i+1} contains: {plot_types_str}."
+    def _generate_llm_description(self, analysis_result: Dict) -> Dict:
+        """
+        Generates an enriched description optimized for LLM consumption.
+        """
+        axes = analysis_result.get("axes", [])
+        if not axes:
+            return {}
 
-            semantic_analysis["plot_description"] = desc
-
-        return semantic_analysis
+        # Get first axis for primary analysis
+        primary_axis = axes[0]
+        pattern = primary_axis.get("pattern", {})
+        shape = primary_axis.get("shape", {})
+        domain_context = primary_axis.get("domain_context", {})
+        stats = primary_axis.get("stats", {})
+        
+        # --- One Sentence Summary ---
+        pattern_type = pattern.get("pattern_type", "unknown")
+        confidence = pattern.get("confidence_score", 0)
+        domain = domain_context.get("likely_domain", "")
+        purpose = domain_context.get("purpose", "")
+        
+        summary_parts = []
+        # Add pattern description
+        if pattern_type != "unknown" and confidence > 0.7:
+            summary_parts.append(f"a {pattern_type} relationship")
+        # Add domain context
+        if domain:
+            summary_parts.append(f"in the {domain} domain")
+        # Add purpose if available
+        if purpose:
+            summary_parts.append(f"used for {purpose}")
+            
+        one_sentence_summary = f"This visualization shows {' '.join(summary_parts)}."
+        
+        # --- Structured Analysis ---
+        what_parts = []
+        if pattern_type != "unknown":
+            what_parts.append(f"{pattern_type} pattern")
+        if domain:
+            what_parts.append(f"in {domain} context")
+        what = " ".join(what_parts) if what_parts else "Data visualization"
+        
+        # Detect temporal component
+        x_semantics = primary_axis.get("x_semantics", "")
+        when = "Time-series analysis" if x_semantics == "time" else "Point-in-time analysis"
+        
+        # Infer purpose
+        why_parts = []
+        if purpose:
+            why_parts.append(purpose)
+        if pattern_type != "unknown" and confidence > 0.8:
+            why_parts.append(f"showing clear {pattern_type} behavior")
+        why = " ".join(why_parts) if why_parts else "Data analysis"
+        
+        # --- Key Insights ---
+        key_insights = []
+        
+        # Pattern insights
+        if pattern_type != "unknown" and confidence > 0.7:
+            equation = pattern.get("equation_estimate", "")
+            if equation:
+                key_insights.append(f"Pattern follows {equation}")
+            key_insights.append(f"Pattern confidence: {confidence:.2f}")
+        
+        # Correlation insights
+        correlations = stats.get("correlations", [])
+        if correlations:
+            for corr in correlations:
+                if abs(corr.get("value", 0)) > 0.7:
+                    key_insights.append(
+                        f"Strong {'positive' if corr['value'] > 0 else 'negative'} "
+                        f"correlation (r={corr['value']:.2f})"
+                    )
+        
+        # Shape insights
+        monotonicity = shape.get("monotonicity")
+        if monotonicity:
+            key_insights.append(f"Data shows {monotonicity} trend")
+        
+        # Outlier insights
+        outliers = stats.get("outliers", {})
+        if outliers.get("detected", False):
+            count = outliers.get("count", 0)
+            key_insights.append(f"Found {count} potential outliers")
+        
+        return {
+            "one_sentence_summary": one_sentence_summary,
+            "structured_analysis": {
+                "what": what,
+                "when": when,
+                "why": why,
+                "how": "Through data visualization and statistical analysis"
+            },
+            "key_insights": key_insights
+        }
