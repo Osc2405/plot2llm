@@ -14,7 +14,11 @@ def build_axes_section(semantic_analysis: dict, include_curve_points: bool = Fal
         if plot_type and not plot_types:
             plot_types = [{"type": plot_type}]
         
-        axis_entry = {
+        # Start with the original axis data to preserve all fields
+        axis_entry = dict(ax)
+        
+        # Update/add specific fields that need to be standardized
+        axis_entry.update({
             "title": ax.get("title", ""),
             "xlabel": ax.get("xlabel") or ax.get("x_label", ""),
             "ylabel": ax.get("ylabel") or ax.get("y_label", ""),
@@ -31,8 +35,10 @@ def build_axes_section(semantic_analysis: dict, include_curve_points: bool = Fal
             "shape": ax.get("shape"),
             "domain_context": ax.get("domain_context"),
             "stats": ax.get("stats") or ax.get("statistics"),
-        }
+        })
+        
         if include_curve_points:
             axis_entry["curve_points"] = ax.get("curve_points", [])
+            
         axes.append(axis_entry)
     return axes 

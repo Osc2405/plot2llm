@@ -62,14 +62,28 @@ def analyze(ax, x_type=None, y_type=None) -> Dict[str, Any]:
         
         # Estadísticas básicas
         stats = {
-            "mean": float(np.nanmean(heights_array)),
-            "median": float(np.nanmedian(heights_array)),
-            "std": float(np.nanstd(heights_array)),
-            "min": float(np.nanmin(heights_array)),
-            "max": float(np.nanmax(heights_array)),
-            "range": float(np.nanmax(heights_array) - np.nanmin(heights_array)),
-            "data_points": int(len(all_heights)),
-            "total_sum": float(np.sum(heights_array))
+            "central_tendency": {
+                "mean": float(np.nanmean(heights_array)),
+                "median": float(np.nanmedian(heights_array)),
+                "mode": float(heights_array[np.argmax(heights_array)]) if len(heights_array) > 0 else None
+            },
+            "variability": {
+                "std": float(np.nanstd(heights_array)),
+                "variance": float(np.nanstd(heights_array) ** 2),
+                "range": {
+                    "min": float(np.nanmin(heights_array)),
+                    "max": float(np.nanmax(heights_array))
+                }
+            },
+            "data_quality": {
+                "total_points": int(len(all_heights)),
+                "missing_values": 0  # Barras no tienen missing values
+            },
+            "categorical_analysis": {
+                "total_sum": float(np.sum(heights_array)),
+                "most_frequent_category": categories[np.argmax(heights_array)] if categories and len(categories) == len(heights_array) else None,
+                "least_frequent_category": categories[np.argmin(heights_array)] if categories and len(categories) == len(heights_array) else None
+            }
         }
         
         # Análisis de patrones para datos categóricos
@@ -77,167 +91,30 @@ def analyze(ax, x_type=None, y_type=None) -> Dict[str, Any]:
             "pattern_type": "categorical_distribution",
             "confidence_score": 0.9,
             "equation_estimate": None,  # No aplica para datos categóricos
+            "shape_characteristics": {
+                "monotonicity": "mixed",  # Barras pueden tener cualquier orden
+                "smoothness": "discrete",  # Barras son discretas
+                "symmetry": "asymmetric",  # Barras raramente son simétricas
+                "continuity": "discontinuous"  # Barras son discontinuas
+            },
             "distribution_characteristics": {
-                "most_frequent_category": categories[np.argmax(heights_array)] if categories and len(categories) == len(heights_array) else None,
-                "least_frequent_category": categories[np.argmin(heights_array)] if categories and len(categories) == len(heights_array) else None,
                 "is_uniform": bool(np.std(heights_array) < 0.1 * np.mean(heights_array)),
                 "dominance_ratio": float(np.max(heights_array) / np.mean(heights_array)) if np.mean(heights_array) > 0 else 0
             }
         }
         
         # Análisis de características de forma para datos categóricos
-        shape_chars = {}
-        
-        # 1. Monotonicity (orden de las barras)
         if len(heights_array) > 1:
+            # 1. Monotonicity (orden de las barras)
             sorted_indices = np.argsort(heights_array)
             if np.array_equal(sorted_indices, np.arange(len(heights_array))):
-                monotonicity = "increasing"
+                pattern_info["shape_characteristics"]["monotonicity"] = "increasing"
             elif np.array_equal(sorted_indices, np.arange(len(heights_array) - 1, -1, -1)):
-                monotonicity = "decreasing"
+                pattern_info["shape_characteristics"]["monotonicity"] = "decreasing"
             else:
-                monotonicity = "mixed"
-        else:
-            monotonicity = "single_value"
+                pattern_info["shape_characteristics"]["monotonicity"] = "mixed"
         
-        # 2. Smoothness (variabilidad entre barras adyacentes)
-        if len(heights_array) > 2:
-            adjacent_diffs = np.abs(np.diff(heights_array))
-            smoothness_var = np.var(adjacent_diffs)
-            if smoothness_var < 0.1 * np.var(heights_array):
-                smoothness = "smooth"
-            elif smoothness_var < 0.5 * np.var(heights_array):
-                smoothness = "piecewise"
-            else:
-                smoothness = "discrete"
-        else:
-            smoothness = "discrete"
-        
-        # 3. Symmetry (distribución simétrica de valores)
-        if len(heights_array) > 2:
-            center_idx = len(heights_array) // 2
-            if len(heights_array) % 2 == 0:
-                left_half = heights_array[:center_idx]
-                right_half = heights_array[center_idx:]
-            else:
-                left_half = heights_array[:center_idx]
-                right_half = heights_array[center_idx + 1:]
-            
-            if len(left_half) == len(right_half):
-                symmetry_corr = np.corrcoef(left_half, right_half[::-1])[0,1] if len(left_half) > 1 else 0
-                symmetry = "symmetric" if abs(symmetry_corr) > 0.7 else "asymmetric"
-            else:
-                symmetry = "asymmetric"
-        else:
-            symmetry = "asymmetric"
-        
-        # 4. Continuity (siempre discreto para datos categóricos)
-        continuity = "discrete"
-        
-        shape_chars = {
-            "monotonicity": monotonicity,
-            "smoothness": smoothness,
-            "symmetry": symmetry,
-            "continuity": continuity,
-            "spread": float(np.max(heights_array) - np.min(heights_array)),
-            "skewness": float((np.mean(heights_array) - np.median(heights_array)) / np.std(heights_array)) if np.std(heights_array) > 0 else 0
-        }
-        
-        pattern_info["shape_characteristics"] = shape_chars
-        
-        section["statistics"] = stats
+        section["stats"] = stats
         section["pattern"] = pattern_info
     
-    # Información del dominio
-    domain_context = {
-        "likely_domain": "categorical_analysis",
-        "purpose": "comparison",
-        "complexity_level": "medium" if len(bars_data) > 5 else "low",
-        "analysis_type": "univariate_categorical"
-    }
-    section["domain_context"] = domain_context
-    
-    # Descripción para LLM
-    if section.get("statistics"):
-        max_category = section["pattern"]["distribution_characteristics"]["most_frequent_category"]
-        description = f"Bar chart comparing {len(categories)} categories with highest value in '{max_category}'" if max_category else f"Bar chart with {len(categories)} categories"
-    else:
-        description = "Bar chart visualization"
-    
-    llm_description = {
-        "one_sentence_summary": description,
-        "structured_analysis": {
-            "what": f"Bar chart with {len(categories)} categorical variables",
-            "when": "Categorical comparison analysis",
-            "why": "To compare values across different categories",
-            "how": "Vertical bars representing values for each category"
-        },
-        "key_insights": [
-            f"Highest category: {section.get('pattern', {}).get('distribution_characteristics', {}).get('most_frequent_category', 'unknown')}",
-            f"Data range: {section.get('statistics', {}).get('min', 'N/A')} to {section.get('statistics', {}).get('max', 'N/A')}",
-            f"Distribution pattern: {section.get('pattern', {}).get('shape_characteristics', {}).get('monotonicity', 'unknown')}"
-        ] if section.get("statistics") else []
-    }
-    section["llm_description"] = llm_description
-    
-    # Contexto para LLM
-    llm_context = {
-        "interpretation_hints": [
-            "Compare values across categories",
-            "Identify the highest and lowest performing categories",
-            "Look for patterns in the distribution"
-        ],
-        "analysis_suggestions": [
-            "Rank categories by performance",
-            "Calculate percentage distribution",
-            "Identify outliers or unusual patterns"
-        ],
-        "common_questions": [
-            "Which category has the highest/lowest value?",
-            "What is the distribution pattern across categories?",
-            "Are there significant differences between categories?"
-        ],
-        "related_concepts": [
-            "categorical analysis",
-            "comparative statistics",
-            "distribution analysis",
-            "frequency analysis"
-        ]
-    }
-    section["llm_context"] = llm_context
-    
-    # Ranking de categorías
-    if categories and all_heights:
-        total = sum(all_heights)
-        ranking = sorted(zip(categories, all_heights), key=lambda x: x[1], reverse=True)
-        category_ranking = [
-            {"category": cat, "value": val, "percentage": round(100 * val / total, 1) if total > 0 else 0, "rank": i+1}
-            for i, (cat, val) in enumerate(ranking)
-        ]
-        # Diversidad de Shannon (entropy)
-        import math
-        proportions = [h/total for h in all_heights if total > 0]
-        entropy = -sum(p * math.log(p) for p in proportions if p > 0)
-        # Gini coefficient
-        gini = 0.0
-        if len(all_heights) > 1 and total > 0:
-            sorted_vals = sorted(all_heights)
-            n = len(sorted_vals)
-            gini = (2 * sum((i+1) * val for i, val in enumerate(sorted_vals)) / (n * total)) - (n + 1) / n
-        # Concentración: proporción de la categoría dominante
-        concentration_ratio = max(proportions) if proportions else 0
-        categorical_analysis = {
-            "category_ranking": category_ranking,
-            "gini_coefficient": round(gini, 3),
-            "entropy": round(entropy, 3),
-            "diversity_index": -sum(p * math.log(p) for p in proportions if p > 0) / math.log(len(proportions)) if len(proportions) > 1 else 0,
-            "concentration_ratio": concentration_ratio
-        }
-        section["categorical_analysis"] = categorical_analysis
-    # Fusionar categorical_analysis en statistics para que matplotlib_analyzer lo recoja
-    if "statistics" in section and "categorical_analysis" in section:
-        section["statistics"]["categorical_analysis"] = section["categorical_analysis"]
-    # Eliminar el campo 'stats' si existe
-    if "stats" in section:
-        del section["stats"]
     return section 

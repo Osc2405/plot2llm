@@ -11,31 +11,37 @@ def build_statistical_insights_section(semantic_analysis: dict) -> dict:
         # Buscar en diferentes campos donde pueden estar las estadísticas
         stats = ax.get("stats", {}) or ax.get("statistics", {})
         if stats:
-            # Handle scatter plot statistics format (x_stats, y_stats)
-            if "x_stats" in stats and "y_stats" in stats:
-                # Convert scatter format to standard format
-                x_stats = stats["x_stats"]
-                y_stats = stats["y_stats"]
-                
-                # Use Y stats as primary (since Y is typically the dependent variable)
+            # Nueva estructura unificada
+            if "central_tendency" in stats and "variability" in stats:
+                # Estructura unificada
                 converted_stats = {
-                    "mean": y_stats.get("mean"),
-                    "median": y_stats.get("median"),
-                    "std": y_stats.get("std"),
-                    "min": y_stats.get("min"),
-                    "max": y_stats.get("max"),
-                    "data_points": stats.get("data_points"),
-                    "x_mean": x_stats.get("mean"),
-                    "x_std": x_stats.get("std"),
-                    "x_min": x_stats.get("min"),
-                    "x_max": x_stats.get("max"),
-                    "correlation": stats.get("correlation", 0.0),
-                    "correlation_strength": stats.get("correlation_strength", "unknown"),
-                    "correlation_direction": stats.get("correlation_direction", "unknown")
+                    "mean": stats["central_tendency"].get("mean"),
+                    "median": stats["central_tendency"].get("median"),
+                    "mode": stats["central_tendency"].get("mode"),
+                    "std": stats["variability"].get("std"),
+                    "variance": stats["variability"].get("variance"),
+                    "min": stats["variability"]["range"].get("min") if "range" in stats["variability"] else None,
+                    "max": stats["variability"]["range"].get("max") if "range" in stats["variability"] else None,
+                    "data_points": stats["data_quality"].get("total_points") if "data_quality" in stats else None,
+                    "missing_values": stats["data_quality"].get("missing_values") if "data_quality" in stats else None
                 }
+                
+                # Agregar información específica del tipo de gráfico
+                if "x_axis" in stats:
+                    converted_stats["x_mean"] = stats["x_axis"].get("mean")
+                    converted_stats["x_std"] = stats["x_axis"].get("std")
+                    converted_stats["x_min"] = stats["x_axis"].get("min")
+                    converted_stats["x_max"] = stats["x_axis"].get("max")
+                
+                if "categorical_analysis" in stats:
+                    converted_stats["categorical_analysis"] = stats["categorical_analysis"]
+                
+                if "distribution_analysis" in stats:
+                    converted_stats["distribution_analysis"] = stats["distribution_analysis"]
+                
                 axis_stats.append(converted_stats)
             else:
-                # Standard format
+                # Estructura legacy - mantener compatibilidad
                 axis_stats.append(stats)
     
     # Si no hay estadísticas en los ejes, buscar en el campo statistics principal
@@ -66,7 +72,7 @@ def build_statistical_insights_section(semantic_analysis: dict) -> dict:
             },
             "variability": {
                 "standard_deviation": primary_stats.get("std"),
-                "variance": primary_stats.get("std", 0) ** 2 if primary_stats.get("std") else None,
+                "variance": primary_stats.get("variance"),
                 "range": {
                     "min": primary_stats.get("min"),
                     "max": primary_stats.get("max")
@@ -106,26 +112,23 @@ def build_statistical_insights_section(semantic_analysis: dict) -> dict:
                     }]
                     break
         
-        # Add X-axis statistics if available (for scatter plots)
+        # Add X-axis statistics if available
         if primary_stats.get("x_mean") is not None:
             insights["x_axis"] = {
                 "mean": primary_stats.get("x_mean"),
                 "std": primary_stats.get("x_std"),
-                "range": {
-                    "min": primary_stats.get("x_min"),
-                    "max": primary_stats.get("x_max")
-                }
+                "min": primary_stats.get("x_min"),
+                "max": primary_stats.get("x_max")
             }
         
-        # Limpiar valores None
-        insights = {k: v for k, v in insights.items() if v is not None}
+        # Add categorical analysis if available (for bar plots)
+        if primary_stats.get("categorical_analysis"):
+            insights["categorical_analysis"] = primary_stats["categorical_analysis"]
+        
+        # Add distribution analysis if available (for histograms)
+        if primary_stats.get("distribution_analysis"):
+            insights["distribution_analysis"] = primary_stats["distribution_analysis"]
         
         return insights
-    else:
-        # Retornar estructura vacía si no hay estadísticas
-        return {
-            "trend": None,
-            "distribution": None,
-            "correlations": [],
-            "key_statistics": None,
-        } 
+    
+    return {} 
