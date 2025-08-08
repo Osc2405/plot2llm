@@ -7,11 +7,8 @@ for improving test coverage and removing unused code.
 """
 
 import ast
-import os
-import subprocess
-import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 
 class CoverageAnalyzer:
@@ -47,7 +44,7 @@ class CoverageAnalyzer:
         unused_methods = []
 
         try:
-            with open(module_path, "r", encoding="utf-8") as file:
+            with open(module_path, encoding="utf-8") as file:
                 tree = ast.parse(file.read())
 
             for node in ast.walk(tree):
@@ -345,7 +342,7 @@ def main():
         for module in high_priority:
             print(f"   - {module}")
 
-    print(f"\n🎯 Target overall coverage: 85%")
+    print("\n🎯 Target overall coverage: 85%")
     print(
         f"📈 Coverage improvement needed: {85 - total_coverage:.1f} percentage points"
     )

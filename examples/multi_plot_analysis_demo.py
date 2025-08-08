@@ -1,11 +1,14 @@
+import json
+
 import matplotlib.pyplot as plt
 import numpy as np
+
 from plot2llm.analyzers.matplotlib_analyzer import MatplotlibAnalyzer
-import json
 
 
 def to_native_type(value):
     import numpy as np
+
     if isinstance(value, (np.integer, np.floating)):
         return float(value)
     if isinstance(value, np.bool_):
@@ -15,6 +18,7 @@ def to_native_type(value):
     if isinstance(value, dict):
         return {k: to_native_type(v) for k, v in value.items()}
     return value
+
 
 def remove_curve_points(data):
     """Recursively remove curve_points from the data structure"""
@@ -32,17 +36,19 @@ def remove_curve_points(data):
     else:
         return data
 
+
 def print_section(title, content):
     print(f"\n{'='*20} {title} {'='*20}")
     print(json.dumps(to_native_type(content), indent=2, ensure_ascii=False))
 
+
 def analyze_and_show(fig, description):
     analyzer = MatplotlibAnalyzer()
     result = analyzer.analyze(fig)
-    
+
     # Remove curve_points from the result
     result = remove_curve_points(result)
-    
+
     print(f"\n{'='*40}\n{description}\n{'='*40}")
     # print_section("FIGURE", result.get("figure", {}))
     # print_section("FIGURE", result.get("figure", {}))
@@ -52,6 +58,7 @@ def analyze_and_show(fig, description):
     print_section("LAYOUT", result.get("layout", {}))
     # print_section("STYLE", result.get("style", {}))
     plt.close(fig)
+
 
 # 1. Line Plot
 # x = np.linspace(0, 10, 100)
@@ -65,10 +72,10 @@ def analyze_and_show(fig, description):
 # analyze_and_show(fig1, "Line Plot")
 
 # # 2. Bar Plot
-categories = ['A', 'B', 'C', 'D']
+categories = ["A", "B", "C", "D"]
 values = [23, 45, 12, 36]
 fig2, ax2 = plt.subplots()
-ax2.bar(categories, values, color=['#e74c3c', '#3498db', '#2ecc71', '#f1c40f'])
+ax2.bar(categories, values, color=["#e74c3c", "#3498db", "#2ecc71", "#f1c40f"])
 ax2.set_title("Bar Plot Example")
 ax2.set_xlabel("Category")
 ax2.set_ylabel("Value")
@@ -88,7 +95,7 @@ analyze_and_show(fig2, "Bar Plot")
 # # 4. Histogram
 samples = np.random.normal(0, 1, 1000)
 fig4, ax4 = plt.subplots()
-ax4.hist(samples, bins=30, color='#9b59b6', alpha=0.7)
+ax4.hist(samples, bins=30, color="#9b59b6", alpha=0.7)
 ax4.set_title("Histogram Example")
 ax4.set_xlabel("Value")
 ax4.set_ylabel("Frequency")
@@ -129,4 +136,4 @@ analyze_and_show(fig4, "Histogram")
 # cax = ax8.imshow(matrix, cmap='coolwarm')
 # fig8.colorbar(cax)
 # ax8.set_title("Heatmap Example")
-# analyze_and_show(fig8, "Heatmap") 
+# analyze_and_show(fig8, "Heatmap")

@@ -13,5 +13,10 @@ def build_layout_section(semantic_analysis: dict) -> dict:
     elif "grid_layout" in detailed_info:
         return detailed_info["grid_layout"]
     elif axes:
-        return {"shape": (1, len(axes)), "size": len(axes), "nrows": 1, "ncols": len(axes)}
-    return None 
+        return {
+            "shape": (1, len(axes)),
+            "size": len(axes),
+            "nrows": 1,
+            "ncols": len(axes),
+        }
+    return None

@@ -525,7 +525,7 @@ class TestConverterPerformance:
     def test_converter_memory_usage(self):
         """Test that converter doesn't accumulate memory."""
         # Create and convert many figures
-        for i in range(10):
+        for _i in range(10):
             fig, ax = plt.subplots()
             ax.plot(range(100), range(100))
 

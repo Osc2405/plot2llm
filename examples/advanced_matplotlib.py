@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
 from plot2llm import FigureConverter
 
@@ -20,7 +21,6 @@ axs[1, 0].set_title("Scatter Plot")
 axs[1, 0].legend()
 
 # Histogram
-import numpy as np
 
 np.random.seed(0)
 data = np.random.randn(100)

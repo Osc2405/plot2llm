@@ -1,5 +1,6 @@
 from plot2llm.utils import generate_unified_key_insights
 
+
 def build_llm_description_section(semantic_analysis: dict) -> dict:
     """
     Construye la sección llm_description para el output semántico.
@@ -40,36 +41,40 @@ def build_llm_description_section(semantic_analysis: dict) -> dict:
     why = " ".join(why_parts) if why_parts else "Data analysis"
     # Generate unified key insights
     insights_data = {}
-    
+
     # Pattern insights
     if pattern_type != "unknown" and confidence > 0.7:
         equation = pattern.get("equation_estimate", "")
         if equation:
             insights_data["equation"] = equation
         insights_data["pattern_confidence"] = confidence
-    
+
     # Correlation insights
     correlations = stats.get("correlations", [])
     if correlations:
         for corr in correlations:
             if isinstance(corr, dict) and abs(corr.get("value", 0)) > 0.7:
                 insights_data["correlation_value"] = corr.get("value", 0)
-                insights_data["correlation_strength"] = "strong" if abs(corr.get("value", 0)) > 0.7 else "moderate"
-                insights_data["correlation_direction"] = "positive" if corr.get("value", 0) > 0 else "negative"
+                insights_data["correlation_strength"] = (
+                    "strong" if abs(corr.get("value", 0)) > 0.7 else "moderate"
+                )
+                insights_data["correlation_direction"] = (
+                    "positive" if corr.get("value", 0) > 0 else "negative"
+                )
                 break
-    
+
     # Shape insights
     monotonicity = shape.get("monotonicity")
     if monotonicity:
         insights_data["trend"] = monotonicity
-    
+
     # Outlier insights
     outliers = stats.get("outliers", {})
     if isinstance(outliers, list):
         outliers = outliers[0] if outliers and isinstance(outliers[0], dict) else {}
     if outliers.get("detected", False):
         insights_data["outliers_count"] = outliers.get("count", 0)
-    
+
     key_insights = generate_unified_key_insights(insights_data)
     return {
         "one_sentence_summary": one_sentence_summary,
@@ -77,7 +82,7 @@ def build_llm_description_section(semantic_analysis: dict) -> dict:
             "what": what,
             "when": when,
             "why": why,
-            "how": "Through data visualization and statistical analysis"
+            "how": "Through data visualization and statistical analysis",
         },
-        "key_insights": key_insights
-    } 
+        "key_insights": key_insights,
+    }

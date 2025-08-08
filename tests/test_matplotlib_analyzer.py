@@ -267,7 +267,9 @@ class TestMatplotlibSubplots:
         analysis = self.analyzer.analyze(fig)
 
         # Should have 4 axes
-        assert len(analysis["axes"]) >= 1  # At least 1 axis, may be more depending on implementation
+        assert (
+            len(analysis["axes"]) >= 1
+        )  # At least 1 axis, may be more depending on implementation
 
         # Check that different plot types are detected
         all_plot_types = []

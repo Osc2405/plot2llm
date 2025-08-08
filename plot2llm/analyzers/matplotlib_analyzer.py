@@ -11,13 +11,12 @@ import numpy as np
 from matplotlib.colors import to_hex
 from matplotlib.markers import MarkerStyle
 
-from plot2llm.utils import serialize_axis_values
-from plot2llm.analyzers.line_analyzer import analyze as analyze_line
-from plot2llm.analyzers.scatter_analyzer import analyze as analyze_scatter
 from plot2llm.analyzers.bar_analyzer import analyze as analyze_bar
 from plot2llm.analyzers.histogram_analyzer import analyze as analyze_histogram
-from plot2llm.utils import generate_unified_interpretation_hints
+from plot2llm.analyzers.line_analyzer import analyze as analyze_line
+from plot2llm.analyzers.scatter_analyzer import analyze as analyze_scatter
 from plot2llm.sections.data_summary_section import build_data_summary_section
+from plot2llm.utils import generate_unified_interpretation_hints
 
 from .base_analyzer import BaseAnalyzer
 
@@ -59,7 +58,7 @@ class MatplotlibAnalyzer(BaseAnalyzer):
         try:
             # Basic info
             figure_info = self._get_figure_info(figure)
-            
+
             # Extract axes information using the new utility
             axes_list = []
             real_axes = self._get_axes(figure)
@@ -73,7 +72,7 @@ class MatplotlibAnalyzer(BaseAnalyzer):
 
                 # Mapear correctamente los tipos detectados a los esperados por los analizadores
                 # Priorizar histogramas y bar plots sobre líneas cuando hay patches
-                if (hasattr(ax, "patches") and ax.patches):
+                if hasattr(ax, "patches") and ax.patches:
                     # Usar las funciones específicas para distinguir entre bar plots e histogramas
                     if self._is_histogram(ax):
                         axes_section = analyze_histogram(ax, x_type, y_type)
@@ -84,19 +83,22 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                         axes_section = analyze_histogram(ax, x_type, y_type)
                 elif plot_type == "line_plot" or (hasattr(ax, "lines") and ax.lines):
                     axes_section = analyze_line(ax, x_type, y_type)
-                elif plot_type == "scatter_plot" or (hasattr(ax, "collections") and ax.collections and 
-                     any(hasattr(c, "get_offsets") for c in ax.collections)):
+                elif plot_type == "scatter_plot" or (
+                    hasattr(ax, "collections")
+                    and ax.collections
+                    and any(hasattr(c, "get_offsets") for c in ax.collections)
+                ):
                     axes_section = analyze_scatter(ax, x_type, y_type)
                 else:
                     axes_section = {
                         "plot_type": plot_type or "unknown",
-                        "message": f"El tipo de gráfico '{plot_type or 'unknown'}' está pendiente de implementación profesional."
+                        "message": f"El tipo de gráfico '{plot_type or 'unknown'}' está pendiente de implementación profesional.",
                     }
-                
+
                 # Añadir los tipos de ejes detectados al resultado del analizador específico
                 axes_section["x_type"] = x_type
                 axes_section["y_type"] = y_type
-                
+
                 # Añadir información adicional del eje que no está en los analizadores específicos
                 # Solo añadir campos que no existan ya en el resultado del analizador específico
                 if "title" not in axes_section:
@@ -110,63 +112,87 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 if "y_range" not in axes_section:
                     axes_section["y_range"] = [float(y) for y in ax.get_ylim()]
                 if "has_grid" not in axes_section:
-                    axes_section["has_grid"] = bool(any(line.get_visible() for line in ax.get_xgridlines() + ax.get_ygridlines()))
+                    axes_section["has_grid"] = bool(
+                        any(
+                            line.get_visible()
+                            for line in ax.get_xgridlines() + ax.get_ygridlines()
+                        )
+                    )
                 if "has_legend" not in axes_section:
                     axes_section["has_legend"] = bool(ax.get_legend() is not None)
                 if "spine_visibility" not in axes_section:
-                    axes_section["spine_visibility"] = {side: bool(spine.get_visible()) for side, spine in ax.spines.items()}
+                    axes_section["spine_visibility"] = {
+                        side: bool(spine.get_visible())
+                        for side, spine in ax.spines.items()
+                    }
                 if "tick_density" not in axes_section:
                     axes_section["tick_density"] = int(len(ax.get_xticks()))
-                
+
                 # Preservar stats y pattern de los analizadores específicos
                 # (estos campos ya están incluidos por los analizadores específicos)
-                
+
                 # Convertir plot_type a plot_types para compatibilidad
                 if "plot_type" in axes_section:
                     axes_section["plot_types"] = [{"type": axes_section["plot_type"]}]
-                
+
                 axes_list.append(axes_section)
-            
+
             # Get additional information
             colors = self._get_colors(figure) if include_colors else []
-            statistics = self._get_statistics(figure, axes_list) if include_statistics else {"per_curve": [], "per_axis": []}
-            
+            statistics = (
+                self._get_statistics(figure, axes_list)
+                if include_statistics
+                else {"per_curve": [], "per_axis": []}
+            )
+
             # Layout information
             layout_info = {
                 "shape": [len(real_axes), 1] if len(real_axes) > 0 else [1, 1],
                 "size": len(real_axes),
                 "nrows": len(real_axes) if len(real_axes) > 0 else 1,
-                "ncols": 1
+                "ncols": 1,
             }
-            
+
             # Visual elements
             visual_elements = {
                 "lines": [[str(line) for line in ax.lines] for ax in real_axes],
-                "axes_styling": [{
-                    "has_grid": bool(any(line.get_visible() for line in ax.get_xgridlines() + ax.get_ygridlines())),
-                    "spine_visibility": {side: bool(spine.get_visible()) 
-                                      for side, spine in ax.spines.items()},
-                    "tick_density": int(len(ax.get_xticks()))
-                } for ax in real_axes],
+                "axes_styling": [
+                    {
+                        "has_grid": bool(
+                            any(
+                                line.get_visible()
+                                for line in ax.get_xgridlines() + ax.get_ygridlines()
+                            )
+                        ),
+                        "spine_visibility": {
+                            side: bool(spine.get_visible())
+                            for side, spine in ax.spines.items()
+                        },
+                        "tick_density": int(len(ax.get_xticks())),
+                    }
+                    for ax in real_axes
+                ],
                 "primary_colors": [str(color["hex"]) for color in colors],
-                "accessibility_score": float(self._calculate_accessibility_score(colors))
+                "accessibility_score": float(
+                    self._calculate_accessibility_score(colors)
+                ),
             }
-            
+
             # Domain context
             domain_context = self._infer_domain_context(axes_list)
-            
+
             # LLM description
             llm_description = self._generate_llm_description(axes_list, statistics)
-            
+
             # LLM context
             llm_context = self._generate_llm_context(axes_list, statistics)
-            
+
             # Statistical insights
             statistical_insights = self._generate_statistical_insights(statistics)
-            
+
             # Pattern analysis
             pattern_analysis = self._generate_pattern_analysis(axes_list)
-            
+
             # Compose the final output
             modern_output = {
                 "figure": figure_info,
@@ -179,12 +205,12 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 "llm_description": llm_description,
                 "llm_context": llm_context,
                 "statistical_insights": statistical_insights,
-                "pattern_analysis": pattern_analysis
+                "pattern_analysis": pattern_analysis,
             }
-            
+
             # Data summary - construir después de tener el resultado completo
             modern_output["data_summary"] = build_data_summary_section(modern_output)
-            
+
             # Return modern format directly for consistency
             return modern_output
 
@@ -508,27 +534,37 @@ class MatplotlibAnalyzer(BaseAnalyzer):
         """
         if not (hasattr(ax, "patches") and ax.patches):
             return False
-            
+
         try:
             # Verificar propiedades específicas de histogramas
             num_patches = len(ax.patches)
-            
+
             # Los histogramas típicamente tienen muchos bins (>= 10)
             if num_patches >= 10:
                 return True
             else:
                 # Para pocos patches, usar análisis más detallado
                 tick_labels = [label.get_text() for label in ax.get_xticklabels()]
-                
+
                 # Verificar si las etiquetas son claramente categóricas (texto no numérico)
                 categorical_labels = []
                 for label in tick_labels:
                     label_text = label.strip()
-                    if label_text and not (label_text.replace('.', '').replace('-', '').replace('+', '').replace('e', '').replace('E', '').isdigit()):
+                    if label_text and not (
+                        label_text.replace(".", "")
+                        .replace("-", "")
+                        .replace("+", "")
+                        .replace("e", "")
+                        .replace("E", "")
+                        .isdigit()
+                    ):
                         categorical_labels.append(label_text)
-                
+
                 # Si hay etiquetas claramente categóricas, es un bar plot
-                if len(categorical_labels) > 0 and len(categorical_labels) == num_patches:
+                if (
+                    len(categorical_labels) > 0
+                    and len(categorical_labels) == num_patches
+                ):
                     return False
                 else:
                     # Verificar continuidad de los patches (histogramas son continuos)
@@ -539,16 +575,18 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                             if hasattr(patch, "get_x") and hasattr(patch, "get_width"):
                                 patch_positions.append(patch.get_x())
                                 patch_widths.append(patch.get_width())
-                        
+
                         if patch_positions and patch_widths:
                             # Verificar si son continuos (sin gaps significativos)
                             sorted_positions = sorted(patch_positions)
                             avg_width = sum(patch_widths) / len(patch_widths)
                             gaps = []
                             for i in range(1, len(sorted_positions)):
-                                gap = sorted_positions[i] - (sorted_positions[i-1] + avg_width)
+                                gap = sorted_positions[i] - (
+                                    sorted_positions[i - 1] + avg_width
+                                )
                                 gaps.append(abs(gap))
-                            
+
                             max_gap = max(gaps) if gaps else 0
                             # Si el gap máximo es menor que 10% del ancho promedio, es continuo (histograma)
                             if max_gap < 0.1 * avg_width:
@@ -562,7 +600,10 @@ class MatplotlibAnalyzer(BaseAnalyzer):
         except Exception as e:
             # Si falla la detección, usar histograma por defecto
             import logging
-            logging.getLogger(__name__).warning(f"Error en detección de histograma: {e}")
+
+            logging.getLogger(__name__).warning(
+                f"Error en detección de histograma: {e}"
+            )
             return True
 
     def _is_bar_plot(self, ax):
@@ -572,42 +613,56 @@ class MatplotlibAnalyzer(BaseAnalyzer):
         """
         if not (hasattr(ax, "patches") and ax.patches):
             return False
-            
+
         try:
             # Si ya se determinó que es histograma, no es bar plot
             if self._is_histogram(ax):
                 return False
-                
+
             # Verificar si hay patches con altura > 0
-            heights = [patch.get_height() for patch in ax.patches if hasattr(patch, "get_height")]
+            heights = [
+                patch.get_height()
+                for patch in ax.patches
+                if hasattr(patch, "get_height")
+            ]
             if not any(h > 0 for h in heights):
                 return False
-                
+
             # Verificar etiquetas categóricas
             tick_labels = [label.get_text() for label in ax.get_xticklabels()]
             has_categorical_labels = any(
-                label.strip() and not label.replace('.', '').replace('-', '').replace('+', '').replace('e', '').replace('E', '').isdigit() 
+                label.strip()
+                and not label.replace(".", "")
+                .replace("-", "")
+                .replace("+", "")
+                .replace("e", "")
+                .replace("E", "")
+                .isdigit()
                 for label in tick_labels
             )
-            
+
             # Si tiene etiquetas categóricas claras, es bar plot
             if has_categorical_labels:
                 return True
-                
+
             # Para casos ambiguos, si tiene pocos patches y no es histograma, probablemente es bar plot
             num_patches = len(ax.patches)
             if num_patches <= 20:
                 return True
-                
+
             return False
         except Exception as e:
             # Si falla la detección, no es bar plot
             import logging
+
             logging.getLogger(__name__).warning(f"Error en detección de bar plot: {e}")
             return False
 
-    def _get_statistics(self, figure: Any, axes_list: List[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _get_statistics(
+        self, figure: Any, axes_list: List[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Get statistical information about the data in the figure."""
+
         def to_native_type(value):
             """Convierte valores NumPy a tipos Python nativos."""
             if isinstance(value, (np.integer, np.floating)):
@@ -621,7 +676,7 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             return value
 
         statistics = {"per_curve": [], "per_axis": []}
-        
+
         # Si se proporciona axes_list, usar las estadísticas ya calculadas
         if axes_list:
             for axis_index, ax_info in enumerate(axes_list):
@@ -641,11 +696,11 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                         "range": stats.get("range"),
                         "matrix_data": None,
                         "x_type": "numeric",
-                        "y_type": "numeric"
+                        "y_type": "numeric",
                     }
                     statistics["per_axis"].append(axis_stats)
                     continue
-        
+
         # Fallback: usar el método original si no hay axes_list
         axes = self._get_axes(figure)
 
@@ -673,9 +728,9 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                     "data_points": 0,
                     "matrix_data": None,
                     "x_type": "numeric",
-                    "y_type": "numeric"
+                    "y_type": "numeric",
                 }
-                
+
                 # Extraer datos básicos para estadísticas
                 if plot_type == "line_plot" and ax.lines:
                     # Buscar las estadísticas en el análisis ya realizado
@@ -683,18 +738,20 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                     all_y = []
                     for line in ax.lines:
                         all_y.extend([float(y) for y in line.get_ydata()])
-                    
+
                     if all_y:
                         y_array = np.array(all_y)
-                        axis_stats.update({
-                            "mean": float(np.nanmean(y_array)),
-                            "std": float(np.nanstd(y_array)),
-                            "min": float(np.nanmin(y_array)),
-                            "max": float(np.nanmax(y_array)),
-                            "median": float(np.nanmedian(y_array)),
-                            "data_points": len(all_y)
-                        })
-                
+                        axis_stats.update(
+                            {
+                                "mean": float(np.nanmean(y_array)),
+                                "std": float(np.nanstd(y_array)),
+                                "min": float(np.nanmin(y_array)),
+                                "max": float(np.nanmax(y_array)),
+                                "median": float(np.nanmedian(y_array)),
+                                "data_points": len(all_y),
+                            }
+                        )
+
                 elif plot_type == "scatter_plot" and ax.collections:
                     all_x, all_y = [], []
                     for collection in ax.collections:
@@ -703,18 +760,20 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                             if len(offsets) > 0:
                                 all_x.extend([float(x) for x in offsets[:, 0]])
                                 all_y.extend([float(y) for y in offsets[:, 1]])
-                    
+
                     if all_y:
                         y_array = np.array(all_y)
-                        axis_stats.update({
-                            "mean": float(np.nanmean(y_array)),
-                            "std": float(np.nanstd(y_array)),
-                            "min": float(np.nanmin(y_array)),
-                            "max": float(np.nanmax(y_array)),
-                            "median": float(np.nanmedian(y_array)),
-                            "data_points": len(all_y)
-                        })
-                
+                        axis_stats.update(
+                            {
+                                "mean": float(np.nanmean(y_array)),
+                                "std": float(np.nanstd(y_array)),
+                                "min": float(np.nanmin(y_array)),
+                                "max": float(np.nanmax(y_array)),
+                                "median": float(np.nanmedian(y_array)),
+                                "data_points": len(all_y),
+                            }
+                        )
+
                 statistics["per_axis"].append(axis_stats)
             elif plot_type in ["bar", "histogram"]:
                 # Si no hay 'statistics', poner mensaje mínimo
@@ -724,7 +783,7 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                     "data_types": [plot_type],
                     "data_points": 0,
                     "matrix_data": None,
-                    "message": f"Estadísticas no disponibles para tipo '{plot_type}'"
+                    "message": f"Estadísticas no disponibles para tipo '{plot_type}'",
                 }
                 statistics["per_axis"].append(axis_stats)
             else:
@@ -735,7 +794,7 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                     "data_types": [plot_type or "unknown"],
                     "data_points": 0,
                     "matrix_data": None,
-                    "message": f"Estadísticas no disponibles para tipo '{plot_type}'"
+                    "message": f"Estadísticas no disponibles para tipo '{plot_type}'",
                 }
                 statistics["per_axis"].append(axis_stats)
 
@@ -1116,8 +1175,11 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                     "y_range": self._get_y_range(ax),
                     "has_grid": self._has_grid(ax),
                     "has_legend": self._has_legend(ax),
-                    "spine_visibility": {side: bool(spine.get_visible()) for side, spine in ax.spines.items()},
-                    "tick_density": int(len(ax.get_xticks()))
+                    "spine_visibility": {
+                        side: bool(spine.get_visible())
+                        for side, spine in ax.spines.items()
+                    },
+                    "tick_density": int(len(ax.get_xticks())),
                 }
 
                 # Check if axis has data
@@ -1153,7 +1215,9 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 axis_info["y_lim"] = [float(y) for y in ax.get_ylim()]
                 axis_info["has_grid"] = self._has_grid(ax)
                 axis_info["has_legend"] = self._has_legend(ax)
-                axis_info["spine_visibility"] = {side: bool(spine.get_visible()) for side, spine in ax.spines.items()}
+                axis_info["spine_visibility"] = {
+                    side: bool(spine.get_visible()) for side, spine in ax.spines.items()
+                }
                 axis_info["tick_density"] = int(len(ax.get_xticks()))
 
                 axis_info["plot_types"] = plot_types
@@ -1180,31 +1244,41 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             "likely_domain": "general",
             "purpose": "analysis",
             "target_audience": "general",
-            "key_metrics": []
+            "key_metrics": [],
         }
-        
+
         for ax in axes_list:
             # Inferir dominio basado en etiquetas
             x_label = ax.get("x_label", "").lower()
             y_label = ax.get("y_label", "").lower()
-            
-            if any(keyword in x_label + y_label for keyword in ["time", "date", "month", "year"]):
+
+            if any(
+                keyword in x_label + y_label
+                for keyword in ["time", "date", "month", "year"]
+            ):
                 domain_context["likely_domain"] = "temporal"
-            elif any(keyword in x_label + y_label for keyword in ["revenue", "cost", "profit", "sales", "usd", "$"]):
+            elif any(
+                keyword in x_label + y_label
+                for keyword in ["revenue", "cost", "profit", "sales", "usd", "$"]
+            ):
                 domain_context["likely_domain"] = "financial"
-            elif any(keyword in x_label + y_label for keyword in ["count", "frequency", "number"]):
+            elif any(
+                keyword in x_label + y_label
+                for keyword in ["count", "frequency", "number"]
+            ):
                 domain_context["likely_domain"] = "statistical"
-                
+
         return domain_context
 
-    def _generate_llm_description(self, axes_list: List[Dict[str, Any]], 
-                                statistics: Dict[str, Any]) -> Dict[str, Any]:
+    def _generate_llm_description(
+        self, axes_list: List[Dict[str, Any]], statistics: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Genera descripción para LLM."""
         # Si los ejes ya tienen descripción LLM, usar el primero
         for ax in axes_list:
             if "llm_description" in ax:
                 return ax["llm_description"]
-        
+
         # Fallback genérico
         return {
             "one_sentence_summary": "Data visualization showing relationships between variables.",
@@ -1212,41 +1286,44 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 "what": "Data visualization",
                 "when": "Point-in-time analysis",
                 "why": "Data analysis and pattern recognition",
-                "how": "Through visual representation of data points"
+                "how": "Through visual representation of data points",
             },
-            "key_insights": []  # Los insights vendrán de los analizadores específicos
+            "key_insights": [],  # Los insights vendrán de los analizadores específicos
         }
 
-    def _generate_llm_context(self, axes_list: List[Dict[str, Any]], 
-                            statistics: Dict[str, Any]) -> Dict[str, Any]:
+    def _generate_llm_context(
+        self, axes_list: List[Dict[str, Any]], statistics: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Genera contexto para LLM."""
         # Si los ejes ya tienen contexto LLM, usar el primero
         for ax in axes_list:
             if "llm_context" in ax:
                 return ax["llm_context"]
-        
+
         # Fallback genérico
         return {
-            "interpretation_hints": generate_unified_interpretation_hints({
-                "general_analysis": "Analyze the data patterns and relationships",
-                "pattern_recognition": "Look for trends, outliers, and significant features",
-                "statistical_analysis": "Consider the scale and context of the variables"
-            }),
+            "interpretation_hints": generate_unified_interpretation_hints(
+                {
+                    "general_analysis": "Analyze the data patterns and relationships",
+                    "pattern_recognition": "Look for trends, outliers, and significant features",
+                    "statistical_analysis": "Consider the scale and context of the variables",
+                }
+            ),
             "analysis_suggestions": [
                 "Examine statistical properties of the data",
                 "Identify key patterns and anomalies",
-                "Consider domain-specific interpretations"
+                "Consider domain-specific interpretations",
             ],
             "common_questions": [
                 "What patterns are visible in the data?",
                 "Are there any significant trends or outliers?",
-                "What insights can be drawn from this visualization?"
+                "What insights can be drawn from this visualization?",
             ],
             "related_concepts": [
                 "data analysis",
                 "statistical visualization",
-                "pattern recognition"
-            ]
+                "pattern recognition",
+            ],
         }
 
     def _generate_data_summary(self, axes_list: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -1256,7 +1333,7 @@ class MatplotlibAnalyzer(BaseAnalyzer):
         y_data = []
         x_type = None
         y_type = None
-        
+
         for ax in axes_list:
             # Para line plots - usar la estructura de line_analyzer
             if ax.get("plot_type") == "line" and "lines" in ax:
@@ -1270,17 +1347,17 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                     for line in ax["lines"]:
                         ydata = line.get("ydata", [])
                         total_data_points += len(ydata)
-                
+
                 # Siempre extraer x_data y y_data de las líneas para data_ranges y missing_values
                 for line in ax["lines"]:
                     xdata = line.get("xdata", [])
                     ydata = line.get("ydata", [])
                     x_data.extend(xdata)
                     y_data.extend(ydata)
-                
+
                 x_type = "numeric"
                 y_type = "numeric"
-            
+
             # Para scatter plots - usar la estructura de scatter_analyzer
             elif ax.get("plot_type") == "scatter" and "collections" in ax:
                 for collection in ax["collections"]:
@@ -1291,66 +1368,80 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                     y_data.extend(y_points)
                 x_type = "numeric"
                 y_type = "numeric"
-            
+
             # Para histogramas - usar la estructura de histogram_analyzer
             elif ax.get("plot_type") == "histogram" and "stats" in ax:
                 stats = ax.get("stats", {})
                 data_quality = stats.get("data_quality", {})
                 # Para histogramas, usar total_points (que es el número de bins)
                 total_data_points += data_quality.get("total_points", 0)
-                
+
                 # Extraer rangos de datos para histogramas
                 if "bins" in ax:
-                    bin_centers = [bin_data.get("bin_center", 0) for bin_data in ax["bins"]]
-                    frequencies = [bin_data.get("frequency", 0) for bin_data in ax["bins"]]
+                    bin_centers = [
+                        bin_data.get("bin_center", 0) for bin_data in ax["bins"]
+                    ]
+                    frequencies = [
+                        bin_data.get("frequency", 0) for bin_data in ax["bins"]
+                    ]
                     x_data.extend(bin_centers)
                     y_data.extend(frequencies)
-                
+
                 x_type = "numeric"
                 y_type = "numeric"
-            
+
             # Para bar plots - usar la estructura de bar_analyzer
             elif ax.get("plot_type") == "bar" and "stats" in ax:
                 stats = ax.get("stats", {})
                 data_quality = stats.get("data_quality", {})
                 total_data_points += data_quality.get("total_points", 0)
-                
+
                 # Extraer rangos de datos para bar plots
                 if "bars" in ax:
                     heights = [bar_data.get("height", 0) for bar_data in ax["bars"]]
                     # Para bar plots, usar índices como x_data y heights como y_data
                     x_data.extend(range(len(heights)))
                     y_data.extend(heights)
-                
+
                 x_type = "categorical"
                 y_type = "numeric"
-        
+
         return {
             "total_data_points": total_data_points,
             "data_ranges": {
                 "x": {
                     "min": float(min(x_data)) if x_data else None,
                     "max": float(max(x_data)) if x_data else None,
-                    "type": x_type
+                    "type": x_type,
                 },
                 "y": {
                     "min": float(min(y_data)) if y_data else None,
                     "max": float(max(y_data)) if y_data else None,
-                    "type": y_type
-                }
+                    "type": y_type,
+                },
             },
             "missing_values": {
-                "x": sum(1 for x in x_data if x is None or (isinstance(x, float) and np.isnan(x))),
-                "y": sum(1 for y in y_data if y is None or (isinstance(y, float) and np.isnan(y)))
+                "x": sum(
+                    1
+                    for x in x_data
+                    if x is None or (isinstance(x, float) and np.isnan(x))
+                ),
+                "y": sum(
+                    1
+                    for y in y_data
+                    if y is None or (isinstance(y, float) and np.isnan(y))
+                ),
             },
             "x_type": x_type,
-            "y_type": y_type
+            "y_type": y_type,
         }
 
-    def _generate_statistical_insights(self, statistics: Dict[str, Any]) -> Dict[str, Any]:
+    def _generate_statistical_insights(
+        self, statistics: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Genera insights estadísticos basados en las estadísticas."""
         insights = {}
-        
+
         # Buscar estadísticas en per_axis o directamente en los ejes
         if "per_axis" in statistics and statistics["per_axis"]:
             axis_stats = statistics["per_axis"][0]
@@ -1358,77 +1449,103 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 insights["central_tendency"] = {
                     "mean": axis_stats["mean"],
                     "median": axis_stats.get("median"),
-                    "mode": None  # Placeholder
+                    "mode": None,  # Placeholder
                 }
             if "std" in axis_stats and axis_stats["std"] is not None:
                 insights["variability"] = {
                     "standard_deviation": axis_stats["std"],
-                    "variance": axis_stats.get("std", 0) ** 2
+                    "variance": axis_stats.get("std", 0) ** 2,
                 }
-        
+
         return insights
 
-    def _generate_pattern_analysis(self, axes_list: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _generate_pattern_analysis(
+        self, axes_list: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         pattern_info = {
             "pattern_type": None,
             "confidence_score": None,
             "equation_estimate": None,
-            "shape_characteristics": {}
+            "shape_characteristics": {},
         }
-        
+
         # Buscar el primer axis con información de patterns válida
         for ax in axes_list:
             if ax.get("pattern"):
                 current_pattern = ax["pattern"]
-                
+
                 # Para line plots
                 if ax.get("plot_type") == "line":
-                    pattern_info.update({
-                        "pattern_type": current_pattern.get("pattern_type"),
-                        "confidence_score": current_pattern.get("confidence_score"),
-                        "equation_estimate": current_pattern.get("equation_estimate")
-                    })
-                    
+                    pattern_info.update(
+                        {
+                            "pattern_type": current_pattern.get("pattern_type"),
+                            "confidence_score": current_pattern.get("confidence_score"),
+                            "equation_estimate": current_pattern.get(
+                                "equation_estimate"
+                            ),
+                        }
+                    )
+
                     # Usar las shape_characteristics calculadas en el analyzer específico
-                    pattern_info["shape_characteristics"] = current_pattern.get("shape_characteristics", {})
+                    pattern_info["shape_characteristics"] = current_pattern.get(
+                        "shape_characteristics", {}
+                    )
                     return pattern_info
-                
-                # Para scatter plots  
+
+                # Para scatter plots
                 elif ax.get("plot_type") == "scatter":
-                    pattern_info.update({
-                        "pattern_type": current_pattern.get("pattern_type"),
-                        "confidence_score": current_pattern.get("confidence_score"),
-                        "equation_estimate": current_pattern.get("equation_estimate")
-                    })
-                    
+                    pattern_info.update(
+                        {
+                            "pattern_type": current_pattern.get("pattern_type"),
+                            "confidence_score": current_pattern.get("confidence_score"),
+                            "equation_estimate": current_pattern.get(
+                                "equation_estimate"
+                            ),
+                        }
+                    )
+
                     # Usar las shape_characteristics calculadas en el analyzer específico
-                    pattern_info["shape_characteristics"] = current_pattern.get("shape_characteristics", {})
+                    pattern_info["shape_characteristics"] = current_pattern.get(
+                        "shape_characteristics", {}
+                    )
                     return pattern_info
-                
+
                 # Para bar plots
                 elif ax.get("plot_type") == "bar":
-                    pattern_info.update({
-                        "pattern_type": current_pattern.get("pattern_type"),
-                        "confidence_score": current_pattern.get("confidence_score"),
-                        "equation_estimate": current_pattern.get("equation_estimate")
-                    })
-                    
+                    pattern_info.update(
+                        {
+                            "pattern_type": current_pattern.get("pattern_type"),
+                            "confidence_score": current_pattern.get("confidence_score"),
+                            "equation_estimate": current_pattern.get(
+                                "equation_estimate"
+                            ),
+                        }
+                    )
+
                     # Usar las shape_characteristics calculadas en el analyzer específico
-                    pattern_info["shape_characteristics"] = current_pattern.get("shape_characteristics", {})
+                    pattern_info["shape_characteristics"] = current_pattern.get(
+                        "shape_characteristics", {}
+                    )
                     return pattern_info
-                
+
                 # Para histogramas
                 elif ax.get("plot_type") == "histogram":
-                    pattern_info.update({
-                        "pattern_type": current_pattern.get("pattern_type"),
-                        "confidence_score": current_pattern.get("confidence_score"),
-                        "equation_estimate": current_pattern.get("equation_estimate")
-                    })
-                    
+                    pattern_info.update(
+                        {
+                            "pattern_type": current_pattern.get("pattern_type"),
+                            "confidence_score": current_pattern.get("confidence_score"),
+                            "equation_estimate": current_pattern.get(
+                                "equation_estimate"
+                            ),
+                        }
+                    )
+
                     # Usar las shape_characteristics calculadas en el analyzer específico
-                    pattern_info["shape_characteristics"] = current_pattern.get("shape_characteristics", {})
+                    pattern_info["shape_characteristics"] = current_pattern.get(
+                        "shape_characteristics", {}
+                    )
                     return pattern_info
-        
+
         # Si no se encontró información de patterns, usar valores por defecto basados en el tipo
         for ax in axes_list:
             if ax.get("plot_type") == "line":
@@ -1447,12 +1564,14 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                 pattern_info["pattern_type"] = "frequency_distribution"
                 pattern_info["confidence_score"] = 0.6
                 return pattern_info
-                
+
         return pattern_info
 
-    def _adapt_to_legacy_format(self, modern_output: Dict[str, Any], axes_list: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _adapt_to_legacy_format(
+        self, modern_output: Dict[str, Any], axes_list: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """Adapta el output moderno al formato compatible con el formatter semántico."""
-        
+
         # Crear el formato compatible para axes
         legacy_axes = []
         for ax in axes_list:
@@ -1471,77 +1590,87 @@ class MatplotlibAnalyzer(BaseAnalyzer):
                     "plot_types": [{"type": ax.get("plot_type", "unknown")}],
                     "pattern": ax.get("pattern", {}),
                     "domain_context": ax.get("domain_context", {}),
-                    "stats": ax.get("statistics", {})
+                    "stats": ax.get("statistics", {}),
                 }
-                
+
                 # Agregar curve_points basado en el tipo
                 if ax.get("plot_type") == "line" and "lines" in ax:
                     curve_points = []
                     for line in ax["lines"]:
-                        curve_points.append({
-                            "x": line.get("xdata", []),
-                            "y": line.get("ydata", []),
-                            "label": line.get("label", "")
-                        })
+                        curve_points.append(
+                            {
+                                "x": line.get("xdata", []),
+                                "y": line.get("ydata", []),
+                                "label": line.get("label", ""),
+                            }
+                        )
                     legacy_ax["curve_points"] = curve_points
-                    
+
                 elif ax.get("plot_type") == "scatter" and "collections" in ax:
                     curve_points = []
                     for collection in ax["collections"]:
-                        curve_points.append({
-                            "x": collection.get("x_data", []),
-                            "y": collection.get("y_data", []),
-                            "label": collection.get("label", "")
-                        })
+                        curve_points.append(
+                            {
+                                "x": collection.get("x_data", []),
+                                "y": collection.get("y_data", []),
+                                "label": collection.get("label", ""),
+                            }
+                        )
                     legacy_ax["curve_points"] = curve_points
-                    
+
                 elif ax.get("plot_type") == "bar" and "bars" in ax:
                     curve_points = []
                     categories = ax.get("categories", [])
                     bars = ax.get("bars", [])
                     for i, bar in enumerate(bars):
                         label = categories[i] if i < len(categories) else f"Bar_{i}"
-                        curve_points.append({
-                            "x": [bar.get("x_center", i)],
-                            "y": [bar.get("height", 0)],
-                            "label": label
-                        })
+                        curve_points.append(
+                            {
+                                "x": [bar.get("x_center", i)],
+                                "y": [bar.get("height", 0)],
+                                "label": label,
+                            }
+                        )
                     legacy_ax["curve_points"] = curve_points
-                    
+
                 elif ax.get("plot_type") == "histogram" and "bins" in ax:
                     curve_points = []
                     bins = ax.get("bins", [])
                     for bin_data in bins:
-                        curve_points.append({
-                            "x": [bin_data.get("bin_center", 0)],
-                            "y": [bin_data.get("frequency", 0)],
-                            "label": f"Bin_{bin_data.get('bin_index', 0)}"
-                        })
+                        curve_points.append(
+                            {
+                                "x": [bin_data.get("bin_center", 0)],
+                                "y": [bin_data.get("frequency", 0)],
+                                "label": f"Bin_{bin_data.get('bin_index', 0)}",
+                            }
+                        )
                     legacy_ax["curve_points"] = curve_points
-                    
+
                 else:
                     legacy_ax["curve_points"] = []
-                    
+
                 legacy_axes.append(legacy_ax)
             else:
                 # Para tipos no soportados, formato mínimo
-                legacy_axes.append({
-                    "title": "",
-                    "xlabel": "",
-                    "ylabel": "",
-                    "x_type": "unknown",
-                    "y_type": "unknown",
-                    "has_grid": False,
-                    "has_legend": False,
-                    "x_range": None,
-                    "y_range": None,
-                    "plot_types": [],
-                    "curve_points": [],
-                    "pattern": None,
-                    "domain_context": None,
-                    "stats": None
-                })
-        
+                legacy_axes.append(
+                    {
+                        "title": "",
+                        "xlabel": "",
+                        "ylabel": "",
+                        "x_type": "unknown",
+                        "y_type": "unknown",
+                        "has_grid": False,
+                        "has_legend": False,
+                        "x_range": None,
+                        "y_range": None,
+                        "plot_types": [],
+                        "curve_points": [],
+                        "pattern": None,
+                        "domain_context": None,
+                        "stats": None,
+                    }
+                )
+
         # Estructura compatible con el formatter semántico
         return {
             "figure_type": "matplotlib",
@@ -1550,7 +1679,9 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             "basic_info": modern_output["figure"],
             "axes_info": legacy_axes,
             "data_info": {
-                "plot_types": [pt for ax in legacy_axes for pt in ax.get("plot_types", [])],
+                "plot_types": [
+                    pt for ax in legacy_axes for pt in ax.get("plot_types", [])
+                ],
                 "statistics": modern_output["statistics"],
             },
             "visual_info": {"colors": modern_output["colors"]},
@@ -1562,5 +1693,5 @@ class MatplotlibAnalyzer(BaseAnalyzer):
             "llm_context": modern_output["llm_context"],
             "data_summary": modern_output["data_summary"],
             "statistical_insights": modern_output["statistical_insights"],
-            "pattern_analysis": modern_output["pattern_analysis"]
+            "pattern_analysis": modern_output["pattern_analysis"],
         }

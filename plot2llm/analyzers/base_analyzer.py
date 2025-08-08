@@ -231,7 +231,9 @@ class BaseAnalyzer(ABC):
         return None
 
     # --- Pattern Analysis Methods ---
-    def _detect_linear_pattern(self, x: np.ndarray, y: np.ndarray) -> Optional[Tuple[float, float]]:
+    def _detect_linear_pattern(
+        self, x: np.ndarray, y: np.ndarray
+    ) -> Optional[Tuple[float, float]]:
         """
         Detects a linear pattern (y = mx + b) in the data.
 
@@ -245,22 +247,22 @@ class BaseAnalyzer(ABC):
         """
         if len(x) < 2 or len(y) < 2 or len(x) != len(y):
             return None
-        
+
         # Filtrar NaN values
         valid_mask = ~(np.isnan(x) | np.isnan(y))
         x_clean = x[valid_mask]
         y_clean = y[valid_mask]
-        
+
         if len(x_clean) < 2 or len(y_clean) < 2:
             return None
-        
+
         # Verificar si hay suficiente variación en los datos para evitar RankWarning
         x_std = np.std(x_clean)
         y_std = np.std(y_clean)
-        
+
         if x_std < 1e-10 or y_std < 1e-10:  # Datos constantes o muy similares
             return None
-            
+
         try:
             # Fit a first-degree polynomial (a line)
             coeffs = np.polyfit(x_clean, y_clean, 1)
@@ -271,7 +273,9 @@ class BaseAnalyzer(ABC):
             return None
         return None
 
-    def _detect_polynomial_pattern(self, x: np.ndarray, y: np.ndarray, max_degree: int = 4) -> Optional[np.ndarray]:
+    def _detect_polynomial_pattern(
+        self, x: np.ndarray, y: np.ndarray, max_degree: int = 4
+    ) -> Optional[np.ndarray]:
         """
         Detects a polynomial pattern (y = a*x^n + b*x^(n-1) + ... + z) in the data.
 
@@ -285,22 +289,22 @@ class BaseAnalyzer(ABC):
         """
         if len(x) < max_degree + 1 or len(y) < max_degree + 1 or len(x) != len(y):
             return None
-        
+
         # Filtrar NaN values
         valid_mask = ~(np.isnan(x) | np.isnan(y))
         x_clean = x[valid_mask]
         y_clean = y[valid_mask]
-        
+
         if len(x_clean) < max_degree + 1 or len(y_clean) < max_degree + 1:
             return None
-        
+
         # Verificar si hay suficiente variación en los datos para evitar RankWarning
         x_std = np.std(x_clean)
         y_std = np.std(y_clean)
-        
+
         if x_std < 1e-10 or y_std < 1e-10:  # Datos constantes o muy similares
             return None
-            
+
         try:
             best_coeffs = None
             best_error = np.inf
@@ -317,28 +321,30 @@ class BaseAnalyzer(ABC):
             return None
         return None
 
-    def _detect_exponential_pattern(self, x: np.ndarray, y: np.ndarray) -> Optional[Tuple[float, float]]:
+    def _detect_exponential_pattern(
+        self, x: np.ndarray, y: np.ndarray
+    ) -> Optional[Tuple[float, float]]:
         """
         Detects an exponential pattern (y = a * exp(b*x)).
         """
         if len(x) < 2 or len(y) < 2 or len(x) != len(y) or np.any(y <= 0):
             return None
-        
+
         # Filtrar NaN values
         valid_mask = ~(np.isnan(x) | np.isnan(y))
         x_clean = x[valid_mask]
         y_clean = y[valid_mask]
-        
+
         if len(x_clean) < 2 or len(y_clean) < 2 or np.any(y_clean <= 0):
             return None
-        
+
         # Verificar si hay suficiente variación en los datos para evitar RankWarning
         x_std = np.std(x_clean)
         y_std = np.std(y_clean)
-        
+
         if x_std < 1e-10 or y_std < 1e-10:  # Datos constantes o muy similares
             return None
-            
+
         try:
             # y = a * exp(b*x) => log(y) = log(a) + b*x
             log_y = np.log(y_clean)
@@ -352,28 +358,30 @@ class BaseAnalyzer(ABC):
             return None
         return None
 
-    def _detect_logarithmic_pattern(self, x: np.ndarray, y: np.ndarray) -> Optional[Tuple[float, float]]:
+    def _detect_logarithmic_pattern(
+        self, x: np.ndarray, y: np.ndarray
+    ) -> Optional[Tuple[float, float]]:
         """
         Detects a logarithmic pattern (y = a * log(x) + b).
         """
         if len(x) < 2 or len(y) < 2 or len(x) != len(y) or np.any(x <= 0):
             return None
-        
+
         # Filtrar NaN values
         valid_mask = ~(np.isnan(x) | np.isnan(y))
         x_clean = x[valid_mask]
         y_clean = y[valid_mask]
-        
+
         if len(x_clean) < 2 or len(y_clean) < 2 or np.any(x_clean <= 0):
             return None
-        
+
         # Verificar si hay suficiente variación en los datos para evitar RankWarning
         x_std = np.std(x_clean)
         y_std = np.std(y_clean)
-        
+
         if x_std < 1e-10 or y_std < 1e-10:  # Datos constantes o muy similares
             return None
-            
+
         try:
             # y = a * log(x) + b is a linear relationship between y and log(x)
             log_x = np.log(x_clean)
@@ -384,7 +392,9 @@ class BaseAnalyzer(ABC):
             return None
         return None
 
-    def _detect_sinusoidal_pattern(self, x: np.ndarray, y: np.ndarray) -> Optional[Tuple[float, float, float, float]]:
+    def _detect_sinusoidal_pattern(
+        self, x: np.ndarray, y: np.ndarray
+    ) -> Optional[Tuple[float, float, float, float]]:
         """
         Detects a sinusoidal pattern (y = a*sin(b*x + c) + d).
         """
@@ -397,7 +407,12 @@ class BaseAnalyzer(ABC):
                 return a * np.sin(b * x + c) + d
 
             # Provide initial guesses for the parameters
-            guess_freq = (2 * np.pi) / (x[np.argmax(np.abs(np.fft.fftfreq(len(x))))] * (x[1] - x[0])) if len(x) > 1 else 1
+            guess_freq = (
+                (2 * np.pi)
+                / (x[np.argmax(np.abs(np.fft.fftfreq(len(x))))] * (x[1] - x[0]))
+                if len(x) > 1
+                else 1
+            )
             guess_amp = np.std(y) * 2**0.5
             guess_offset = np.mean(y)
             guess = [guess_amp, guess_freq, 0, guess_offset]
@@ -405,27 +420,31 @@ class BaseAnalyzer(ABC):
             params, _ = curve_fit(sin_func, x, y, p0=guess, maxfev=10000)
             return tuple(params)
         except ImportError:
-            logger.warning("Scipy not installed, skipping sinusoidal pattern detection.")
+            logger.warning(
+                "Scipy not installed, skipping sinusoidal pattern detection."
+            )
             return None
         except (RuntimeError, ValueError) as e:
             logger.warning(f"Could not fit sinusoidal pattern: {e}")
             return None
         return None
 
-    def _calculate_confidence_score(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    def _calculate_confidence_score(
+        self, y_true: np.ndarray, y_pred: np.ndarray
+    ) -> float:
         """
         Calculates the confidence score (R-squared) for a model's predictions.
         """
         if len(y_true) == 0 or len(y_pred) == 0 or len(y_true) != len(y_pred):
             return 0.0
-        
+
         ss_res = np.sum((y_true - y_pred) ** 2)
         ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
-        
+
         if ss_tot == 0:
             # Handle the case where all y values are the same
             return 1.0 if ss_res == 0 else 0.0
-            
+
         r2 = 1 - (ss_res / ss_tot)
         return max(0.0, r2)  # R-squared can be negative, clip to 0
 
@@ -435,11 +454,13 @@ class BaseAnalyzer(ABC):
         """
         if n <= 0 or sse < 0 or k <= 0:
             return np.inf
-        
+
         aic = n * np.log(sse / n) + 2 * k
         return aic
-        
-    def _analyze_patterns(self, x: np.ndarray, y: np.ndarray) -> Optional[Dict[str, Any]]:
+
+    def _analyze_patterns(
+        self, x: np.ndarray, y: np.ndarray
+    ) -> Optional[Dict[str, Any]]:
         """
         Analyzes the data for various patterns and returns the best fit based on AIC.
         """
@@ -456,7 +477,15 @@ class BaseAnalyzer(ABC):
             score = self._calculate_confidence_score(y, y_pred)
             sse = np.sum((y - y_pred) ** 2)
             aic = self._calculate_aic(len(y), sse, 2)
-            patterns.append({"type": "linear", "coeffs": (m, b), "score": score, "aic": aic, "equation": f"y = {m:.2f}x + {b:.2f}"})
+            patterns.append(
+                {
+                    "type": "linear",
+                    "coeffs": (m, b),
+                    "score": score,
+                    "aic": aic,
+                    "equation": f"y = {m:.2f}x + {b:.2f}",
+                }
+            )
 
         # Polynomial
         for degree in range(2, 5):
@@ -466,7 +495,15 @@ class BaseAnalyzer(ABC):
             score = self._calculate_confidence_score(y, y_pred)
             sse = np.sum((y - y_pred) ** 2)
             aic = self._calculate_aic(len(y), sse, degree + 1)
-            patterns.append({"type": f"polynomial (deg {degree})", "coeffs": poly_coeffs, "score": score, "aic": aic, "equation": str(model)})
+            patterns.append(
+                {
+                    "type": f"polynomial (deg {degree})",
+                    "coeffs": poly_coeffs,
+                    "score": score,
+                    "aic": aic,
+                    "equation": str(model),
+                }
+            )
 
         # Exponential
         exp_coeffs = self._detect_exponential_pattern(x, y)
@@ -476,7 +513,15 @@ class BaseAnalyzer(ABC):
             score = self._calculate_confidence_score(y, y_pred)
             sse = np.sum((y - y_pred) ** 2)
             aic = self._calculate_aic(len(y), sse, 2)
-            patterns.append({"type": "exponential", "coeffs": (a, b), "score": score, "aic": aic, "equation": f"y = {a:.2f} * exp({b:.2f}x)"})
+            patterns.append(
+                {
+                    "type": "exponential",
+                    "coeffs": (a, b),
+                    "score": score,
+                    "aic": aic,
+                    "equation": f"y = {a:.2f} * exp({b:.2f}x)",
+                }
+            )
 
         # Logarithmic
         log_coeffs = self._detect_logarithmic_pattern(x, y)
@@ -486,8 +531,16 @@ class BaseAnalyzer(ABC):
             score = self._calculate_confidence_score(y, y_pred)
             sse = np.sum((y - y_pred) ** 2)
             aic = self._calculate_aic(len(y), sse, 2)
-            patterns.append({"type": "logarithmic", "coeffs": (a, b), "score": score, "aic": aic, "equation": f"y = {a:.2f} * log(x) + {b:.2f}"})
-            
+            patterns.append(
+                {
+                    "type": "logarithmic",
+                    "coeffs": (a, b),
+                    "score": score,
+                    "aic": aic,
+                    "equation": f"y = {a:.2f} * log(x) + {b:.2f}",
+                }
+            )
+
         # Sinusoidal
         sin_coeffs = self._detect_sinusoidal_pattern(x, y)
         if sin_coeffs:
@@ -496,7 +549,15 @@ class BaseAnalyzer(ABC):
             score = self._calculate_confidence_score(y, y_pred)
             sse = np.sum((y - y_pred) ** 2)
             aic = self._calculate_aic(len(y), sse, 4)
-            patterns.append({"type": "sinusoidal", "coeffs": (a, b, c, d), "score": score, "aic": aic, "equation": f"y = {a:.2f}sin({b:.2f}x + {c:.2f}) + {d:.2f}"})
+            patterns.append(
+                {
+                    "type": "sinusoidal",
+                    "coeffs": (a, b, c, d),
+                    "score": score,
+                    "aic": aic,
+                    "equation": f"y = {a:.2f}sin({b:.2f}x + {c:.2f}) + {d:.2f}",
+                }
+            )
 
         if not patterns:
             return None
@@ -507,16 +568,16 @@ class BaseAnalyzer(ABC):
             "pattern_type": best_pattern["type"],
             "equation_estimate": best_pattern["equation"],
             "coefficients": best_pattern["coeffs"],
-            "confidence_score": best_pattern["score"]
+            "confidence_score": best_pattern["score"],
         }
 
     def _analyze_shape_characteristics(self, y: np.ndarray) -> Dict[str, str]:
         """
         Analyzes the shape characteristics of the data.
-        
+
         Args:
             y: Array of y-values to analyze
-            
+
         Returns:
             Dictionary with shape characteristics:
             - monotonicity: "increasing", "decreasing", or "mixed"
@@ -536,7 +597,11 @@ class BaseAnalyzer(ABC):
         else:
             # Contar cambios de dirección significativos
             direction_changes = np.sum(np.diff(np.sign(diffs)) != 0)
-            monotonicity = "mixed" if direction_changes > 1 else ("increasing" if np.mean(diffs) > 0 else "decreasing")
+            monotonicity = (
+                "mixed"
+                if direction_changes > 1
+                else ("increasing" if np.mean(diffs) > 0 else "decreasing")
+            )
 
         # Smoothness
         # Calcular la variación de la segunda derivada
@@ -560,41 +625,53 @@ class BaseAnalyzer(ABC):
         # Detectar saltos grandes relativos a la variación local
         diffs = np.abs(np.diff(y))
         median_diff = np.median(diffs)
-        continuity = "continuous" if np.all(diffs < 5 * median_diff) else "discontinuous"
+        continuity = (
+            "continuous" if np.all(diffs < 5 * median_diff) else "discontinuous"
+        )
 
         return {
             "monotonicity": monotonicity,
             "smoothness": smoothness,
             "symmetry": symmetry,
-            "continuity": continuity
+            "continuity": continuity,
         }
 
-    def _infer_domain(self, title: str, xlabel: str, ylabel: str, pattern_type: Optional[str]) -> str:
+    def _infer_domain(
+        self, title: str, xlabel: str, ylabel: str, pattern_type: Optional[str]
+    ) -> str:
         """
         Infers the likely domain of the plot based on keywords and patterns.
         """
         text_corpus = (title + " " + xlabel + " " + ylabel).lower()
-        
-        domain_scores = {domain: 0 for domain in DOMAIN_KEYWORDS}
+
+        domain_scores = dict.fromkeys(DOMAIN_KEYWORDS, 0)
 
         # Score based on keywords
         for domain, keywords in DOMAIN_KEYWORDS.items():
             for keyword in keywords:
                 if keyword in text_corpus:
-                    domain_scores[domain] += 2 # Higher weight for keywords
-        
+                    domain_scores[domain] += 2  # Higher weight for keywords
+
         # Boost score based on pattern
-        if pattern_type in ["linear", "polynomial", "exponential", "logarithmic", "sinusoidal"]:
-            domain_scores["mathematics"] += 1 # Lower weight for pattern
+        if pattern_type in [
+            "linear",
+            "polynomial",
+            "exponential",
+            "logarithmic",
+            "sinusoidal",
+        ]:
+            domain_scores["mathematics"] += 1  # Lower weight for pattern
 
         # Determine the best domain
         if not any(domain_scores.values()):
             return "general"
-            
+
         best_domain = max(domain_scores, key=domain_scores.get)
         return best_domain
 
-    def _infer_purpose(self, pattern_info: Optional[Dict[str, Any]], num_series: int, x_type: str) -> str:
+    def _infer_purpose(
+        self, pattern_info: Optional[Dict[str, Any]], num_series: int, x_type: str
+    ) -> str:
         """
         Infers the likely purpose of the plot.
         """
@@ -604,10 +681,12 @@ class BaseAnalyzer(ABC):
             return "Comparison"
         if x_type == "date" or x_type == "period":
             return "Monitoring"
-        
+
         return "Analysis"
 
-    def _assess_complexity_level(self, pattern_info: Optional[Dict[str, Any]], num_variables: int) -> str:
+    def _assess_complexity_level(
+        self, pattern_info: Optional[Dict[str, Any]], num_variables: int
+    ) -> str:
         """
         Assesses the complexity level of the plot.
         """
@@ -619,40 +698,42 @@ class BaseAnalyzer(ABC):
                 return "Advanced"
             if "polynomial" in pattern_type:
                 return "Intermediate"
-        
+
         if num_variables > 2:
             return "Intermediate"
 
         return "Basic"
 
     # --- Statistical Insights Methods ---
-    def _detect_trend(self, y: np.ndarray, x: Optional[np.ndarray] = None) -> Optional[str]:
+    def _detect_trend(
+        self, y: np.ndarray, x: Optional[np.ndarray] = None
+    ) -> Optional[str]:
         """
         Detects the overall trend in a series of data.
         """
         if len(y) < 3:
             return None
-        
+
         # Filtrar NaN values
         valid_mask = ~np.isnan(y)
         y_clean = y[valid_mask]
-        
+
         if len(y_clean) < 3:
             return None
-        
+
         if x is None:
             x_clean = np.arange(len(y_clean))
         else:
             # Filtrar x también si se proporciona
             x_clean = x[valid_mask]
-        
+
         # Verificar si hay suficiente variación en los datos para evitar RankWarning
         x_std = np.std(x_clean)
         y_std = np.std(y_clean)
-        
+
         if x_std < 1e-10 or y_std < 1e-10:  # Datos constantes o muy similares
             return "stable"
-        
+
         try:
             coeffs = np.polyfit(x_clean, y_clean, 1)
             slope = coeffs[0]
@@ -682,10 +763,18 @@ class BaseAnalyzer(ABC):
         """
         if len(data) < 5:
             return {}
-            
-        skewness = np.mean(((data - np.mean(data)) / np.std(data)) ** 3) if np.std(data) > 0 else 0
-        kurtosis = np.mean(((data - np.mean(data)) / np.std(data)) ** 4) - 3 if np.std(data) > 0 else 0
-        
+
+        skewness = (
+            np.mean(((data - np.mean(data)) / np.std(data)) ** 3)
+            if np.std(data) > 0
+            else 0
+        )
+        kurtosis = (
+            np.mean(((data - np.mean(data)) / np.std(data)) ** 4) - 3
+            if np.std(data) > 0
+            else 0
+        )
+
         # Normality test (Shapiro-Wilk)
         normality_test = None
         if len(data) >= 3:
@@ -694,7 +783,7 @@ class BaseAnalyzer(ABC):
                 normality_test = {
                     "test": "shapiro-wilk",
                     "statistic": stat,
-                    "p_value": p_value
+                    "p_value": p_value,
                 }
             except ImportError:
                 logger.warning("Scipy is not installed, skipping normality test.")
@@ -704,7 +793,7 @@ class BaseAnalyzer(ABC):
         return {
             "skewness": skewness,
             "kurtosis": kurtosis,
-            "normality_test": normality_test
+            "normality_test": normality_test,
         }
 
     def _detect_outliers(self, data: np.ndarray) -> List[float]:
@@ -713,16 +802,18 @@ class BaseAnalyzer(ABC):
         """
         if len(data) < 5:
             return []
-            
+
         q1, q3 = np.percentile(data, [25, 75])
         iqr = q3 - q1
         lower_bound = q1 - (1.5 * iqr)
         upper_bound = q3 + (1.5 * iqr)
-        
+
         outliers = [d for d in data if d < lower_bound or d > upper_bound]
         return outliers
 
-    def _calculate_correlations(self, x: np.ndarray, y: np.ndarray) -> Optional[Dict[str, float]]:
+    def _calculate_correlations(
+        self, x: np.ndarray, y: np.ndarray
+    ) -> Optional[Dict[str, float]]:
         """
         Calculates the Pearson correlation between two variables.
         """
@@ -741,7 +832,7 @@ class BaseAnalyzer(ABC):
             return None
         try:
             # Try to convert all to float
-            floats = [float(v) for v in values]
+            _ = [float(v) for v in values]
             return "numeric"
         except Exception:
             # If all are strings but not numbers, treat as category
@@ -751,7 +842,9 @@ class BaseAnalyzer(ABC):
 
     def _detect_temporal_type(self, values):
         """Detect if values are dates, timestamps, or temporal sequences."""
-        import re, datetime
+        import datetime
+        import re
+
         if not values:
             return None
         # Check for datetime strings
@@ -772,15 +865,15 @@ class BaseAnalyzer(ABC):
             return "timestamp"
         # Check for monotonic sequence (temporal index)
         if all(isinstance(v, (int, float)) for v in values):
-            diffs = [values[i+1] - values[i] for i in range(len(values)-1)]
+            diffs = [values[i + 1] - values[i] for i in range(len(values) - 1)]
             if all(d > 0 for d in diffs):
                 return "temporal_sequence"
         return None
 
     def _validate_type_consistency(self, axes):
         """Check that x_type and y_type are consistent across all axes."""
-        x_types = set(ax.get("x_type") for ax in axes if ax.get("x_type"))
-        y_types = set(ax.get("y_type") for ax in axes if ax.get("y_type"))
+        x_types = {ax.get("x_type") for ax in axes if ax.get("x_type")}
+        y_types = {ax.get("y_type") for ax in axes if ax.get("y_type")}
         return {
             "x_type_consistent": len(x_types) <= 1,
             "y_type_consistent": len(y_types) <= 1,
@@ -793,7 +886,11 @@ class BaseAnalyzer(ABC):
         x_sem = None
         y_sem = None
         # X axis
-        if self._detect_temporal_type(x_values) in ["date", "timestamp", "temporal_sequence"]:
+        if self._detect_temporal_type(x_values) in [
+            "date",
+            "timestamp",
+            "temporal_sequence",
+        ]:
             x_sem = "temporal"
         elif self._detect_numeric_type(x_values) == "numeric":
             x_sem = "continuous"

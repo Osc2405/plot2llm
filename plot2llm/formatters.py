@@ -5,6 +5,7 @@ Formatters for converting analysis results to different output formats.
 from typing import Any, Dict
 
 import numpy as np
+
 from plot2llm.sections.section_factory import get_section_builder
 
 
@@ -70,11 +71,11 @@ class TextFormatter:
             # Handle both modern (plot_type) and legacy (plot_types) formats
             plot_type = ax.get("plot_type")
             plot_types = ax.get("plot_types", [])
-            
+
             # If we have the new format (plot_type), add it to the set
             if plot_type:
                 plot_types_found.add(plot_type.lower())
-            
+
             # Also check the legacy format
             for pt in plot_types:
                 if pt.get("type"):
@@ -84,7 +85,7 @@ class TextFormatter:
             xlabel = ax.get("xlabel") or ax.get("x_label") or ""
             ylabel = ax.get("ylabel") or ax.get("y_label") or ""
             title = ax.get("title") or ""
-            
+
             # Combine all text fields for analysis
             all_text_fields.extend([xlabel, ylabel, title])
 
@@ -173,7 +174,8 @@ class TextFormatter:
 
             lines.append(
                 f"Axis {i}: {title_info}, plot types: [{plot_types_str}]\n"
-                f"  X-axis: {x_label} (type: {x_type})")
+                f"  X-axis: {x_label} (type: {x_type})"
+            )
             lines.append(f"  Y-axis: {y_label} (type: {y_type})")
             lines.append(
                 f"  Ranges: x={ax_info.get('x_range')}, y={ax_info.get('y_range')}\n"
@@ -296,13 +298,16 @@ def _remove_nulls(obj):
     else:
         return obj
 
+
 class SemanticFormatter:
     """
     Formats the analysis dictionary into a semantic structure optimized for LLM understanding.
     Returns the analysis dictionary in a standardized format.
     """
 
-    def format(self, analysis: Dict[str, Any], include_curve_points: bool = False, **kwargs) -> Dict[str, Any]:
+    def format(
+        self, analysis: Dict[str, Any], include_curve_points: bool = False, **kwargs
+    ) -> Dict[str, Any]:
         if not isinstance(analysis, dict):
             raise ValueError("Invalid plot data: input must be a dict")
 
@@ -310,15 +315,25 @@ class SemanticFormatter:
 
         # Modular section builders
         section_names = [
-            "metadata", "axes", "layout", "data_summary", "statistical_insights",
-            "pattern_analysis", "visual_elements", "domain_context", "llm_description", "llm_context"
+            "metadata",
+            "axes",
+            "layout",
+            "data_summary",
+            "statistical_insights",
+            "pattern_analysis",
+            "visual_elements",
+            "domain_context",
+            "llm_description",
+            "llm_context",
         ]
         semantic_output = {}
         for section in section_names:
             builder = get_section_builder(section)
             if builder:
                 if section == "axes":
-                    semantic_output[section] = builder(semantic_analysis, include_curve_points=include_curve_points)
+                    semantic_output[section] = builder(
+                        semantic_analysis, include_curve_points=include_curve_points
+                    )
                 else:
                     semantic_output[section] = builder(semantic_analysis)
 
@@ -327,7 +342,7 @@ class SemanticFormatter:
         for key in ["data_info", "visual_info", "plot_description", "statistics"]:
             if key in semantic_output:
                 del semantic_output[key]
-                
+
         return semantic_output
 
     def _generate_llm_description(self, analysis_result: Dict) -> Dict:
@@ -344,13 +359,13 @@ class SemanticFormatter:
         shape = primary_axis.get("shape", {})
         domain_context = primary_axis.get("domain_context", {})
         stats = primary_axis.get("stats", {})
-        
+
         # --- One Sentence Summary ---
         pattern_type = pattern.get("pattern_type", "unknown")
         confidence = pattern.get("confidence_score", 0)
         domain = domain_context.get("likely_domain", "")
         purpose = domain_context.get("purpose", "")
-        
+
         summary_parts = []
         # Add pattern description
         if pattern_type != "unknown" and confidence > 0.7:
@@ -361,9 +376,9 @@ class SemanticFormatter:
         # Add purpose if available
         if purpose:
             summary_parts.append(f"used for {purpose}")
-            
+
         one_sentence_summary = f"This visualization shows {' '.join(summary_parts)}."
-        
+
         # --- Structured Analysis ---
         what_parts = []
         if pattern_type != "unknown":
@@ -371,11 +386,15 @@ class SemanticFormatter:
         if domain:
             what_parts.append(f"in {domain} context")
         what = " ".join(what_parts) if what_parts else "Data visualization"
-        
+
         # Detect temporal component
         x_semantics = primary_axis.get("x_semantics", "")
-        when = "Time-series analysis" if x_semantics == "time" else "Point-in-time analysis"
-        
+        when = (
+            "Time-series analysis"
+            if x_semantics == "time"
+            else "Point-in-time analysis"
+        )
+
         # Infer purpose
         why_parts = []
         if purpose:
@@ -383,17 +402,17 @@ class SemanticFormatter:
         if pattern_type != "unknown" and confidence > 0.8:
             why_parts.append(f"showing clear {pattern_type} behavior")
         why = " ".join(why_parts) if why_parts else "Data analysis"
-        
+
         # --- Key Insights ---
         key_insights = []
-        
+
         # Pattern insights
         if pattern_type != "unknown" and confidence > 0.7:
             equation = pattern.get("equation_estimate", "")
             if equation:
                 key_insights.append(f"Pattern follows {equation}")
             key_insights.append(f"Pattern confidence: {confidence:.2f}")
-        
+
         # Correlation insights
         correlations = stats.get("correlations", [])
         if correlations:
@@ -403,25 +422,25 @@ class SemanticFormatter:
                         f"Strong {'positive' if corr['value'] > 0 else 'negative'} "
                         f"correlation (r={corr['value']:.2f})"
                     )
-        
+
         # Shape insights
         monotonicity = shape.get("monotonicity")
         if monotonicity:
             key_insights.append(f"Data shows {monotonicity} trend")
-        
+
         # Outlier insights
         outliers = stats.get("outliers", {})
         if outliers.get("detected", False):
             count = outliers.get("count", 0)
             key_insights.append(f"Found {count} potential outliers")
-        
+
         return {
             "one_sentence_summary": one_sentence_summary,
             "structured_analysis": {
                 "what": what,
                 "when": when,
                 "why": why,
-                "how": "Through data visualization and statistical analysis"
+                "how": "Through data visualization and statistical analysis",
             },
-            "key_insights": key_insights
+            "key_insights": key_insights,
         }

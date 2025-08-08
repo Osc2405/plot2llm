@@ -53,13 +53,13 @@ def convert(figure, format="text", **kwargs):
     Example:
         >>> import matplotlib.pyplot as plt
         >>> import plot2llm
-        >>> 
+        >>>
         >>> fig, ax = plt.subplots()
         >>> ax.plot([1, 2, 3], [1, 4, 2])
-        >>> 
+        >>>
         >>> # Basic conversion
         >>> result = plot2llm.convert(fig)
-        >>> 
+        >>>
         >>> # Conversion with enhanced statistical analysis
         >>> result = plot2llm.convert(
         ...     fig,

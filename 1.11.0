@@ -1,0 +1,25 @@
+Collecting numpy
+  Downloading numpy-2.3.2-cp313-cp313-win_amd64.whl.metadata (60 kB)
+Collecting pandas
+  Using cached pandas-2.3.1-cp313-cp313-win_amd64.whl.metadata (19 kB)
+Collecting webcolors
+  Using cached webcolors-24.11.1-py3-none-any.whl.metadata (2.2 kB)
+Collecting python-dateutil>=2.8.2 (from pandas)
+  Using cached python_dateutil-2.9.0.post0-py2.py3-none-any.whl.metadata (8.4 kB)
+Collecting pytz>=2020.1 (from pandas)
+  Using cached pytz-2025.2-py2.py3-none-any.whl.metadata (22 kB)
+Collecting tzdata>=2022.7 (from pandas)
+  Using cached tzdata-2025.2-py2.py3-none-any.whl.metadata (1.4 kB)
+Collecting six>=1.5 (from python-dateutil>=2.8.2->pandas)
+  Using cached six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+Downloading numpy-2.3.2-cp313-cp313-win_amd64.whl (12.8 MB)
+   ---------------------------------------- 12.8/12.8 MB 1.4 MB/s eta 0:00:00
+Using cached pandas-2.3.1-cp313-cp313-win_amd64.whl (11.0 MB)
+Using cached webcolors-24.11.1-py3-none-any.whl (14 kB)
+Using cached python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+Using cached pytz-2025.2-py2.py3-none-any.whl (509 kB)
+Using cached six-1.17.0-py2.py3-none-any.whl (11 kB)
+Using cached tzdata-2025.2-py2.py3-none-any.whl (347 kB)
+Installing collected packages: pytz, webcolors, tzdata, six, numpy, python-dateutil, pandas
+
+Successfully installed numpy-2.3.2 pandas-2.3.1 python-dateutil-2.9.0.post0 pytz-2025.2 six-1.17.0 tzdata-2025.2 webcolors-24.11.1

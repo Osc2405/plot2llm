@@ -11,13 +11,12 @@ import matplotlib.figure as mpl_figure
 import numpy as np
 from matplotlib.colors import to_hex
 
-from plot2llm.utils import serialize_axis_values
-from plot2llm.analyzers.line_analyzer import analyze as analyze_line
-from plot2llm.analyzers.scatter_analyzer import analyze as analyze_scatter
 from plot2llm.analyzers.bar_analyzer import analyze as analyze_bar
 from plot2llm.analyzers.histogram_analyzer import analyze as analyze_histogram
-from plot2llm.utils import generate_unified_interpretation_hints
+from plot2llm.analyzers.line_analyzer import analyze as analyze_line
+from plot2llm.analyzers.scatter_analyzer import analyze as analyze_scatter
 from plot2llm.sections.data_summary_section import build_data_summary_section
+from plot2llm.utils import generate_unified_interpretation_hints, serialize_axis_values
 
 from .base_analyzer import BaseAnalyzer
 
@@ -82,7 +81,9 @@ class SeabornAnalyzer(BaseAnalyzer):
                 plot_type = plot_types[0] if plot_types else None
 
                 # Detectar tipos de eje
-                x_type, y_type, x_labels, y_labels = self._detect_axis_type_and_labels(ax)
+                x_type, y_type, x_labels, y_labels = self._detect_axis_type_and_labels(
+                    ax
+                )
 
                 # Lógica de detección migrada desde matplotlib_analyzer.py
                 # Priorizar histogramas sobre bar plots (misma lógica que Matplotlib)
@@ -92,19 +93,22 @@ class SeabornAnalyzer(BaseAnalyzer):
                     axes_section = analyze_bar(ax, x_type, y_type)
                 elif plot_type == "line_plot" or (hasattr(ax, "lines") and ax.lines):
                     axes_section = analyze_line(ax, x_type, y_type)
-                elif plot_type == "scatter_plot" or (hasattr(ax, "collections") and ax.collections and 
-                     any(hasattr(c, "get_offsets") for c in ax.collections)):
+                elif plot_type == "scatter_plot" or (
+                    hasattr(ax, "collections")
+                    and ax.collections
+                    and any(hasattr(c, "get_offsets") for c in ax.collections)
+                ):
                     axes_section = analyze_scatter(ax, x_type, y_type)
                 else:
                     axes_section = {
                         "plot_type": plot_type or "unknown",
-                        "message": f"El tipo de gráfico '{plot_type or 'unknown'}' está pendiente de implementación profesional."
+                        "message": f"El tipo de gráfico '{plot_type or 'unknown'}' está pendiente de implementación profesional.",
                     }
-                
+
                 # Añadir los tipos de ejes detectados al resultado del analizador específico
                 axes_section["x_type"] = x_type
                 axes_section["y_type"] = y_type
-                
+
                 # Añadir información adicional del eje que no está en los analizadores específicos
                 # Solo añadir campos que no existan ya en el resultado del analizador específico
                 if "title" not in axes_section:
@@ -118,14 +122,22 @@ class SeabornAnalyzer(BaseAnalyzer):
                 if "y_range" not in axes_section:
                     axes_section["y_range"] = [float(y) for y in ax.get_ylim()]
                 if "has_grid" not in axes_section:
-                    axes_section["has_grid"] = bool(any(line.get_visible() for line in ax.get_xgridlines() + ax.get_ygridlines()))
+                    axes_section["has_grid"] = bool(
+                        any(
+                            line.get_visible()
+                            for line in ax.get_xgridlines() + ax.get_ygridlines()
+                        )
+                    )
                 if "has_legend" not in axes_section:
                     axes_section["has_legend"] = bool(ax.get_legend() is not None)
                 if "spine_visibility" not in axes_section:
-                    axes_section["spine_visibility"] = {side: bool(spine.get_visible()) for side, spine in ax.spines.items()}
+                    axes_section["spine_visibility"] = {
+                        side: bool(spine.get_visible())
+                        for side, spine in ax.spines.items()
+                    }
                 if "tick_density" not in axes_section:
                     axes_section["tick_density"] = int(len(ax.get_xticks()))
-                
+
                 # Convertir plot_type a plot_types para compatibilidad
                 if "plot_type" in axes_section:
                     axes_section["plot_types"] = [{"type": axes_section["plot_type"]}]
@@ -133,23 +145,39 @@ class SeabornAnalyzer(BaseAnalyzer):
                 axes_list.append(axes_section)
 
             colors = self._get_colors(figure) if include_colors else []
-            statistics = self._get_statistics(figure) if include_statistics else {"per_curve": [], "per_axis": []}
+            statistics = (
+                self._get_statistics(figure)
+                if include_statistics
+                else {"per_curve": [], "per_axis": []}
+            )
             layout_info = {
                 "shape": [len(real_axes), 1] if len(real_axes) > 0 else [1, 1],
                 "size": len(real_axes),
                 "nrows": len(real_axes) if len(real_axes) > 0 else 1,
-                "ncols": 1
+                "ncols": 1,
             }
             visual_elements = {
                 "lines": [[str(line) for line in ax.lines] for ax in real_axes],
-                "axes_styling": [{
-                    "has_grid": bool(any(line.get_visible() for line in ax.get_xgridlines() + ax.get_ygridlines())),
-                    "spine_visibility": {side: bool(spine.get_visible()) 
-                                      for side, spine in ax.spines.items()},
-                    "tick_density": int(len(ax.get_xticks()))
-                } for ax in real_axes],
+                "axes_styling": [
+                    {
+                        "has_grid": bool(
+                            any(
+                                line.get_visible()
+                                for line in ax.get_xgridlines() + ax.get_ygridlines()
+                            )
+                        ),
+                        "spine_visibility": {
+                            side: bool(spine.get_visible())
+                            for side, spine in ax.spines.items()
+                        },
+                        "tick_density": int(len(ax.get_xticks())),
+                    }
+                    for ax in real_axes
+                ],
                 "primary_colors": [str(color["hex"]) for color in colors],
-                "accessibility_score": float(self._calculate_accessibility_score(colors))
+                "accessibility_score": float(
+                    self._calculate_accessibility_score(colors)
+                ),
             }
             domain_context = self._infer_domain_context(axes_list)
             llm_description = self._generate_llm_description(axes_list, statistics)
@@ -168,17 +196,20 @@ class SeabornAnalyzer(BaseAnalyzer):
                 "llm_description": llm_description,
                 "llm_context": llm_context,
                 "statistical_insights": statistical_insights,
-                "pattern_analysis": pattern_analysis
+                "pattern_analysis": pattern_analysis,
             }
-            
+
             # Data summary - construir después de tener el resultado completo
             modern_output["data_summary"] = build_data_summary_section(modern_output)
-            
+
             # Return modern format directly for consistency
             return modern_output
         except Exception as e:
             import logging
-            logging.getLogger(__name__).error(f"Error analyzing seaborn figure: {str(e)}")
+
+            logging.getLogger(__name__).error(
+                f"Error analyzing seaborn figure: {str(e)}"
+            )
             raise
 
     def _get_figure_type(self, figure: Any) -> str:
@@ -616,7 +647,7 @@ class SeabornAnalyzer(BaseAnalyzer):
                         sample_size = max(2, min(len(y_data) // 10, len(y_data)))
                         if sample_size > 1:
                             local_var = float(np.nanvar(y_data[:sample_size]))
-                    
+
                     axis_stats.update(
                         {
                             "mean": float(np.nanmean(y_data)),
@@ -1170,12 +1201,16 @@ class SeabornAnalyzer(BaseAnalyzer):
                     x_type = self.CATEGORY
                     x_labels = non_empty_x_labels
                 # If all labels are numeric, check if they represent continuous data
-                elif all(self._is_numeric_string(label) for label in non_empty_x_labels):
+                elif all(
+                    self._is_numeric_string(label) for label in non_empty_x_labels
+                ):
                     # Convert to numbers and check if they represent a continuous range
                     try:
                         # Normalizar las etiquetas antes de convertir a float
-                        normalized_labels = [label.replace('−', '-') for label in non_empty_x_labels]
-                        
+                        normalized_labels = [
+                            label.replace("−", "-") for label in non_empty_x_labels
+                        ]
+
                         numeric_labels = [float(label) for label in normalized_labels]
                         if len(numeric_labels) > 1:
                             # Check if the range is continuous (not just a few discrete values)
@@ -1185,7 +1220,10 @@ class SeabornAnalyzer(BaseAnalyzer):
                             # For seaborn plots, be more lenient - if we have numeric labels, assume numeric
                             # unless there are very few unique values
                             unique_values = len(set(numeric_labels))
-                            if unique_values > 5 or range_size > len(numeric_labels) * 0.3:
+                            if (
+                                unique_values > 5
+                                or range_size > len(numeric_labels) * 0.3
+                            ):
                                 x_type = self.NUMERIC
                             else:
                                 x_type = self.CATEGORY
@@ -1198,7 +1236,9 @@ class SeabornAnalyzer(BaseAnalyzer):
                     non_empty_x_labels
                 ):
                     # But for seaborn, if they're numeric, prefer numeric type
-                    if all(self._is_numeric_string(label) for label in non_empty_x_labels):
+                    if all(
+                        self._is_numeric_string(label) for label in non_empty_x_labels
+                    ):
                         x_type = self.NUMERIC
                     else:
                         x_type = self.CATEGORY
@@ -1223,12 +1263,16 @@ class SeabornAnalyzer(BaseAnalyzer):
                     y_type = self.CATEGORY
                     y_labels = non_empty_y_labels
                 # If all labels are numeric, check if they represent continuous data
-                elif all(self._is_numeric_string(label) for label in non_empty_y_labels):
+                elif all(
+                    self._is_numeric_string(label) for label in non_empty_y_labels
+                ):
                     # Convert to numbers and check if they represent a continuous range
                     try:
                         # Normalizar las etiquetas antes de convertir a float
-                        normalized_labels = [label.replace('−', '-') for label in non_empty_y_labels]
-                        
+                        normalized_labels = [
+                            label.replace("−", "-") for label in non_empty_y_labels
+                        ]
+
                         numeric_labels = [float(label) for label in normalized_labels]
                         if len(numeric_labels) > 1:
                             # Check if the range is continuous (not just a few discrete values)
@@ -1238,7 +1282,10 @@ class SeabornAnalyzer(BaseAnalyzer):
                             # For seaborn plots, be more lenient - if we have numeric labels, assume numeric
                             # unless there are very few unique values
                             unique_values = len(set(numeric_labels))
-                            if unique_values > 5 or range_size > len(numeric_labels) * 0.3:
+                            if (
+                                unique_values > 5
+                                or range_size > len(numeric_labels) * 0.3
+                            ):
                                 y_type = self.NUMERIC
                             else:
                                 y_type = self.CATEGORY
@@ -1251,7 +1298,9 @@ class SeabornAnalyzer(BaseAnalyzer):
                     non_empty_y_labels
                 ):
                     # But for seaborn, if they're numeric, prefer numeric type
-                    if all(self._is_numeric_string(label) for label in non_empty_y_labels):
+                    if all(
+                        self._is_numeric_string(label) for label in non_empty_y_labels
+                    ):
                         y_type = self.NUMERIC
                     else:
                         y_type = self.CATEGORY
@@ -1267,7 +1316,7 @@ class SeabornAnalyzer(BaseAnalyzer):
         """Check if a string represents a number."""
         try:
             # Normalizar el signo negativo Unicode a ASCII
-            normalized_s = s.replace('−', '-')  # Unicode minus sign to ASCII hyphen
+            normalized_s = s.replace("−", "-")  # Unicode minus sign to ASCII hyphen
             float(normalized_s)
             return True
         except (ValueError, TypeError):
@@ -1315,16 +1364,25 @@ class SeabornAnalyzer(BaseAnalyzer):
             "likely_domain": "general",
             "purpose": "analysis",
             "target_audience": "general",
-            "key_metrics": []
+            "key_metrics": [],
         }
         for ax in axes_list:
             x_label = ax.get("x_label", "").lower()
             y_label = ax.get("y_label", "").lower()
-            if any(keyword in x_label + y_label for keyword in ["time", "date", "month", "year"]):
+            if any(
+                keyword in x_label + y_label
+                for keyword in ["time", "date", "month", "year"]
+            ):
                 domain_context["likely_domain"] = "temporal"
-            elif any(keyword in x_label + y_label for keyword in ["revenue", "cost", "profit", "sales", "usd", "$"]):
+            elif any(
+                keyword in x_label + y_label
+                for keyword in ["revenue", "cost", "profit", "sales", "usd", "$"]
+            ):
                 domain_context["likely_domain"] = "financial"
-            elif any(keyword in x_label + y_label for keyword in ["count", "frequency", "number"]):
+            elif any(
+                keyword in x_label + y_label
+                for keyword in ["count", "frequency", "number"]
+            ):
                 domain_context["likely_domain"] = "statistical"
         return domain_context
 
@@ -1338,9 +1396,9 @@ class SeabornAnalyzer(BaseAnalyzer):
                 "what": "Data visualization",
                 "when": "Point-in-time analysis",
                 "why": "Data analysis and pattern recognition",
-                "how": "Through visual representation of data points"
+                "how": "Through visual representation of data points",
             },
-            "key_insights": []  # Los insights vendrán de los analizadores específicos
+            "key_insights": [],  # Los insights vendrán de los analizadores específicos
         }
 
     def _generate_llm_context(self, axes_list, statistics):
@@ -1348,26 +1406,28 @@ class SeabornAnalyzer(BaseAnalyzer):
             if "llm_context" in ax:
                 return ax["llm_context"]
         return {
-            "interpretation_hints": generate_unified_interpretation_hints({
-                "general_analysis": "Analyze the data patterns and relationships",
-                "pattern_recognition": "Look for trends, outliers, and significant features",
-                "statistical_analysis": "Consider the scale and context of the variables"
-            }),
+            "interpretation_hints": generate_unified_interpretation_hints(
+                {
+                    "general_analysis": "Analyze the data patterns and relationships",
+                    "pattern_recognition": "Look for trends, outliers, and significant features",
+                    "statistical_analysis": "Consider the scale and context of the variables",
+                }
+            ),
             "analysis_suggestions": [
                 "Examine statistical properties of the data",
                 "Identify key patterns and anomalies",
-                "Consider domain-specific interpretations"
+                "Consider domain-specific interpretations",
             ],
             "common_questions": [
                 "What patterns are visible in the data?",
                 "Are there any significant trends or outliers?",
-                "What insights can be drawn from this visualization?"
+                "What insights can be drawn from this visualization?",
             ],
             "related_concepts": [
                 "data analysis",
                 "statistical visualization",
-                "pattern recognition"
-            ]
+                "pattern recognition",
+            ],
         }
 
     def _generate_data_summary(self, axes_list):
@@ -1387,7 +1447,7 @@ class SeabornAnalyzer(BaseAnalyzer):
                     y_data.extend(ydata)
                 x_type = "numeric"
                 y_type = "numeric"
-            
+
             # Para scatter plots - usar la estructura de scatter_analyzer
             elif ax.get("plot_type") == "scatter" and "collections" in ax:
                 for collection in ax["collections"]:
@@ -1398,7 +1458,7 @@ class SeabornAnalyzer(BaseAnalyzer):
                     y_data.extend(y_points)
                 x_type = "numeric"
                 y_type = "numeric"
-            
+
             # Para histogramas - usar la estructura de histogram_analyzer
             elif ax.get("plot_type") == "histogram" and "statistics" in ax:
                 stats = ax.get("statistics", {})
@@ -1408,54 +1468,68 @@ class SeabornAnalyzer(BaseAnalyzer):
                 elif "total_observations" in stats:
                     # Fallback: usar total_observations si number_of_bins no está disponible
                     total_data_points += stats["total_observations"]
-                
+
                 # Extraer rangos de datos para histogramas
                 if "bins" in ax:
-                    bin_centers = [bin_data.get("bin_center", 0) for bin_data in ax["bins"]]
-                    frequencies = [bin_data.get("frequency", 0) for bin_data in ax["bins"]]
+                    bin_centers = [
+                        bin_data.get("bin_center", 0) for bin_data in ax["bins"]
+                    ]
+                    frequencies = [
+                        bin_data.get("frequency", 0) for bin_data in ax["bins"]
+                    ]
                     x_data.extend(bin_centers)
                     y_data.extend(frequencies)
-                
+
                 x_type = "numeric"
                 y_type = "numeric"
-            
+
             # Para bar plots - usar la estructura de bar_analyzer
             elif ax.get("plot_type") == "bar" and "statistics" in ax:
                 stats = ax.get("statistics", {})
                 if "data_points" in stats:
                     total_data_points += stats["data_points"]
-                
+
                 # Extraer rangos de datos para bar plots
                 if "bars" in ax:
-                    categories = [bar_data.get("category", "") for bar_data in ax["bars"]]
+                    categories = [
+                        bar_data.get("category", "") for bar_data in ax["bars"]
+                    ]
                     heights = [bar_data.get("height", 0) for bar_data in ax["bars"]]
                     # Para bar plots, usar índices como x_data y heights como y_data
                     x_data.extend(range(len(categories)))
                     y_data.extend(heights)
-                
+
                 x_type = "categorical"
                 y_type = "numeric"
-        
+
         return {
             "total_data_points": total_data_points,
             "data_ranges": {
                 "x": {
                     "min": float(min(x_data)) if x_data else None,
                     "max": float(max(x_data)) if x_data else None,
-                    "type": x_type
+                    "type": x_type,
                 },
                 "y": {
                     "min": float(min(y_data)) if y_data else None,
                     "max": float(max(y_data)) if y_data else None,
-                    "type": y_type
-                }
+                    "type": y_type,
+                },
             },
             "missing_values": {
-                "x": sum(1 for x in x_data if x is None or (isinstance(x, float) and np.isnan(x))),
-                "y": sum(1 for y in y_data if y is None or (isinstance(y, float) and np.isnan(y)))
+                "x": sum(
+                    1
+                    for x in x_data
+                    if x is None or (isinstance(x, float) and np.isnan(x))
+                ),
+                "y": sum(
+                    1
+                    for y in y_data
+                    if y is None or (isinstance(y, float) and np.isnan(y))
+                ),
             },
             "x_type": x_type,
-            "y_type": y_type
+            "y_type": y_type,
         }
 
     def _generate_statistical_insights(self, statistics):
@@ -1466,12 +1540,12 @@ class SeabornAnalyzer(BaseAnalyzer):
                 insights["central_tendency"] = {
                     "mean": axis_stats["mean"],
                     "median": axis_stats.get("median"),
-                    "mode": None
+                    "mode": None,
                 }
             if "std" in axis_stats and axis_stats["std"] is not None:
                 insights["variability"] = {
                     "standard_deviation": axis_stats["std"],
-                    "variance": axis_stats.get("std", 0) ** 2
+                    "variance": axis_stats.get("std", 0) ** 2,
                 }
         return insights
 
@@ -1480,7 +1554,7 @@ class SeabornAnalyzer(BaseAnalyzer):
             "pattern_type": None,
             "confidence_score": None,
             "equation_estimate": None,
-            "shape_characteristics": {}
+            "shape_characteristics": {},
         }
         for ax in axes_list:
             if ax.get("pattern"):
@@ -1511,26 +1585,30 @@ class SeabornAnalyzer(BaseAnalyzer):
                     "plot_types": [{"type": plot_type}],
                     "pattern": ax.get("pattern", {}),
                     "domain_context": ax.get("domain_context", {}),
-                    "stats": ax.get("statistics", {})
+                    "stats": ax.get("statistics", {}),
                 }
                 # Agregar curve_points basado en el tipo
                 if plot_type == "line" and "lines" in ax:
                     curve_points = []
                     for line in ax["lines"]:
-                        curve_points.append({
-                            "x": line.get("xdata", []),
-                            "y": line.get("ydata", []),
-                            "label": line.get("label", "")
-                        })
+                        curve_points.append(
+                            {
+                                "x": line.get("xdata", []),
+                                "y": line.get("ydata", []),
+                                "label": line.get("label", ""),
+                            }
+                        )
                     legacy_ax["curve_points"] = curve_points
                 elif plot_type == "scatter" and "collections" in ax:
                     curve_points = []
                     for collection in ax["collections"]:
-                        curve_points.append({
-                            "x": collection.get("x_data", []),
-                            "y": collection.get("y_data", []),
-                            "label": collection.get("label", "")
-                        })
+                        curve_points.append(
+                            {
+                                "x": collection.get("x_data", []),
+                                "y": collection.get("y_data", []),
+                                "label": collection.get("label", ""),
+                            }
+                        )
                     legacy_ax["curve_points"] = curve_points
                 elif plot_type == "bar" and "bars" in ax:
                     curve_points = []
@@ -1538,42 +1616,48 @@ class SeabornAnalyzer(BaseAnalyzer):
                     bars = ax.get("bars", [])
                     for i, bar in enumerate(bars):
                         label = categories[i] if i < len(categories) else f"Bar_{i}"
-                        curve_points.append({
-                            "x": [bar.get("x_center", i)],
-                            "y": [bar.get("height", 0)],
-                            "label": label
-                        })
+                        curve_points.append(
+                            {
+                                "x": [bar.get("x_center", i)],
+                                "y": [bar.get("height", 0)],
+                                "label": label,
+                            }
+                        )
                     legacy_ax["curve_points"] = curve_points
                 elif plot_type == "histogram" and "bins" in ax:
                     curve_points = []
                     bins = ax.get("bins", [])
                     for bin_data in bins:
-                        curve_points.append({
-                            "x": [bin_data.get("bin_center", 0)],
-                            "y": [bin_data.get("frequency", 0)],
-                            "label": f"Bin_{bin_data.get('bin_index', 0)}"
-                        })
+                        curve_points.append(
+                            {
+                                "x": [bin_data.get("bin_center", 0)],
+                                "y": [bin_data.get("frequency", 0)],
+                                "label": f"Bin_{bin_data.get('bin_index', 0)}",
+                            }
+                        )
                     legacy_ax["curve_points"] = curve_points
                 else:
                     legacy_ax["curve_points"] = []
                 legacy_axes.append(legacy_ax)
             else:
-                legacy_axes.append({
-                    "title": "",
-                    "xlabel": "",
-                    "ylabel": "",
-                    "x_type": "unknown",
-                    "y_type": "unknown",
-                    "has_grid": False,
-                    "has_legend": False,
-                    "x_range": None,
-                    "y_range": None,
-                    "plot_types": [],
-                    "curve_points": [],
-                    "pattern": None,
-                    "domain_context": None,
-                    "stats": None
-                })
+                legacy_axes.append(
+                    {
+                        "title": "",
+                        "xlabel": "",
+                        "ylabel": "",
+                        "x_type": "unknown",
+                        "y_type": "unknown",
+                        "has_grid": False,
+                        "has_legend": False,
+                        "x_range": None,
+                        "y_range": None,
+                        "plot_types": [],
+                        "curve_points": [],
+                        "pattern": None,
+                        "domain_context": None,
+                        "stats": None,
+                    }
+                )
         return {
             "figure_type": "seaborn",
             "title": modern_output["figure"].get("title", ""),
@@ -1581,7 +1665,9 @@ class SeabornAnalyzer(BaseAnalyzer):
             "basic_info": modern_output["figure"],
             "axes_info": legacy_axes,
             "data_info": {
-                "plot_types": [pt for ax in legacy_axes for pt in ax.get("plot_types", [])],
+                "plot_types": [
+                    pt for ax in legacy_axes for pt in ax.get("plot_types", [])
+                ],
                 "statistics": modern_output["statistics"],
             },
             "visual_info": {"colors": modern_output["colors"]},
@@ -1593,7 +1679,7 @@ class SeabornAnalyzer(BaseAnalyzer):
             "llm_context": modern_output["llm_context"],
             "data_summary": modern_output["data_summary"],
             "statistical_insights": modern_output["statistical_insights"],
-            "pattern_analysis": modern_output["pattern_analysis"]
+            "pattern_analysis": modern_output["pattern_analysis"],
         }
 
     def _is_histogram(self, ax):
@@ -1603,27 +1689,37 @@ class SeabornAnalyzer(BaseAnalyzer):
         """
         if not (hasattr(ax, "patches") and ax.patches):
             return False
-            
+
         try:
             # Verificar propiedades específicas de histogramas
             num_patches = len(ax.patches)
-            
+
             # Los histogramas típicamente tienen muchos bins (>= 10)
             if num_patches >= 10:
                 return True
             else:
                 # Para pocos patches, usar análisis más detallado
                 tick_labels = [label.get_text() for label in ax.get_xticklabels()]
-                
+
                 # Verificar si las etiquetas son claramente categóricas (texto no numérico)
                 categorical_labels = []
                 for label in tick_labels:
                     label_text = label.strip()
-                    if label_text and not (label_text.replace('.', '').replace('-', '').replace('+', '').replace('e', '').replace('E', '').isdigit()):
+                    if label_text and not (
+                        label_text.replace(".", "")
+                        .replace("-", "")
+                        .replace("+", "")
+                        .replace("e", "")
+                        .replace("E", "")
+                        .isdigit()
+                    ):
                         categorical_labels.append(label_text)
-                
+
                 # Si hay etiquetas claramente categóricas, es un bar plot
-                if len(categorical_labels) > 0 and len(categorical_labels) == num_patches:
+                if (
+                    len(categorical_labels) > 0
+                    and len(categorical_labels) == num_patches
+                ):
                     return False
                 else:
                     # Verificar continuidad de los patches (histogramas son continuos)
@@ -1634,16 +1730,18 @@ class SeabornAnalyzer(BaseAnalyzer):
                             if hasattr(patch, "get_x") and hasattr(patch, "get_width"):
                                 patch_positions.append(patch.get_x())
                                 patch_widths.append(patch.get_width())
-                        
+
                         if patch_positions and patch_widths:
                             # Verificar si son continuos (sin gaps significativos)
                             sorted_positions = sorted(patch_positions)
                             avg_width = sum(patch_widths) / len(patch_widths)
                             gaps = []
                             for i in range(1, len(sorted_positions)):
-                                gap = sorted_positions[i] - (sorted_positions[i-1] + avg_width)
+                                gap = sorted_positions[i] - (
+                                    sorted_positions[i - 1] + avg_width
+                                )
                                 gaps.append(abs(gap))
-                            
+
                             max_gap = max(gaps) if gaps else 0
                             # Si el gap máximo es menor que 10% del ancho promedio, es continuo (histograma)
                             if max_gap < 0.1 * avg_width:
@@ -1666,33 +1764,43 @@ class SeabornAnalyzer(BaseAnalyzer):
         """
         if not (hasattr(ax, "patches") and ax.patches):
             return False
-            
+
         try:
             # Si ya se determinó que es histograma, no es bar plot
             if self._is_histogram(ax):
                 return False
-                
+
             # Verificar si hay patches con altura > 0
-            heights = [patch.get_height() for patch in ax.patches if hasattr(patch, "get_height")]
+            heights = [
+                patch.get_height()
+                for patch in ax.patches
+                if hasattr(patch, "get_height")
+            ]
             if not any(h > 0 for h in heights):
                 return False
-                
+
             # Verificar etiquetas categóricas
             tick_labels = [label.get_text() for label in ax.get_xticklabels()]
             has_categorical_labels = any(
-                label.strip() and not label.replace('.', '').replace('-', '').replace('+', '').replace('e', '').replace('E', '').isdigit() 
+                label.strip()
+                and not label.replace(".", "")
+                .replace("-", "")
+                .replace("+", "")
+                .replace("e", "")
+                .replace("E", "")
+                .isdigit()
                 for label in tick_labels
             )
-            
+
             # Si tiene etiquetas categóricas claras, es bar plot
             if has_categorical_labels:
                 return True
-                
+
             # Para casos ambiguos, si tiene pocos patches y no es histograma, probablemente es bar plot
             num_patches = len(ax.patches)
             if num_patches <= 20:
                 return True
-                
+
             return False
         except Exception as e:
             # Si falla la detección, no es bar plot

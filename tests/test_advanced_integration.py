@@ -189,7 +189,10 @@ class TestMultiLibraryIntegration:
         axes_data = result["axes"][0]
         # Check for plot type and data elements
         assert "plot_type" in axes_data
-        assert len(axes_data.get("collections", [])) >= 0 or len(axes_data.get("lines", [])) >= 0
+        assert (
+            len(axes_data.get("collections", [])) >= 0
+            or len(axes_data.get("lines", [])) >= 0
+        )
 
     @pytest.mark.integration
     def test_seaborn_on_matplotlib_axes(self):
@@ -385,7 +388,7 @@ class TestComplexWorkflows:
         # Check new semantic structure
         assert "metadata" in result
         assert "data_summary" in result
-        
+
         # For semantic format, check that we have the expected sections
         # The semantic format may not have axes in the same structure as JSON
         if "axes" in result:

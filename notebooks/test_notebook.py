@@ -285,7 +285,7 @@ def test_llm_integration():
         """
 
         print(f"✅ LLM prompt created successfully (length: {len(prompt)} chars)")
-        print(f"✅ Analysis contains business-relevant information")
+        print("✅ Analysis contains business-relevant information")
 
         plt.close(fig)
         return True
