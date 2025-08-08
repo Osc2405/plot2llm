@@ -14,7 +14,7 @@
 
 > 🧠 **Use the `'semantic'` format to generate structured context optimized for GPT, Claude or any RAG pipeline.**
 
-**Latest Updates (v0.2.0):**
+**Latest Updates (v0.2.1):**
 - ✅ **Complete Statistical Insights**: Full distribution analysis, correlations, outliers, and central tendency for all plot types
 - ✅ **Enhanced Plot Type Detection**: Improved histogram vs bar vs line detection with proper prioritization
 - ✅ **Rich Pattern Analysis**: Detailed shape characteristics and pattern recognition for all visualization types
@@ -71,6 +71,8 @@ For full functionality with matplotlib and seaborn:
 ```bash
 pip install plot2llm[all]
 ```
+
+**Note:** Version 0.2.1 includes all required dependencies (scipy, jsonschema) for complete functionality.
 
 Or, for local development:
 ```bash
@@ -260,13 +262,13 @@ This project is in **stable beta**. Core functionalities are production-ready wi
 
 ## Changelog
 
-### v0.2.0 (Latest)
+### v0.2.1 (Latest)
 - ✅ **Enhanced Statistical Analysis**: Complete statistical insights for all plot types
 - ✅ **Improved Plot Type Detection**: Better histogram vs bar vs line detection
 - ✅ **Rich Pattern Analysis**: Detailed shape characteristics for all visualization types
 - ✅ **Comprehensive Test Suite**: 172/174 tests passing (98.9% success rate)
 
-### v0.2.0
+### v0.2.1
 - ✅ **Enhanced Statistical Analysis**: Complete statistical insights for all plot types
 - ✅ **Improved Plot Type Detection**: Better histogram vs bar vs line detection
 - ✅ **Rich Pattern Analysis**: Detailed shape characteristics for all visualization types

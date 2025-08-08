@@ -1,4 +1,4 @@
-# 🧠 Plot2LLM v0.2.0: LLM Analysis Guide
+# 🧠 Plot2LLM v0.2.1: LLM Analysis Guide
 
 This guide explains how to use `plot2llm` v0.2.0 to extract rich information that allows LLMs (Large Language Models) to understand and analyze data visualizations effectively. The new version includes complete statistical analysis, improved plot type detection, and advanced analysis capabilities.
 

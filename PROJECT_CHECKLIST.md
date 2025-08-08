@@ -1,4 +1,4 @@
-# plot2llm Project Checklist - Final Status v0.2.0
+# plot2llm Project Checklist - Final Status v0.2.1
 
 ## 📊 **Current Project Status**
 

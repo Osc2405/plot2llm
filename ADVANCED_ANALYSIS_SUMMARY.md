@@ -1,4 +1,4 @@
-# 🧠 Plot2LLM v0.2.0: Advanced Analysis Capabilities Summary
+# 🧠 Plot2LLM v0.2.1: Advanced Analysis Capabilities Summary
 
 ## 📋 Executive Summary
 

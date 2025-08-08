@@ -18,6 +18,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.1] - 2025-01-29
+
+### Fixed
+- **Missing Dependencies**: Added `scipy>=1.7.0` and `jsonschema>=3.2.0` to core dependencies
+- **Import Errors**: Fixed `ModuleNotFoundError` when importing plot2llm
+- **Package Installation**: Ensured all required dependencies are properly declared
+- **Installation Reliability**: Improved package installation success rate
+
+### Technical Details
+- Added `scipy` for statistical analysis features (Shapiro-Wilk test, etc.)
+- Added `jsonschema` for semantic output validation
+- Fixed dependency resolution issues that prevented proper installation
+
+---
+
 ## [0.2.0] - 2025-01-29
 
 ### Fixed

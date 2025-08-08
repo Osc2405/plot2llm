@@ -17,7 +17,7 @@ Features:
 - Support for matplotlib and seaborn visualizations
 """
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 __author__ = "Plot2LLM Team"
 
 from .analyzers import FigureAnalyzer
