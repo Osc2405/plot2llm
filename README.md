@@ -20,7 +20,7 @@
 - ✅ **Rich Pattern Analysis**: Detailed shape characteristics and pattern recognition for all visualization types
 - ✅ **Comprehensive Test Suite**: 172/174 tests passing (98.9% success rate) with 24s execution time
 - ✅ **Production Ready**: All core features validated with extensive error handling and edge case coverage
-- ✅ **Statistical Analysis**: Complete support for skewness, kurtosis, correlations, and outlier detection
+- ✅ **Code Quality**: All linting issues resolved with ruff and black formatting
 
 ---
 
@@ -67,8 +67,12 @@
 pip install plot2llm
 ```
 
-Or, for local development:
+For full functionality with matplotlib and seaborn:
+```bash
+pip install plot2llm[all]
+```
 
+Or, for local development:
 ```bash
 git clone https://github.com/Osc2405/plot2llm.git
 cd plot2llm
@@ -100,10 +104,9 @@ print(text_result)
 
 ---
 
-## Detailed Usage
+## Examples
 
-### Matplotlib Example
-
+### Basic Usage
 ```python
 import matplotlib.pyplot as plt
 from plot2llm import FigureConverter
@@ -111,49 +114,12 @@ from plot2llm import FigureConverter
 fig, ax = plt.subplots()
 ax.bar(['A', 'B', 'C'], [10, 20, 15], color='skyblue')
 ax.set_title('Bar Example')
-ax.set_xlabel('Category')
-ax.set_ylabel('Value')
 
 converter = FigureConverter()
 print(converter.convert(fig, 'text'))
-```
-
-### Seaborn Example
-
-```python
-import seaborn as sns
-import matplotlib.pyplot as plt
-from plot2llm import FigureConverter
-
-iris = sns.load_dataset('iris')
-fig, ax = plt.subplots()
-sns.scatterplot(data=iris, x='sepal_length', y='sepal_width', hue='species', ax=ax)
-ax.set_title('Iris Scatter')
-
-converter = FigureConverter()
-print(converter.convert(fig, 'text'))
-```
-
-### Using Different Formatters
-
-```python
-from plot2llm.formatters import TextFormatter, JSONFormatter, SemanticFormatter
-
-formatter = TextFormatter()
-result = converter.convert(fig, formatter)
-print(result)
-
-formatter = JSONFormatter()
-result = converter.convert(fig, formatter)
-print(result)
-
-formatter = SemanticFormatter()
-result = converter.convert(fig, formatter)
-print(result)
 ```
 
 ### Advanced Statistical Analysis
-
 ```python
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -173,18 +139,27 @@ semantic_result = converter.convert(fig, 'semantic')
 stats = semantic_result['statistical_insights']
 print(f"Correlation: {stats['correlations'][0]['value']:.3f}")
 print(f"Strength: {stats['correlations'][0]['strength']}")
+```
 
-# Access pattern analysis
-pattern = semantic_result['pattern_analysis']
-print(f"Monotonicity: {pattern['shape_characteristics']['monotonicity']}")
-print(f"Smoothness: {pattern['shape_characteristics']['smoothness']}")
+### Real-World Examples
+The `examples/` directory contains comprehensive examples:
+
+- **`minimal_matplotlib.py`**: Basic matplotlib usage
+- **`minimal_seaborn.py`**: Basic seaborn usage  
+- **`real_world_analysis.py`**: Financial, marketing, and customer segmentation analysis
+- **`llm_integration_demo.py`**: LLM integration and format comparison
+- **`semantic_output_*.py`**: Complete semantic output examples
+
+Run any example with:
+```bash
+python examples/minimal_matplotlib.py
 ```
 
 ---
 
-## Example Outputs
+## Output Formats
 
-**Text format:**
+### Text Format
 ```
 Plot types in figure: line
 Figure type: matplotlib.Figure
@@ -194,7 +169,7 @@ Number of axes: 1
 ...
 ```
 
-**JSON format:**
+### JSON Format
 ```json
 {
   "figure_type": "matplotlib",
@@ -204,36 +179,30 @@ Number of axes: 1
 }
 ```
 
-**Semantic format:**
+### Semantic Format (LLM-Optimized)
 ```json
 {
   "metadata": {
     "figure_type": "matplotlib",
-    "detail_level": "medium",
-    "analyzer_version": "0.1.0"
+    "detail_level": "medium"
   },
   "axes": [
     {
       "title": "Demo Plot",
       "plot_types": [{"type": "line"}],
       "x_type": "numeric",
-      "y_type": "numeric",
-      "has_grid": true,
-      "has_legend": true
+      "y_type": "numeric"
     }
   ],
   "statistical_insights": {
     "central_tendency": {"mean": 0.5, "median": 0.4},
-    "variability": {"standard_deviation": 0.8, "variance": 0.64},
     "correlations": [{"type": "pearson", "value": 0.95, "strength": "strong"}]
   },
   "pattern_analysis": {
     "pattern_type": "trend",
-    "confidence_score": 0.9,
     "shape_characteristics": {
       "monotonicity": "increasing",
-      "smoothness": "smooth",
-      "symmetry": "symmetric"
+      "smoothness": "smooth"
     }
   }
 }
@@ -244,39 +213,34 @@ Number of axes: 1
 ## Advanced Features
 
 ### Statistical Analysis
-Plot2LLM now provides comprehensive statistical analysis for scatter plots:
-
 - **Central Tendency**: Mean, median, mode calculations
 - **Variability**: Standard deviation, variance, range analysis
 - **Correlations**: Pearson correlation coefficients with strength and direction
 - **Data Quality**: Total points, missing values detection
-- **X-axis Statistics**: Separate analysis for independent variables
+- **Distribution Analysis**: Skewness and kurtosis for histograms
 
 ### Pattern Analysis
-Rich pattern recognition for scatter plots:
-
 - **Monotonicity**: Increasing, decreasing, or mixed trends
 - **Smoothness**: Smooth, piecewise, or discrete patterns
 - **Symmetry**: Symmetric or asymmetric distributions
 - **Continuity**: Continuous or discontinuous data patterns
-- **Correlation Analysis**: Strength and direction of relationships
 
 ### Smart Axis Detection
-Intelligent detection of axis types:
-
 - **Numeric Detection**: Handles Unicode minus signs and various numeric formats
 - **Categorical Detection**: Identifies discrete categories vs continuous ranges
 - **Mixed Support**: Works with both Matplotlib and Seaborn plots
 
+---
+
 ## API Reference
 
-See the full [API Reference](docs/API.md) for details on all classes and methods.
+See the full [API Reference](docs/API_REFERENCE.md) for details on all classes and methods.
 
 ---
 
 ## Project Status
 
-This project is in **stable beta**. Core functionalities are production-ready with comprehensive test coverage. Enhanced statistical analysis, pattern recognition, and smart axis detection are now fully implemented.
+This project is in **stable beta**. Core functionalities are production-ready with comprehensive test coverage.
 
 - [x] Matplotlib support (Full)
 - [x] Seaborn support (Full)
@@ -294,20 +258,19 @@ This project is in **stable beta**. Core functionalities are production-ready wi
 
 ---
 
-## Changelog / Bugfixes
+## Changelog
 
 ### v0.2.0 (Latest)
-- ✅ **Enhanced Statistical Analysis**: Complete statistical insights for scatter plots including correlations, central tendency, and variability
-- ✅ **Improved Axis Type Detection**: Smart detection of numeric vs categorical axes with Unicode minus sign support
-- ✅ **Rich Pattern Analysis**: Detailed shape characteristics for scatter plots (monotonicity, smoothness, symmetry, continuity)
-- ✅ **Seaborn Integration**: Full support for Seaborn scatter plots with proper axis type detection
-- ✅ **Comprehensive Test Suite**: All tests passing with enhanced error handling and warning suppression
-- ✅ **Unicode Support**: Proper handling of Unicode minus signs (U+2212) in numeric labels
+- ✅ **Enhanced Statistical Analysis**: Complete statistical insights for all plot types
+- ✅ **Improved Plot Type Detection**: Better histogram vs bar vs line detection
+- ✅ **Rich Pattern Analysis**: Detailed shape characteristics for all visualization types
+- ✅ **Comprehensive Test Suite**: 172/174 tests passing (98.9% success rate)
 
-### v0.1.x
-- Fixed: Output formats like `'text'` now return the full formatted result, not just the format name
-- Improved: Seaborn analyzer supports all major plot types
-- Consistent: Output structure for all formatters
+### v0.2.0
+- ✅ **Enhanced Statistical Analysis**: Complete statistical insights for all plot types
+- ✅ **Improved Plot Type Detection**: Better histogram vs bar vs line detection
+- ✅ **Rich Pattern Analysis**: Detailed shape characteristics for all visualization types
+- ✅ **Comprehensive Test Suite**: 172/174 tests passing (98.9% success rate)
 
 ---
 
@@ -330,4 +293,4 @@ MIT License
 
 ---
 
-*Try it, give feedback, or suggest a formatter you’d like to see!*
+*Try it, give feedback, or suggest a formatter you'd like to see!*

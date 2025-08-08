@@ -1,267 +1,209 @@
-# Ejemplos de Uso de Plot2LLM
+# Plot2LLM Usage Examples
 
-Este directorio contiene ejemplos completos que demuestran las capacidades de Plot2LLM para diferentes casos de uso y formatos de salida.
+This directory contains comprehensive examples demonstrating Plot2LLM capabilities for different use cases and output formats.
 
-## 📁 Archivos Disponibles
+## 📁 Available Files
 
-### Ejemplos Básicos
-- **`minimal_matplotlib.py`**: Ejemplo mínimo con matplotlib
-- **`minimal_seaborn.py`**: Ejemplo mínimo con seaborn
-- **`seaborn_bar_histogram_demo.py`**: Demo de barras e histogramas con seaborn
+### Basic Examples
+- **`minimal_matplotlib.py`**: Minimal matplotlib usage
+- **`minimal_seaborn.py`**: Minimal seaborn usage
+- **`seaborn_bar_histogram_demo.py`**: Bar and histogram demo with seaborn
 
-### Ejemplos Avanzados
-- **`advanced_matplotlib.py`**: Visualizaciones complejas con matplotlib
-- **`advanced_seaborn.py`**: Visualizaciones avanzadas con seaborn
-- **`multi_plot_analysis_demo.py`**: Análisis de múltiples gráficos
+### Advanced Examples
+- **`advanced_matplotlib.py`**: Complex visualizations with matplotlib
+- **`advanced_seaborn.py`**: Advanced visualizations with seaborn
+- **`multi_plot_analysis_demo.py`**: Multiple plot analysis
 
-### Ejemplos de Casos de Uso Reales
-- **`real_world_analysis.py`**: Análisis financiero, marketing y segmentación de clientes
-- **`llm_integration_demo.py`**: Integración con LLMs y diferentes formatos de salida
+### Real-World Use Cases
+- **`real_world_analysis.py`**: Financial, marketing, and customer segmentation analysis
+- **`llm_integration_demo.py`**: LLM integration and different output formats
 
-### Ejemplos de Output Semántico
-- **`semantic_output_matplotlib_example.py`**: Output semántico completo para matplotlib
-- **`semantic_output_seaborn_example.py`**: Output semántico completo para seaborn
-- **`test_semantic_formatter.py`**: Tests del formateador semántico
+### Semantic Output Examples
+- **`semantic_output_matplotlib_example.py`**: Complete semantic output for matplotlib
+- **`semantic_output_seaborn_example.py`**: Complete semantic output for seaborn
+- **`test_semantic_formatter.py`**: Semantic formatter tests
 
-## 🚀 Cómo Ejecutar
+## 🚀 How to Run
 
-### Requisitos
+### Requirements
 ```bash
 pip install plot2llm matplotlib seaborn numpy pandas scipy
 ```
 
-### Ejemplos Básicos
+### Basic Examples
 ```bash
-# Ejemplos mínimos
+# Minimal examples
 python examples/minimal_matplotlib.py
 python examples/minimal_seaborn.py
 
-# Demo de barras e histogramas
+# Bar and histogram demo
 python examples/seaborn_bar_histogram_demo.py
 ```
 
-### Ejemplos Avanzados
+### Advanced Examples
 ```bash
-# Visualizaciones complejas
+# Complex visualizations
 python examples/advanced_matplotlib.py
 python examples/advanced_seaborn.py
 
-# Análisis de múltiples gráficos
+# Multiple plot analysis
 python examples/multi_plot_analysis_demo.py
 ```
 
-### Casos de Uso Reales
+### Real-World Use Cases
 ```bash
-# Análisis financiero y marketing
+# Financial and marketing analysis
 python examples/real_world_analysis.py
 
-# Integración con LLMs
+# LLM integration
 python examples/llm_integration_demo.py
 ```
 
-### Output Semántico
+### Semantic Output
 ```bash
-# Output semántico completo
+# Complete semantic output
 python examples/semantic_output_matplotlib_example.py
 python examples/semantic_output_seaborn_example.py
 
-# Tests del formateador
+# Formatter tests
 python examples/test_semantic_formatter.py
 ```
 
-## 📊 Casos de Uso Reales
+## 📊 Real-World Use Cases
 
-### 1. Análisis Financiero (`real_world_analysis.py`)
-- **Precios de acciones**: Evolución temporal con línea de tendencia
-- **Distribución de retornos**: Histograma con estadísticas
-- **Insights**: Análisis de volatilidad y tendencias
+### 1. Financial Analysis (`real_world_analysis.py`)
+- **Stock prices**: Temporal evolution with trend line
+- **Return distribution**: Histogram with statistics
+- **Insights**: Volatility and trend analysis
 
-### 2. Análisis de Marketing (`real_world_analysis.py`)
-- **Conversiones por canal**: Gráfico de barras con valores
-- **ROI por canal**: Análisis de rentabilidad
-- **Costo vs conversión**: Dispersión con etiquetas
-- **Distribución de costos**: Gráfico circular
+### 2. Marketing Analysis (`real_world_analysis.py`)
+- **Conversions by channel**: Bar chart with values
+- **ROI by channel**: Profitability analysis
+- **Cost vs conversion**: Scatter with labels
+- **Cost distribution**: Pie chart
 
-### 3. Segmentación de Clientes (`real_world_analysis.py`)
-- **Distribución demográfica**: Histogramas por segmento
-- **Análisis de ingresos**: Boxplots y dispersión
-- **Matriz de correlaciones**: Heatmap de variables
-- **Satisfacción por segmento**: Violin plots
+### 3. Customer Segmentation (`real_world_analysis.py`)
+- **Demographic distribution**: Histograms by segment
+- **Income analysis**: Boxplots and scatter
+- **Correlation matrix**: Variable heatmap
+- **Satisfaction by segment**: Violin plots
 
-### 4. Integración con LLMs (`llm_integration_demo.py`)
-- **Pipeline de análisis**: Visualización compleja con múltiples subplots
-- **Generación de prompts**: Formatos optimizados para diferentes LLMs
-- **Comparación de formatos**: Text, JSON, Semantic
-- **Manejo de errores**: Demostración de robustez
+### 4. LLM Integration (`llm_integration_demo.py`)
+- **Analysis pipeline**: Complex visualization with multiple subplots
+- **Prompt generation**: Formats optimized for different LLMs
+- **Format comparison**: Text, JSON, Semantic
+- **Error handling**: Robustness demonstration
 
-## 🔧 Formatos de Salida
+## 🔧 Output Formats
 
-### Texto
-```python
-result = plot2llm.convert(fig, format='text')
-# Descripción narrativa para documentación
-```
-
-### JSON
-```python
-result = plot2llm.convert(fig, format='json')
-# Estructura de datos para procesamiento programático
-```
-
-### Semántico
-```python
-result = plot2llm.convert(fig, format='semantic')
-# Análisis completo optimizado para LLMs
-```
-
-## 📈 Tipos de Visualización Soportados
-
-### Matplotlib
-- ✅ Line plots
-- ✅ Scatter plots
-- ✅ Bar charts
-- ✅ Histograms
-- ✅ Box plots
-- ✅ Subplots
-- ✅ Multiple axes
-
-### Seaborn
-- ✅ Line plots
-- ✅ Scatter plots
-- ✅ Bar plots
-- ✅ Histograms
-- ✅ Violin plots
-- ✅ Heatmaps
-- ✅ Faceted plots
-
-## 🎯 Características Destacadas
-
-### 1. Detección Automática
-- **Tipos de datos**: Numérico, categórico, fecha
-- **Tipos de gráfico**: Línea, barras, dispersión, histograma
-- **Análisis estadístico**: Correlaciones, distribuciones, outliers
-
-### 2. Análisis Estadístico Avanzado
-- **Central tendency**: Media, mediana, moda
-- **Variability**: Desviación estándar, rango, IQR
-- **Distribution**: Skewness, kurtosis, normalidad
-- **Correlations**: Pearson, Spearman
-- **Outliers**: Detección por IQR
-
-### 3. Output Optimizado para LLMs
-- **Contexto semántico**: Descripciones naturales
-- **Insights automáticos**: Patrones y tendencias
-- **Recomendaciones**: Sugerencias de análisis adicional
-- **Estructura consistente**: Formato estandarizado
-
-## 🔍 Niveles de Detalle
-
-### Low
-- Información básica del gráfico
-- Estadísticas principales
-- Descripción general
-
-### Medium
-- Análisis detallado
-- Patrones identificados
-- Insights estadísticos
-
-### High
-- Análisis completo
-- Correlaciones y tendencias
-- Recomendaciones específicas
-- Contexto semántico rico
-
-## 🛠️ Configuración Avanzada
-
-### Personalización de Analizadores
+### Text Format
 ```python
 from plot2llm import FigureConverter
 
-converter = FigureConverter(
-    detail_level='high',
-    include_data=True,
-    include_colors=True,
-    include_statistics=True
-)
+converter = FigureConverter()
+result = converter.convert(fig, 'text')
+print(result)
 ```
 
-### Registro de Formateadores Personalizados
+### JSON Format
 ```python
-converter.register_formatter('custom', my_custom_formatter)
-result = converter.convert(fig, 'custom')
+result = converter.convert(fig, 'json')
+print(result)
 ```
 
-## 📋 Verificación de Ejemplos
-
-### Comando de Verificación Completa
-```bash
-# Ejecutar todos los ejemplos
-for example in examples/*.py; do
-    if [[ $example != *"__init__"* && $example != *"test_"* ]]; then
-        echo "Ejecutando: $example"
-        python "$example"
-        echo "---"
-    fi
-done
+### Semantic Format (LLM-Optimized)
+```python
+result = converter.convert(fig, 'semantic')
+print(result)
 ```
 
-### Verificación de Formatos
-```bash
-# Verificar que todos los formatos funcionan
-python -c "
-import matplotlib.pyplot as plt
-import plot2llm
-fig, ax = plt.subplots()
-ax.plot([1,2,3], [1,4,2])
-for fmt in ['text', 'json', 'semantic']:
-    result = plot2llm.convert(fig, fmt)
-    print(f'✅ {fmt}: {len(str(result))} caracteres')
-"
+## 📈 Example Outputs
+
+### Text Output
+```
+Plot types in figure: line
+Figure type: matplotlib.Figure
+Dimensions (inches): [8.0, 6.0]
+Title: Demo Plot
+Number of axes: 1
+...
 ```
 
-## 🎉 Resultados Esperados
-
-### Ejemplos Básicos
-- ✅ Gráficos simples convertidos correctamente
-- ✅ Output en formato texto legible
-- ✅ Sin errores de importación
-
-### Ejemplos Avanzados
-- ✅ Visualizaciones complejas procesadas
-- ✅ Múltiples subplots analizados
-- ✅ Estadísticas detalladas generadas
-
-### Casos de Uso Reales
-- ✅ Análisis financiero con insights
-- ✅ Marketing con métricas de ROI
-- ✅ Segmentación con patrones demográficos
-- ✅ Integración LLM con prompts optimizados
-
-### Output Semántico
-- ✅ Estructura JSON válida
-- ✅ Contexto semántico rico
-- ✅ Insights automáticos
-- ✅ Recomendaciones específicas
-
-## 📞 Soporte
-
-Si encuentras problemas con los ejemplos:
-
-1. **Verificar instalación**: `pip install plot2llm[all,test,dev]`
-2. **Verificar dependencias**: `python -c "import matplotlib, seaborn, plot2llm"`
-3. **Ejecutar tests**: `pytest tests/ -v`
-4. **Revisar documentación**: `docs/API_REFERENCE.md`
-
-## 🔄 Actualizaciones
-
-Los ejemplos se actualizan regularmente para reflejar las nuevas características de Plot2LLM. Para la versión más reciente:
-
-```bash
-pip install --upgrade plot2llm
-git pull origin main
+### JSON Output
+```json
+{
+  "figure_type": "matplotlib",
+  "title": "Demo Plot",
+  "axes": [...],
+  "data_summary": {...},
+  "statistical_insights": {...}
+}
 ```
 
----
+### Semantic Output
+```json
+{
+  "metadata": {
+    "figure_type": "matplotlib",
+    "detail_level": "medium"
+  },
+  "axes": [
+    {
+      "title": "Demo Plot",
+      "plot_types": [{"type": "line"}],
+      "x_type": "numeric",
+      "y_type": "numeric"
+    }
+  ],
+  "statistical_insights": {
+    "central_tendency": {"mean": 0.5, "median": 0.4},
+    "correlations": [{"type": "pearson", "value": 0.95, "strength": "strong"}]
+  },
+  "pattern_analysis": {
+    "pattern_type": "trend",
+    "shape_characteristics": {
+      "monotonicity": "increasing",
+      "smoothness": "smooth"
+    }
+  }
+}
+```
 
-**¡Disfruta explorando las capacidades de Plot2LLM con estos ejemplos!**
+## 🎯 Key Features Demonstrated
+
+### Statistical Analysis
+- Central tendency (mean, median, mode)
+- Variability (standard deviation, variance, range)
+- Correlations (Pearson, Spearman)
+- Distribution analysis (skewness, kurtosis)
+- Outlier detection (IQR method)
+
+### Pattern Analysis
+- Monotonicity detection
+- Smoothness analysis
+- Symmetry detection
+- Continuity analysis
+
+### Smart Detection
+- Plot type detection (histogram vs bar vs line)
+- Axis type detection (numeric vs categorical)
+- Unicode support for numeric labels
+
+## 🔍 Troubleshooting
+
+### Common Issues
+1. **Import errors**: Ensure all dependencies are installed
+2. **Matplotlib backend**: Use `matplotlib.use('Agg')` for headless environments
+3. **Memory issues**: Close figures with `plt.close(fig)` after analysis
+
+### Performance Tips
+- Use `detail_level='low'` for faster processing
+- Set `include_curve_points=False` to reduce memory usage
+- Process figures in batches for large datasets
+
+## 📚 Additional Resources
+
+- [API Reference](../docs/API_REFERENCE.md)
+- [Installation Guide](../docs/INSTALLATION.md)
+- [Testing Guide](../docs/TESTING_GUIDE.md)
+- [LLM Analysis Guide](../LLM_ANALYSIS_GUIDE.md)
